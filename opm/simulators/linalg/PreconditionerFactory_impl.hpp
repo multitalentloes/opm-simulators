@@ -246,10 +246,10 @@ struct StandardPreconditioners
             // PLACEHOLDER FOR COMPILATION
             const double w = prm.get<double>("relaxation", 1.0);
             using field_type = typename V::field_type;
-            using CuILU0 = typename Opm::cuistl::CuJac<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
-            auto cuILU0 = std::make_shared<CuILU0>(op.getmat(), w);
+            using CuJac = typename Opm::cuistl::CuJac<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            auto cuJac = std::make_shared<CuJac>(op.getmat(), w);
 
-            auto adapted = std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuILU0>>(cuILU0);
+            auto adapted = std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuJac>>(cuJac);
             auto wrapped = std::make_shared<Opm::cuistl::CuBlockPreconditioner<V, V, Comm>>(adapted, comm);
             return wrapped;
         });
@@ -464,8 +464,8 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             std::cout << "----DEBUG---- STANDARD PRECONDITIONER(type specialized struct) ADDING CUJAC\n";
             const double w = prm.get<double>("relaxation", 1.0);
             using field_type = typename V::field_type;
-            using CuJac = typename Opm::cuistl::CuSeqILU0<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
-            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuJac>>(std::make_shared<CuJac>(op.getmat(), w));
+            using CuJac_tmp = typename Opm::cuistl::CuJac<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuJac_tmp>>(std::make_shared<CuJac_tmp>(op.getmat(), w));
         });
 #endif
     }

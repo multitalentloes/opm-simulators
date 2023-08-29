@@ -43,6 +43,7 @@ namespace Opm::cuistl
 template <class M, class X, class Y, int l>
 CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     : m_underlyingMatrix(A)
+    // , m_D_inv(detail::)
     , m_w(w)
     , m_LU(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
     , m_temporaryStorage(m_LU.N() * m_LU.blockSize())

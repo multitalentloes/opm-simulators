@@ -108,6 +108,9 @@ private:
     //! modified in the constructor to be the proper LU decomposition.
     CuSparseMatrix<field_type> m_LU;
 
+    //! Temporary solution to store the inverse of Ms diagonal inverse 
+    CuSparseMatrix<field_type> m_D_inv;
+
     CuVector<field_type> m_temporaryStorage;
 
 
