@@ -25,7 +25,7 @@
 #include <dune/istl/bvector.hh>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
-#include <opm/simulators/linalg/cuistl/CuSeqILU0.hpp>
+#include <opm/simulators/linalg/cuistl/CuJac.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
@@ -41,7 +41,7 @@ namespace Opm::cuistl
 {
 
 template <class M, class X, class Y, int l>
-CuSeqILU0<M, X, Y, l>::CuSeqILU0(const M& A, field_type w)
+CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     : m_underlyingMatrix(A)
     , m_w(w)
     , m_LU(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
@@ -50,7 +50,7 @@ CuSeqILU0<M, X, Y, l>::CuSeqILU0(const M& A, field_type w)
     , m_descriptionU(detail::createUpperDiagonalDescription())
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
 {
-    std::cout << "---- DEBUG ---- CUSEQ FILE USED\n";
+    std::cout << "---- DEBUG ---- CUJAC FILE USED\n";
     // Some sanity check
     OPM_ERROR_IF(A.N() != m_LU.N(),
                  fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m_LU.N(), A.N()));
@@ -71,13 +71,13 @@ CuSeqILU0<M, X, Y, l>::CuSeqILU0(const M& A, field_type w)
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::pre([[maybe_unused]] X& x, [[maybe_unused]] Y& b)
+CuJac<M, X, Y, l>::pre([[maybe_unused]] X& x, [[maybe_unused]] Y& b)
 {
 }
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
+CuJac<M, X, Y, l>::apply(X& v, const Y& d)
 {
 
     // We need to pass the solve routine a scalar to multiply.
@@ -134,20 +134,20 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::post([[maybe_unused]] X& x)
+CuJac<M, X, Y, l>::post([[maybe_unused]] X& x)
 {
 }
 
 template <class M, class X, class Y, int l>
 Dune::SolverCategory::Category
-CuSeqILU0<M, X, Y, l>::category() const
+CuJac<M, X, Y, l>::category() const
 {
     return Dune::SolverCategory::sequential;
 }
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::update()
+CuJac<M, X, Y, l>::update()
 {
     m_LU.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
     createILU();
@@ -155,7 +155,7 @@ CuSeqILU0<M, X, Y, l>::update()
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::analyzeMatrix()
+CuJac<M, X, Y, l>::analyzeMatrix()
 {
 
     if (!m_buffer) {
@@ -227,7 +227,7 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
 
 template <class M, class X, class Y, int l>
 size_t
-CuSeqILU0<M, X, Y, l>::findBufferSize()
+CuJac<M, X, Y, l>::findBufferSize()
 {
     // We have three calls that need buffers:
     //   1) LU decomposition
@@ -291,7 +291,7 @@ CuSeqILU0<M, X, Y, l>::findBufferSize()
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::createILU()
+CuJac<M, X, Y, l>::createILU()
 {
     OPM_ERROR_IF(!m_buffer, "Buffer not initialized. Call findBufferSize() then initialize with the appropiate size.");
     OPM_ERROR_IF(!m_analysisDone, "Analyzis of matrix not done. Call analyzeMatrix() first.");
@@ -329,7 +329,7 @@ CuSeqILU0<M, X, Y, l>::createILU()
 
 template <class M, class X, class Y, int l>
 void
-CuSeqILU0<M, X, Y, l>::updateILUConfiguration()
+CuJac<M, X, Y, l>::updateILUConfiguration()
 {
     auto bufferSize = findBufferSize();
     if (!m_buffer || m_buffer->dim() < bufferSize) {
@@ -339,25 +339,25 @@ CuSeqILU0<M, X, Y, l>::updateILUConfiguration()
     createILU();
 }
 } // namespace Opm::cuistl
-#define INSTANTIATE_CUSEQILU0_DUNE(realtype, blockdim)                                                                 \
-    template class ::Opm::cuistl::CuSeqILU0<Dune::BCRSMatrix<Dune::FieldMatrix<realtype, blockdim, blockdim>>,         \
+#define INSTANTIATE_CUJAC_DUNE(realtype, blockdim)                                                                 \
+    template class ::Opm::cuistl::CuJac<Dune::BCRSMatrix<Dune::FieldMatrix<realtype, blockdim, blockdim>>,         \
                                             ::Opm::cuistl::CuVector<realtype>,                                         \
                                             ::Opm::cuistl::CuVector<realtype>>;                                        \
-    template class ::Opm::cuistl::CuSeqILU0<Dune::BCRSMatrix<Opm::MatrixBlock<realtype, blockdim, blockdim>>,          \
+    template class ::Opm::cuistl::CuJac<Dune::BCRSMatrix<Opm::MatrixBlock<realtype, blockdim, blockdim>>,          \
                                             ::Opm::cuistl::CuVector<realtype>,                                         \
                                             ::Opm::cuistl::CuVector<realtype>>
 
 
-INSTANTIATE_CUSEQILU0_DUNE(double, 1);
-INSTANTIATE_CUSEQILU0_DUNE(double, 2);
-INSTANTIATE_CUSEQILU0_DUNE(double, 3);
-INSTANTIATE_CUSEQILU0_DUNE(double, 4);
-INSTANTIATE_CUSEQILU0_DUNE(double, 5);
-INSTANTIATE_CUSEQILU0_DUNE(double, 6);
+INSTANTIATE_CUJAC_DUNE(double, 1);
+INSTANTIATE_CUJAC_DUNE(double, 2);
+INSTANTIATE_CUJAC_DUNE(double, 3);
+INSTANTIATE_CUJAC_DUNE(double, 4);
+INSTANTIATE_CUJAC_DUNE(double, 5);
+INSTANTIATE_CUJAC_DUNE(double, 6);
 
-INSTANTIATE_CUSEQILU0_DUNE(float, 1);
-INSTANTIATE_CUSEQILU0_DUNE(float, 2);
-INSTANTIATE_CUSEQILU0_DUNE(float, 3);
-INSTANTIATE_CUSEQILU0_DUNE(float, 4);
-INSTANTIATE_CUSEQILU0_DUNE(float, 5);
-INSTANTIATE_CUSEQILU0_DUNE(float, 6);
+INSTANTIATE_CUJAC_DUNE(float, 1);
+INSTANTIATE_CUJAC_DUNE(float, 2);
+INSTANTIATE_CUJAC_DUNE(float, 3);
+INSTANTIATE_CUJAC_DUNE(float, 4);
+INSTANTIATE_CUJAC_DUNE(float, 5);
+INSTANTIATE_CUJAC_DUNE(float, 6);

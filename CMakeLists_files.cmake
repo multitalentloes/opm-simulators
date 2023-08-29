@@ -162,6 +162,7 @@ if(CUDA_FOUND)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuVector.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/detail/vector_operations.cu)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuSparseMatrix.cpp)
+  list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuJac.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuSeqILU0.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/set_device.cpp)
 
