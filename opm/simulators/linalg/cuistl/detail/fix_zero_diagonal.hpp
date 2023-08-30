@@ -53,6 +53,32 @@ makeMatrixWithNonzeroDiagonal(const Matrix& matrix,
 
     return newMatrix;
 }
+
+/**
+ * @brief makeMatrixWithzeroDiagonal creates a new matrix with the diagonal elements set to zero(when viewed as a matrix of
+ * scalrars) set to replacementValue
+ * @param matrix the matrix to replace
+ * @return a new matrix with non non-zero diagonal elements.
+ *
+ * @note This modification is used for the Jacobi preconditioner, to construct the L+U matrix
+ */
+template <class Matrix>
+const Matrix
+makeMatrixWithZeroDiagonal(const Matrix& matrix)
+{
+    auto newMatrix = matrix;
+    // TODO: [perf] Is this fast enough?
+    // TODO: confirm whether is is sufficient to zero out the diagonal elements in block matrix
+    for (size_t row = 0; row < newMatrix.N(); ++row) {
+        for (size_t component = 0; component < Matrix::block_type::cols; ++component) {
+            if (newMatrix[row][row][component][component] != 0) {
+                newMatrix[row][row][component][component] = 0;
+            }
+        }
+    }
+
+    return newMatrix;
+}
 } // namespace Opm::cuistl::detail
 
 #endif

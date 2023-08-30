@@ -43,8 +43,8 @@ namespace Opm::cuistl
 template <class M, class X, class Y, int l>
 CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     : m_underlyingMatrix(A)
-    // , m_D_inv(detail::)
     , m_w(w)
+    , L_plus_U(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithZeroDiagonal(A)))
     , m_LU(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
     , m_temporaryStorage(m_LU.N() * m_LU.blockSize())
     , m_descriptionL(detail::createLowerDiagonalDescription())
@@ -80,6 +80,12 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& v, const Y& d)
 {
+
+    //TODO: Create A_ in constructor/update function
+    //TODO: create matrix A_ = inv(D)(L+U)
+    //TODO: create vector b_ = inv(D)b
+    //TODO: Compute A_v + b_ and put result in v
+
 
     // We need to pass the solve routine a scalar to multiply.
     // In our case this scalar is 1.0

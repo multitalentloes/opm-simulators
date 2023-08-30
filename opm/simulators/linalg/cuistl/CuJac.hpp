@@ -30,7 +30,7 @@
 
 namespace Opm::cuistl
 {
-//! \brief Sequential ILU0 preconditioner on the GPU through the CuSparse library.
+//! \brief Sequential Jacobi preconditioner on the GPU through the CuSparse library.
 //!
 //! This implementation calls the CuSparse functions, which in turn essentially
 //! does a level decomposition to get some parallelism.
@@ -102,14 +102,12 @@ private:
     const M& m_underlyingMatrix;
     //! \brief The relaxation factor to use.
     field_type m_w;
+    CuSparseMatrix<field_type> L_plus_U;
 
     //! This is the storage for the LU composition.
     //! Initially this will have the values of A, but will be
     //! modified in the constructor to be the proper LU decomposition.
     CuSparseMatrix<field_type> m_LU;
-
-    //! Temporary solution to store the inverse of Ms diagonal inverse 
-    CuSparseMatrix<field_type> m_D_inv;
 
     CuVector<field_type> m_temporaryStorage;
 
