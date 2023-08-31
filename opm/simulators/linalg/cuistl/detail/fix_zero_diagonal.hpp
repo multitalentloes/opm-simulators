@@ -67,14 +67,8 @@ const Matrix
 makeMatrixWithZeroDiagonal(const Matrix& matrix)
 {
     auto newMatrix = matrix;
-    // TODO: [perf] Is this fast enough?
-    // TODO: confirm whether is is sufficient to zero out the diagonal elements in block matrix
     for (size_t row = 0; row < newMatrix.N(); ++row) {
-        for (size_t component = 0; component < Matrix::block_type::cols; ++component) {
-            if (newMatrix[row][row][component][component] != 0) {
-                newMatrix[row][row][component][component] = 0;
-            }
-        }
+        newMatrix[row][row] = 0.0;
     }
 
     return newMatrix;

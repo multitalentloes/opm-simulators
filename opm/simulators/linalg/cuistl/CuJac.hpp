@@ -116,7 +116,7 @@ private:
     detail::CuSparseMatrixDescriptionPtr m_descriptionU;
     detail::CuSparseResource<bsrsv2Info_t> m_infoL;
     detail::CuSparseResource<bsrsv2Info_t> m_infoU;
-    detail::CuSparseResource<bsrilu02Info_t> m_infoM;
+    detail::CuSparseResource<bsrilu02Info_t> m_infoM;          
 
     std::unique_ptr<CuVector<field_type>> m_buffer;
     detail::CuSparseHandle& m_cuSparseHandle;
