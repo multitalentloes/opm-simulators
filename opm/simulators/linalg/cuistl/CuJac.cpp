@@ -85,8 +85,17 @@ CuJac<M, X, Y, l>::apply(X& v, const Y& d)
 
     // OPM_CUSPARSE_SAFE_CALL(Cusparse);
 
-    // We need to pass the solve routine a scalar to multiply.
-    // In our case this scalar is 1.0
+    // x_{n+1} = x_n + w* (D^-1 * (b - Ax_n) )
+    // cusparseDbsrmv computes -Ax_n + b
+
+    // TODO: figure out what to do with D^-1 ??
+    // in Dune this is just done on the spot inverting a block
+    // when necessary. Using the cuda libraries mentioned, we 
+    // would have to do this in a separate function, might be 
+    // neccessary to write our own kernel to achieve it.
+
+    // x_n + w*rhs only consists of dense vectors so use cublasDaxpy
+      
     const field_type one = 1.0;
 
     const auto numberOfRows = detail::to_int(m_LU.N());
