@@ -44,30 +44,27 @@ template <class M, class X, class Y, int l>
 CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     : m_underlyingMatrix(A)
     , m_w(w)
-    , L_plus_U(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithZeroDiagonal(A)))
-    , m_LU(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
-    , m_temporaryStorage(m_LU.N() * m_LU.blockSize())
-    , m_descriptionL(detail::createLowerDiagonalDescription())
-    , m_descriptionU(detail::createUpperDiagonalDescription())
+    , m(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
+    , m_temporaryStorage(m.N() * m.blockSize())
+    , m_description(detail::createMatrixDescription())
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
 {
     std::cout << "---- DEBUG ---- CUJAC FILE USED\n";
     // Some sanity check
-    OPM_ERROR_IF(A.N() != m_LU.N(),
-                 fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m_LU.N(), A.N()));
+    OPM_ERROR_IF(A.N() != m.N(),
+                 fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m.N(), A.N()));
     OPM_ERROR_IF(
-        A[0][0].N() != m_LU.blockSize(),
-        fmt::format("CuSparse matrix not same blocksize as DUNE matrix. {} vs {}.", m_LU.blockSize(), A[0][0].N()));
+        A[0][0].N() != m.blockSize(),
+        fmt::format("CuSparse matrix not same blocksize as DUNE matrix. {} vs {}.", m.blockSize(), A[0][0].N()));
     OPM_ERROR_IF(
-        A.N() * A[0][0].N() != m_LU.dim(),
-        fmt::format("CuSparse matrix not same dimension as DUNE matrix. {} vs {}.", m_LU.dim(), A.N() * A[0][0].N()));
-    OPM_ERROR_IF(A.nonzeroes() != m_LU.nonzeroes(),
+        A.N() * A[0][0].N() != m.dim(),
+        fmt::format("CuSparse matrix not same dimension as DUNE matrix. {} vs {}.", m.dim(), A.N() * A[0][0].N()));
+    OPM_ERROR_IF(A.nonzeroes() != m.nonzeroes(),
                  fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
-                             m_LU.nonzeroes(),
+                             m.nonzeroes(),
                              A.nonzeroes()));
 
-
-    updateILUConfiguration();
+    update();
 }
 
 template <class M, class X, class Y, int l>
@@ -78,7 +75,7 @@ CuJac<M, X, Y, l>::pre([[maybe_unused]] X& x, [[maybe_unused]] Y& b)
 
 template <class M, class X, class Y, int l>
 void
-CuJac<M, X, Y, l>::apply(X& v, const Y& d)
+CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
 
     //TODO: Mimic Dunes performance of x_{n+1}=wD^-1(b-Ax_n)
@@ -88,62 +85,86 @@ CuJac<M, X, Y, l>::apply(X& v, const Y& d)
     // x_{n+1} = x_n + w* (D^-1 * (b - Ax_n) )
     // cusparseDbsrmv computes -Ax_n + b
 
-    // TODO: figure out what to do with D^-1 ??
-    // in Dune this is just done on the spot inverting a block
-    // when necessary. Using the cuda libraries mentioned, we 
-    // would have to do this in a separate function, might be 
-    // neccessary to write our own kernel to achieve it.
+    // Maybe we can efficiently read the diagonal from the matrix
+    // and use vector operations to invert it 
 
     // x_n + w*rhs only consists of dense vectors so use cublasDaxpy
       
-    const field_type one = 1.0;
+    const float one = 1.0, neg_one = -1.0;
 
-    const auto numberOfRows = detail::to_int(m_LU.N());
-    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
-    const auto blockSize = detail::to_int(m_LU.blockSize());
+    const auto numberOfRows = detail::to_int(m.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
+    const auto blockSize = detail::to_int(m.blockSize());
 
-    auto nonZeroValues = m_LU.getNonZeroValues().data();
-    auto rowIndices = m_LU.getRowIndices().data();
-    auto columnIndices = m_LU.getColumnIndices().data();
+    auto nonZeroValues = m.getNonZeroValues().data();
+    auto rowIndices = m.getRowIndices().data();
+    auto columnIndices = m.getColumnIndices().data();
 
-    // Solve L m_temporaryStorage = d
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
-                                                        detail::CUSPARSE_MATRIX_ORDER,
-                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                        numberOfRows,
-                                                        numberOfNonzeroBlocks,
-                                                        &one,
-                                                        m_descriptionL->get(),
-                                                        nonZeroValues,
-                                                        rowIndices,
-                                                        columnIndices,
-                                                        blockSize,
-                                                        m_infoL.get(),
-                                                        d.data(),
-                                                        m_temporaryStorage.data(),
-                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
-                                                        m_buffer->data()));
+    // cusparseBsrmv(cusparseHandle_t handle,
+    //           cusparseDirection_t dirA,
+    //           cusparseOperation_t transA,
+    //           int mb,
+    //           int nb,
+    //           int nnzb,
+    //           const double* alpha,
+    //           const cusparseMatDescr_t descrA,
+    //           const double* bsrSortedValA,
+    //           const int* bsrSortedRowPtrA,
+    //           const int* bsrSortedColIndA,
+    //           int blockDim,
+    //           const double* x,
+    //           const double* beta,
+    //           double* y)
 
-    // Solve U v = m_temporaryStorage
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
-                                                        detail::CUSPARSE_MATRIX_ORDER,
-                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                        numberOfRows,
-                                                        numberOfNonzeroBlocks,
-                                                        &one,
-                                                        m_descriptionU->get(),
-                                                        nonZeroValues,
-                                                        rowIndices,
-                                                        columnIndices,
-                                                        blockSize,
-                                                        m_infoU.get(),
-                                                        m_temporaryStorage.data(),
-                                                        v.data(),
-                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
-                                                        m_buffer->data()));
+    // bsrmv:
+    // alpha * op(A) * x + beta * y // alpha and beta are scalars, A is matrix, and x and y are vectors
+    // we want to compute b - Ax, so set alpha to minus one, A is A, beta is one, x is x and y is b;
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
+                                                 CUSPARSE_DIRECTION_ROW,
+                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                 numberOfRows,
+                                                 numberOfNonzeroBlocks,
+                                                 &neg_one,
+                                                 m_description->get(),
+                                                 nonZeroValues,
+                                                 rowIndices,
+                                                 columnIndices,
+                                                 blockSize,
+                                                 &one, // x
+                                                 &one,
+                                                 &one));// b
 
 
-    v *= m_w;
+    /*
+  122 |     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(), cusparseBsrmv(cusparseHandle_t
+      |                            ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
+  123 |                                                  detail::CUSPARSE_MATRIX_ORDER,  const cusparseDirection_t
+      |                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  124 |                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,  cusparseOperation_t
+      |                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  125 |                                                  numberOfRows,  const int&
+      |                                                  ~~~~~~~~~~~~~
+  126 |                                                  numberOfNonzeroBlocks, const int&
+      |                                                  ~~~~~~~~~~~~~~~~~~~~~~
+  127 |                                                  &neg_one, const field_type*
+      |                                                  ~~~~~~~~~
+  128 |                                                  m_description->get(), cusparseMatDescr*
+      |                                                  ~~~~~~~~~~~~~~~~~~~~~
+  129 |                                                  nonZeroValues, float*&
+      |                                                  ~~~~~~~~~~~~~~
+  130 |                                                  rowIndices, int*&
+      |                                                  ~~~~~~~~~~~
+  131 |                                                  columnIndices, int*&
+      |                                                  ~~~~~~~~~~~~~~
+  132 |                                                  blockSize, const int&
+      |                                                  ~~~~~~~~~~
+  133 |                                                  &one, const field_type*
+      |                                                  ~~~~~
+  134 |                                                  &one, const field_type*
+      |                                                  ~~~~~
+  135 |                                                  &one)); const field_type*
+
+    */
 }
 
 template <class M, class X, class Y, int l>
@@ -163,195 +184,9 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::update()
 {
-    m_LU.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
-    createILU();
+    m.updateNonzeroValues(m_underlyingMatrix);
 }
 
-template <class M, class X, class Y, int l>
-void
-CuJac<M, X, Y, l>::analyzeMatrix()
-{
-
-    if (!m_buffer) {
-        OPM_THROW(std::runtime_error,
-                  "Buffer not initialized. Call findBufferSize() then initialize with the appropiate size.");
-    }
-    const auto numberOfRows = detail::to_int(m_LU.N());
-    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
-    const auto blockSize = detail::to_int(m_LU.blockSize());
-
-    auto nonZeroValues = m_LU.getNonZeroValues().data();
-    auto rowIndices = m_LU.getRowIndices().data();
-    auto columnIndices = m_LU.getColumnIndices().data();
-    // analysis of ilu LU decomposition
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrilu02_analysis(m_cuSparseHandle.get(),
-                                                             detail::CUSPARSE_MATRIX_ORDER,
-                                                             numberOfRows,
-                                                             numberOfNonzeroBlocks,
-                                                             m_LU.getDescription().get(),
-                                                             nonZeroValues,
-                                                             rowIndices,
-                                                             columnIndices,
-                                                             blockSize,
-                                                             m_infoM.get(),
-                                                             CUSPARSE_SOLVE_POLICY_USE_LEVEL,
-                                                             m_buffer->data()));
-
-    // Make sure we can decompose the matrix.
-    int structuralZero;
-    auto statusPivot = cusparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
-    OPM_ERROR_IF(statusPivot != CUSPARSE_STATUS_SUCCESS,
-                 fmt::format("Found a structural zero at A({}, {}). Could not decompose LU \\approx A.\n\n A has "
-                             "dimension {}, and has {} nonzeroes.",
-                             structuralZero,
-                             structuralZero,
-                             m_LU.N(),
-                             m_LU.nonzeroes()));
-
-    // analysis of ilu apply
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
-                                                           detail::CUSPARSE_MATRIX_ORDER,
-                                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                           numberOfRows,
-                                                           numberOfNonzeroBlocks,
-                                                           m_descriptionL->get(),
-                                                           nonZeroValues,
-                                                           rowIndices,
-                                                           columnIndices,
-                                                           blockSize,
-                                                           m_infoL.get(),
-                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
-                                                           m_buffer->data()));
-
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
-                                                           detail::CUSPARSE_MATRIX_ORDER,
-                                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                           numberOfRows,
-                                                           numberOfNonzeroBlocks,
-                                                           m_descriptionU->get(),
-                                                           nonZeroValues,
-                                                           rowIndices,
-                                                           columnIndices,
-                                                           blockSize,
-                                                           m_infoU.get(),
-                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
-                                                           m_buffer->data()));
-    m_analysisDone = true;
-}
-
-template <class M, class X, class Y, int l>
-size_t
-CuJac<M, X, Y, l>::findBufferSize()
-{
-    // We have three calls that need buffers:
-    //   1) LU decomposition
-    //   2) solve Lv = y
-    //   3) solve Ux = z
-    // we combine these buffers into one since it is not used across calls,
-    const auto numberOfRows = detail::to_int(m_LU.N());
-    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
-    const auto blockSize = detail::to_int(m_LU.blockSize());
-
-    auto nonZeroValues = m_LU.getNonZeroValues().data();
-    auto rowIndices = m_LU.getRowIndices().data();
-    auto columnIndices = m_LU.getColumnIndices().data();
-
-    int bufferSizeM = 0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrilu02_bufferSize(m_cuSparseHandle.get(),
-                                                               detail::CUSPARSE_MATRIX_ORDER,
-                                                               numberOfRows,
-                                                               numberOfNonzeroBlocks,
-                                                               m_LU.getDescription().get(),
-                                                               nonZeroValues,
-                                                               rowIndices,
-                                                               columnIndices,
-                                                               blockSize,
-                                                               m_infoM.get(),
-                                                               &bufferSizeM));
-    int bufferSizeL = 0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_bufferSize(m_cuSparseHandle.get(),
-                                                             detail::CUSPARSE_MATRIX_ORDER,
-                                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                             numberOfRows,
-                                                             numberOfNonzeroBlocks,
-                                                             m_descriptionL->get(),
-                                                             nonZeroValues,
-                                                             rowIndices,
-                                                             columnIndices,
-                                                             blockSize,
-                                                             m_infoL.get(),
-                                                             &bufferSizeL));
-
-    int bufferSizeU = 0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_bufferSize(m_cuSparseHandle.get(),
-                                                             detail::CUSPARSE_MATRIX_ORDER,
-                                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                             numberOfRows,
-                                                             numberOfNonzeroBlocks,
-                                                             m_descriptionL->get(),
-                                                             nonZeroValues,
-                                                             rowIndices,
-                                                             columnIndices,
-                                                             blockSize,
-                                                             m_infoU.get(),
-                                                             &bufferSizeU));
-
-    OPM_ERROR_IF(bufferSizeL <= 0, fmt::format("bufferSizeL is non-positive. Given value is {}.", bufferSizeL));
-    OPM_ERROR_IF(bufferSizeU <= 0, fmt::format("bufferSizeU is non-positive. Given value is {}.", bufferSizeU));
-    OPM_ERROR_IF(bufferSizeM <= 0, fmt::format("bufferSizeM is non-positive. Given value is {}.", bufferSizeM));
-
-    return size_t(std::max(bufferSizeL, std::max(bufferSizeU, bufferSizeM)));
-}
-
-template <class M, class X, class Y, int l>
-void
-CuJac<M, X, Y, l>::createILU()
-{
-    OPM_ERROR_IF(!m_buffer, "Buffer not initialized. Call findBufferSize() then initialize with the appropiate size.");
-    OPM_ERROR_IF(!m_analysisDone, "Analyzis of matrix not done. Call analyzeMatrix() first.");
-
-    const auto numberOfRows = detail::to_int(m_LU.N());
-    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
-    const auto blockSize = detail::to_int(m_LU.blockSize());
-
-    auto nonZeroValues = m_LU.getNonZeroValues().data();
-    auto rowIndices = m_LU.getRowIndices().data();
-    auto columnIndices = m_LU.getColumnIndices().data();
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrilu02(m_cuSparseHandle.get(),
-                                                    detail::CUSPARSE_MATRIX_ORDER,
-                                                    numberOfRows,
-                                                    numberOfNonzeroBlocks,
-                                                    m_LU.getDescription().get(),
-                                                    nonZeroValues,
-                                                    rowIndices,
-                                                    columnIndices,
-                                                    blockSize,
-                                                    m_infoM.get(),
-                                                    CUSPARSE_SOLVE_POLICY_USE_LEVEL,
-                                                    m_buffer->data()));
-
-    // We need to do this here as well. The first call was to check that we could decompose the system A=LU
-    // the second call here is to make sure we can solve LUx=y
-    int structuralZero;
-    // cusparseXbsrilu02_zeroPivot() calls cudaDeviceSynchronize()
-    auto statusPivot = cusparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
-
-    OPM_ERROR_IF(
-        statusPivot != CUSPARSE_STATUS_SUCCESS,
-        fmt::format("Found a structucal zero at LU({}, {}). Could not solve LUx = y.", structuralZero, structuralZero));
-}
-
-template <class M, class X, class Y, int l>
-void
-CuJac<M, X, Y, l>::updateILUConfiguration()
-{
-    auto bufferSize = findBufferSize();
-    if (!m_buffer || m_buffer->dim() < bufferSize) {
-        m_buffer.reset(new CuVector<field_type>((bufferSize + sizeof(field_type) - 1) / sizeof(field_type)));
-    }
-    analyzeMatrix();
-    createILU();
-}
 } // namespace Opm::cuistl
 #define INSTANTIATE_CUJAC_DUNE(realtype, blockdim)                                                                 \
     template class ::Opm::cuistl::CuJac<Dune::BCRSMatrix<Dune::FieldMatrix<realtype, blockdim, blockdim>>,         \

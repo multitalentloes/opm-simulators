@@ -102,33 +102,18 @@ private:
     const M& m_underlyingMatrix;
     //! \brief The relaxation factor to use.
     field_type m_w;
-    CuSparseMatrix<field_type> L_plus_U;
 
-    //! This is the storage for the LU composition.
-    //! Initially this will have the values of A, but will be
-    //! modified in the constructor to be the proper LU decomposition.
-    CuSparseMatrix<field_type> m_LU;
+    CuSparseMatrix<field_type> m;
 
     CuVector<field_type> m_temporaryStorage;
 
-
-    detail::CuSparseMatrixDescriptionPtr m_descriptionL;
-    detail::CuSparseMatrixDescriptionPtr m_descriptionU;
-    detail::CuSparseResource<bsrsv2Info_t> m_infoL;
+    detail::CuSparseMatrixDescriptionPtr m_description;
     detail::CuSparseResource<bsrsv2Info_t> m_infoU;
-    detail::CuSparseResource<bsrilu02Info_t> m_infoM;          
 
     std::unique_ptr<CuVector<field_type>> m_buffer;
     detail::CuSparseHandle& m_cuSparseHandle;
-
-    bool m_analysisDone = false;
-
-    void analyzeMatrix();
+    
     size_t findBufferSize();
-
-    void createILU();
-
-    void updateILUConfiguration();
 };
 } // end namespace Opm::cuistl
 
