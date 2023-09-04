@@ -29,6 +29,9 @@
 #include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cublas_wrapper.hpp>
+#include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
 #include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
@@ -48,6 +51,7 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     , m_temporaryStorage(m.N() * m.blockSize())
     , m_description(detail::createMatrixDescription())
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
+    , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
 {
     std::cout << "---- DEBUG ---- CUJAC FILE USED\n";
     // Some sanity check
@@ -90,9 +94,10 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 
     // x_n + w*rhs only consists of dense vectors so use cublasDaxpy
       
-    const float one = 1.0, neg_one = -1.0;
+    const field_type one = 1.0, neg_one = -1.0;
 
     const auto numberOfRows = detail::to_int(m.N());
+    const auto numberOfColumns = detail::to_int(m.N());
     const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
     const auto blockSize = detail::to_int(m.blockSize());
 
@@ -100,29 +105,18 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     auto rowIndices = m.getRowIndices().data();
     auto columnIndices = m.getColumnIndices().data();
 
-    // cusparseBsrmv(cusparseHandle_t handle,
-    //           cusparseDirection_t dirA,
-    //           cusparseOperation_t transA,
-    //           int mb,
-    //           int nb,
-    //           int nnzb,
-    //           const double* alpha,
-    //           const cusparseMatDescr_t descrA,
-    //           const double* bsrSortedValA,
-    //           const int* bsrSortedRowPtrA,
-    //           const int* bsrSortedColIndA,
-    //           int blockDim,
-    //           const double* x,
-    //           const double* beta,
-    //           double* y)
-
     // bsrmv:
     // alpha * op(A) * x + beta * y // alpha and beta are scalars, A is matrix, and x and y are vectors
     // we want to compute b - Ax, so set alpha to minus one, A is A, beta is one, x is x and y is b;
+    // TODO: avoid making this copy, currently forced to because parameter is a const, result is put in b_cop
+    // b_cop = b - mx
+    Y b_cop = CuVector(b); // loss of generality, can I instead call constructor of Y somehow?
+    Y diag_inv = CuVector(b);
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
-                                                 CUSPARSE_DIRECTION_ROW,
+                                                 detail::CUSPARSE_MATRIX_ORDER,
                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                                  numberOfRows,
+                                                 numberOfColumns,
                                                  numberOfNonzeroBlocks,
                                                  &neg_one,
                                                  m_description->get(),
@@ -130,41 +124,25 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  rowIndices,
                                                  columnIndices,
                                                  blockSize,
-                                                 &one, // x
+                                                 x.data(),
                                                  &one,
-                                                 &one));// b
+                                                 b_cop.data()));
 
+    // TODO: is this even allowed, or do I explcitly have to deal with device/host memory?
+    // TODO: parallelize hadamard division on GPU myself probably
+    for (size_t row = 0; row < numberOfRows; row++){
+        diag_inv.data()[row] = m_underlyingMatrix[row][row];
+        diag_inv.data()[row].invert();
+        b_cop.data()[row] = b_cop.data()[row] * diag_inv.data()[row];
+    }
 
-    /*
-  122 |     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(), cusparseBsrmv(cusparseHandle_t
-      |                            ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~
-  123 |                                                  detail::CUSPARSE_MATRIX_ORDER,  const cusparseDirection_t
-      |                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  124 |                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,  cusparseOperation_t
-      |                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  125 |                                                  numberOfRows,  const int&
-      |                                                  ~~~~~~~~~~~~~
-  126 |                                                  numberOfNonzeroBlocks, const int&
-      |                                                  ~~~~~~~~~~~~~~~~~~~~~~
-  127 |                                                  &neg_one, const field_type*
-      |                                                  ~~~~~~~~~
-  128 |                                                  m_description->get(), cusparseMatDescr*
-      |                                                  ~~~~~~~~~~~~~~~~~~~~~
-  129 |                                                  nonZeroValues, float*&
-      |                                                  ~~~~~~~~~~~~~~
-  130 |                                                  rowIndices, int*&
-      |                                                  ~~~~~~~~~~~
-  131 |                                                  columnIndices, int*&
-      |                                                  ~~~~~~~~~~~~~~
-  132 |                                                  blockSize, const int&
-      |                                                  ~~~~~~~~~~
-  133 |                                                  &one, const field_type*
-      |                                                  ~~~~~
-  134 |                                                  &one, const field_type*
-      |                                                  ~~~~~
-  135 |                                                  &one)); const field_type*
-
-    */
+    OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
+                                            numberOfRows,
+                                            &m_w,
+                                            b_cop.data(),
+                                            1,
+                                            x.data(),
+                                            1));
 }
 
 template <class M, class X, class Y, int l>

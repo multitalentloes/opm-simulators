@@ -112,6 +112,7 @@ private:
 
     std::unique_ptr<CuVector<field_type>> m_buffer;
     detail::CuSparseHandle& m_cuSparseHandle;
+    detail::CuBlasHandle& m_cuBlasHandle;
     
     size_t findBufferSize();
 };
