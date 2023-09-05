@@ -24,6 +24,7 @@
 #include <fmt/core.h>
 #include <opm/simulators/linalg/cuistl/CuSparseMatrix.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
@@ -56,8 +57,6 @@ namespace
         return nonZeroElementsData;
     }
 } // namespace
-
-
 
 template <class T>
 CuSparseMatrix<T>::CuSparseMatrix(const T* nonZeroElements,

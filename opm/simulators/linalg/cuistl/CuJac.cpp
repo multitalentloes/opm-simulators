@@ -27,6 +27,7 @@
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
@@ -82,7 +83,7 @@ void
 CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
 
-    //TODO: Mimic Dunes performance of x_{n+1}=wD^-1(b-Ax_n)
+    //TODO: Mimic Dunes x_{n+1}=wD^-1(b-Ax_n)
 
     // OPM_CUSPARSE_SAFE_CALL(Cusparse);
 
@@ -109,9 +110,9 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     // alpha * op(A) * x + beta * y // alpha and beta are scalars, A is matrix, and x and y are vectors
     // we want to compute b - Ax, so set alpha to minus one, A is A, beta is one, x is x and y is b;
     // TODO: avoid making this copy, currently forced to because parameter is a const, result is put in b_cop
-    // b_cop = b - mx
-    Y b_cop = CuVector(b); // loss of generality, can I instead call constructor of Y somehow?
-    Y diag_inv = CuVector(b);
+    Y d_bMinusmx = CuVector(b); // loss of generality, can I instead call constructor of Y somehow?
+
+    // allocate space for the inverted diagonal elements of m in a vector
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -126,20 +127,16 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  blockSize,
                                                  x.data(),
                                                  &one,
-                                                 b_cop.data()));
+                                                 d_bMinusmx.data()));
 
-    // TODO: is this even allowed, or do I explcitly have to deal with device/host memory?
-    // TODO: parallelize hadamard division on GPU myself probably
-    for (size_t row = 0; row < numberOfRows; row++){
-        diag_inv.data()[row] = m_underlyingMatrix[row][row];
-        diag_inv.data()[row].invert();
-        b_cop.data()[row] = b_cop.data()[row] * diag_inv.data()[row];
-    }
+    // lets find the diagonal of m, and invert each element, then store those in a vector
+    auto d_mDiagInv = CuVector<field_type>((size_t)numberOfNonzeroBlocks*blockSize*blockSize);
+    detail::flatten(nonZeroValues, rowIndices, columnIndices, detail::to_size_t(numberOfNonzeroBlocks), detail::to_size_t(blockSize), d_mDiagInv.data());
 
     OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
                                             numberOfRows,
                                             &m_w,
-                                            b_cop.data(),
+                                            d_bMinusmx.data(),
                                             1,
                                             x.data(),
                                             1));
@@ -173,6 +170,7 @@ CuJac<M, X, Y, l>::update()
     template class ::Opm::cuistl::CuJac<Dune::BCRSMatrix<Opm::MatrixBlock<realtype, blockdim, blockdim>>,          \
                                             ::Opm::cuistl::CuVector<realtype>,                                         \
                                             ::Opm::cuistl::CuVector<realtype>>
+
 
 
 INSTANTIATE_CUJAC_DUNE(double, 1);

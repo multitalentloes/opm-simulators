@@ -237,7 +237,7 @@ public:
     {
         return *m_matrixDescription;
     }
-
+    
     /**
      * @brief mv performs matrix vector multiply y = Ax
      * @param[in] x the vector to multiply the matrix with

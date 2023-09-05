@@ -158,6 +158,7 @@ if(CUDA_FOUND)
 
   # CUISTL SOURCE
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/detail/CuBlasHandle.cpp)
+  list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.cu)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/detail/CuSparseHandle.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuVector.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/detail/vector_operations.cu)
@@ -168,6 +169,7 @@ if(CUDA_FOUND)
 
   # CUISTL HEADERS
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp)
+  list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.cu)
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp)
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp)
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/detail/cuda_check_last_error.hpp)
