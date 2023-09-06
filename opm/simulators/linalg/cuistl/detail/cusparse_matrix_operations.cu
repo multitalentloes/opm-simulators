@@ -18,42 +18,80 @@
 */
 #include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
 #include <vector>
+#include <iostream>
 namespace Opm::cuistl::detail
 {
 
 namespace
 {
-    template <class T> __global__ void cuflatten(T* d_mat, std::vector<int> rowIndices, std::vector<int> colIndices, size_t numberOfElements, size_t blocksize, T* d_vec)
+    template <class T> __global__ void cuflatten(T* matNonZeroValues, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* vec)
     {
-        const auto globalIndex = blockDim.x * blockIdx.x + threadIdx.x;
-        if (globalIndex < numberOfElements){
+        const auto thrIndex = blockDim.x * blockIdx.x + threadIdx.x;
+
+        if (thrIndex < numberOfRows){
+            size_t nnzIdx = rowIndices[thrIndex];
+            size_t nnzIdxLim = rowIndices[thrIndex+1]; 
+
+            // this loop will cause some extra checks that we are within the limit in the case of the diagonal having a zero element
+            for (;colIndices[nnzIdx] != thrIndex && nnzIdx <= nnzIdxLim;) { 
+                nnzIdx++;
+            }
+
+            // pDiagBlock points to the start of where the diagonal block is stored
+            T* pDiagBlock = (matNonZeroValues+(blocksize*blocksize*nnzIdx));
+            // pVecBlock points to the start of the block element in the vector where the inverse of the diagonal block element should be stored
+            T* pVecBlock = (vec + (blocksize*blocksize*thrIndex));
+
+            // untested - based on Dune implementation
             if (blocksize == 2){
-                return;
+                T det_inv = 1.0/(pDiagBlock[0]*pDiagBlock[3] - pDiagBlock[1]*pDiagBlock[2]);
+                pVecBlock[0] =   pDiagBlock[3] * det_inv;
+                pVecBlock[1] = - pDiagBlock[1] * det_inv;
+                pVecBlock[2] = - pDiagBlock[2] * det_inv;
+                pVecBlock[3] =   pDiagBlock[0] * det_inv;
             }
             else if(blocksize == 3){
-                return;
+                T t4  = pDiagBlock[0] * pDiagBlock[4];
+                T t6  = pDiagBlock[0] * pDiagBlock[5];
+                T t8  = pDiagBlock[1] * pDiagBlock[3];
+                T t10 = pDiagBlock[2] * pDiagBlock[3];
+                T t12 = pDiagBlock[1] * pDiagBlock[6];
+                T t14 = pDiagBlock[2] * pDiagBlock[6];
+
+                T t17 = 1.0/(t4*pDiagBlock[8]-t6*pDiagBlock[7]-t8*pDiagBlock[8]+
+                        t10*pDiagBlock[7]+t12*pDiagBlock[5]-t14*pDiagBlock[4]); // t17 is 1/determinant
+
+                pVecBlock[0] =  (pDiagBlock[4] * pDiagBlock[8] - pDiagBlock[5] * pDiagBlock[7])*t17;
+                pVecBlock[1] = -(pDiagBlock[1] * pDiagBlock[8] - pDiagBlock[2] * pDiagBlock[7])*t17;
+                pVecBlock[2] =  (pDiagBlock[1] * pDiagBlock[5] - pDiagBlock[2] * pDiagBlock[4])*t17;
+                pVecBlock[3] = -(pDiagBlock[3] * pDiagBlock[8] - pDiagBlock[5] * pDiagBlock[6])*t17;
+                pVecBlock[4] =  (pDiagBlock[0] * pDiagBlock[8] - t14) * t17;
+                pVecBlock[5] = -(t6-t10) * t17;
+                pVecBlock[6] =  (pDiagBlock[3] * pDiagBlock[7] - pDiagBlock[4] * pDiagBlock[6]) * t17;
+                pVecBlock[7] = -(pDiagBlock[0] * pDiagBlock[7] - t12) * t17;
+                pVecBlock[8] =  (t4-t8) * t17;
             }
         }
     }
 
-    constexpr inline size_t getThreads([[maybe_unused]] size_t numberOfElements)
+    constexpr inline size_t getThreads([[maybe_unused]] size_t numberOfRows)
     {
         return 1024;
     }
 
-    inline size_t getBlocks(size_t numberOfElements)
+    inline size_t getBlocks(size_t numberOfRows)
     {
-        const auto threads = getThreads(numberOfElements);
-        return (numberOfElements + threads - 1) / threads;
+        const auto threads = getThreads(numberOfRows);
+        return (numberOfRows + threads - 1) / threads;
     }
 } // namespace
 
 template <class T>
 void
-flatten(T* d_mat, std::vector<int> rowIndices, std::vector<int> colIndices, size_t numberOfElements, size_t blocksize, T* d_vec)
+flatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* d_vec)
 {
-    cuflatten<<<getBlocks(numberOfElements), getThreads(numberOfElements)>>>(
-        T* d_mat, vector<int> rowIndices, vector<int> colIndices, size_t numberOfElements, size_t blocksize, T* d_vec);
+    cuflatten<<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(d_mat, rowIndices, colIndices, numberOfRows, blocksize, d_vec);
+    std::cout << "==========flatten is called==============\n";
 }
 
 template void flatten(double*, int*, int*, size_t, size_t, double*);

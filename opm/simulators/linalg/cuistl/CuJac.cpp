@@ -131,7 +131,12 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 
     // lets find the diagonal of m, and invert each element, then store those in a vector
     auto d_mDiagInv = CuVector<field_type>((size_t)numberOfNonzeroBlocks*blockSize*blockSize);
-    detail::flatten(nonZeroValues, rowIndices, columnIndices, detail::to_size_t(numberOfNonzeroBlocks), detail::to_size_t(blockSize), d_mDiagInv.data());
+
+    // Pointers to first elements lets these std::vectors be treated as int *, which is 
+    detail::flatten(nonZeroValues, rowIndices, columnIndices, numberOfRows, detail::to_size_t(blockSize), d_mDiagInv.data());
+
+    // TODO: multiply each element in the d_mDiagInv with the element on the same index in 
+
 
     OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
                                             numberOfRows,

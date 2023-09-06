@@ -54,5 +54,8 @@ void setZeroAtIndexSet(T* deviceData, size_t numberOfElements, const int* indice
  */
 template <class T>
 T innerProductAtIndices(const T* deviceA, const T* deviceB, T* buffer, size_t numberOfElements, const int* indices);
+
+template <class T>
+// void blockVectorMultiplicationAtAllIndices(const T* squareBlockVector, const size_t numberOfElements, T* vec)
 } // namespace Opm::cuistl::detail
 #endif
