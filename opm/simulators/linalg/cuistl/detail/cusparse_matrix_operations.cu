@@ -91,7 +91,6 @@ void
 flatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* d_vec)
 {
     cuflatten<<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(d_mat, rowIndices, colIndices, numberOfRows, blocksize, d_vec);
-    std::cout << "==========flatten is called==============\n";
 }
 
 template void flatten(double*, int*, int*, size_t, size_t, double*);

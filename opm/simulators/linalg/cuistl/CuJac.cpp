@@ -33,6 +33,7 @@
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cublas_wrapper.hpp>
 #include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
+#include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
@@ -106,11 +107,9 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     auto rowIndices = m.getRowIndices().data();
     auto columnIndices = m.getColumnIndices().data();
 
-    // bsrmv:
-    // alpha * op(A) * x + beta * y // alpha and beta are scalars, A is matrix, and x and y are vectors
-    // we want to compute b - Ax, so set alpha to minus one, A is A, beta is one, x is x and y is b;
+    // bsrmv computes -Ax + b
     // TODO: avoid making this copy, currently forced to because parameter is a const, result is put in b_cop
-    Y d_bMinusmx = CuVector(b); // loss of generality, can I instead call constructor of Y somehow?
+    Y res_vec = CuVector(b); // loss of generality, can I instead call constructor of Y somehow?
 
     // allocate space for the inverted diagonal elements of m in a vector
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
@@ -127,21 +126,21 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  blockSize,
                                                  x.data(),
                                                  &one,
-                                                 d_bMinusmx.data()));
+                                                 res_vec.data()));
 
-    // lets find the diagonal of m, and invert each element, then store those in a vector
+
+    // Compute the inverted diagonal of A (D^-1) and put it d_mDiagInv
     auto d_mDiagInv = CuVector<field_type>((size_t)numberOfNonzeroBlocks*blockSize*blockSize);
-
-    // Pointers to first elements lets these std::vectors be treated as int *, which is 
     detail::flatten(nonZeroValues, rowIndices, columnIndices, numberOfRows, detail::to_size_t(blockSize), d_mDiagInv.data());
 
-    // TODO: multiply each element in the d_mDiagInv with the element on the same index in 
+    // TODO: multiply D^-1 elementwise with (b-Ax)
+    detail::blockVectorMultiplicationAtAllIndices(d_mDiagInv.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), res_vec.data());
 
 
     OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
                                             numberOfRows,
                                             &m_w,
-                                            d_bMinusmx.data(),
+                                            res_vec.data(),
                                             1,
                                             x.data(),
                                             1));

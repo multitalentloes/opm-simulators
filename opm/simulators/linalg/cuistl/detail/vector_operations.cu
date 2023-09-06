@@ -47,6 +47,30 @@ namespace
 
     template <class T>
     __global__ void
+    elementWiseMultiplyMVKernel(const T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec)
+    {
+        const auto globalIndex = blockDim.x * blockIdx.x + threadIdx.x;
+        
+        if (globalIndex < numberOfElements) {
+            T* pMat = (squareBlockVector + (blocksize*blocksize*globalIndex));
+            T* pVec = (vec + (blocksize*globalIndex));
+
+            if (blocksize == 2){ // 2x2 matrix multiplied by 2 vector
+                T v0 = pVec[0], v1 = pVec[1];
+                pVec[0] = pMat[0]*v0 + pMat[1]*v1;
+                pVec[1] = pMat[2]*v0 + pMat[3]*v1;
+            }
+            else if (blocksize == 3){ // 3x3 matrix multiplied by 3 vector
+                T v0 = pVec[0], v1 = pVec[1], v2 = pVec[2];
+                pVec[0] = pMat[0]*v0 + pMat[1]*v1 + pMat[2]*v2;
+                pVec[1] = pMat[3]*v0 + pMat[4]*v1 + pMat[5]*v2;
+                pVec[2] = pMat[6]*v0 + pMat[7]*v1 + pMat[8]*v2;
+            }
+        }
+    }
+
+    template <class T>
+    __global__ void
     elementWiseMultiplyKernel(const T* a, const T* b, T* buffer, size_t numberOfElements, const int* indices)
     {
         const auto globalIndex = blockDim.x * blockIdx.x + threadIdx.x;
@@ -108,5 +132,15 @@ innerProductAtIndices(const T* deviceA, const T* deviceB, T* buffer, size_t numb
 template double innerProductAtIndices(const double*, const double*, double* buffer, size_t, const int*);
 template float innerProductAtIndices(const float*, const float*, float* buffer, size_t, const int*);
 template int innerProductAtIndices(const int*, const int*, int* buffer, size_t, const int*);
+
+
+template <class T>
+void 
+blockVectorMultiplicationAtAllIndices(const T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec){
+    return;
+}
+
+template void blockVectorMultiplicationAtAllIndices(const double*, const size_t, const size_t, double*);
+template void blockVectorMultiplicationAtAllIndices(const float*, const size_t, const size_t, float*);
 
 } // namespace Opm::cuistl::impl

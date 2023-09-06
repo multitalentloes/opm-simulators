@@ -299,6 +299,7 @@ if(CUDA_FOUND)
   list(APPEND TEST_SOURCE_FILES tests/cuistl/test_converttofloatadapter.cpp)
   list(APPEND TEST_SOURCE_FILES tests/cuistl/test_cuowneroverlapcopy.cpp)
   list(APPEND TEST_SOURCE_FILES tests/cuistl/test_solver_adapter.cpp)
+  list(APPEND TEST_SOURCE_FILES tests/cuistl/test_cujac.cpp)
 
 
 endif()
