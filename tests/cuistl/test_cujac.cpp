@@ -51,26 +51,24 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith3By3Blocks, T, Numeric
     const int nonZeroes = 3;
     using M = Dune::FieldMatrix<T, blocksize, blocksize>;
     using SpMatrix = Dune::BCRSMatrix<M>;
-    using Vector = Dune::BlockVector<Dune::FieldVector<T, blocksize>>;
-    using cujac = Opm::cuistl::CuJac<SpMatrix, Opm::cuistl::CuVector<T>, Opm::cuistl::CuVector<T>>;
     /*
-        create a matrix with this shape
-        | |1 2 0| | 1  0  0| |
-        | |0 1 0| | 0  1  0| |
-        | |0 0 1| | 0  0  1| |
+        create this sparse matrix
+        | |1 2 3| | 1  0  0| |
+        | |5 2 3| | 0  1  0| |
+        | |2 1 1| | 0  0  1| |
         |                    | 
         | |0 0 0| |-1  0  0| |
         | |0 0 0| | 0 -1  0| |
         | |0 0 0| | 0  0 -1| |
 
-        we want to end up with this vector
-        | | 1 -2  0| |
-        | | 0  1  0| |
-        | | 0  0  1| |
-        |            |
-        | |-1  0  0| |
-        | | 0 -1  0| |
-        | | 0  0 -1| |
+        The diagonal elements inverted, and put in a vector should look like this
+        | |-1/4  1/4  0| |
+        | | 1/4 -4/5  3| |
+        | | 1/4  3/4 -2| |
+        |                |
+        | |  -1    0  0| |
+        | |   0   -1  0| |
+        | |   0    0 -1| |
         
     */
 
@@ -84,7 +82,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith3By3Blocks, T, Numeric
 
     B[0][0][0][0]=1.0;
     B[0][0][0][1]=2.0;
-    B[0][0][1][1]=1.0;
+    B[0][0][0][2]=3.0;
+    B[0][0][1][0]=5.0;
+    B[0][0][1][1]=2.0;
+    B[0][0][1][2]=3.0;
+    B[0][0][2][0]=2.0;
+    B[0][0][2][1]=1.0;
     B[0][0][2][2]=1.0;
 
     B[0][1][0][0]=1.0;
@@ -100,38 +103,40 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith3By3Blocks, T, Numeric
 
     Opm::cuistl::detail::flatten(m.getNonZeroValues().data(), m.getRowIndices().data(), m.getColumnIndices().data(), N, blocksize, d_invDiag.data());
 
-    std::vector<T> expected_inv_diag{1.0,-2.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,-1.0,0.0,0.0,0.0,-1.0,0.0,0.0,0.0,-1.0};
+    std::vector<T> expected_inv_diag{-1.0/4.0,1.0/4.0,0.0,1.0/4.0,-5.0/4.0,3.0,1.0/4.0,3.0/4.0,-2.0,-1.0,0.0,0.0,0.0,-1.0,0.0,0.0,0.0,-1.0};
     std::vector<T> computed_inv_diag = d_invDiag.asStdVector();
 
     BOOST_REQUIRE_EQUAL(expected_inv_diag.size(), computed_inv_diag.size());
     for (size_t i = 0; i < expected_inv_diag.size(); i++){
-        BOOST_CHECK_EQUAL(expected_inv_diag[i], computed_inv_diag[i]);
+        BOOST_CHECK_CLOSE(expected_inv_diag[i], computed_inv_diag[i], 1e-7);
     }
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith2y2Blocks, T, NumericTypes)
+BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith2By2Blocks, T, NumericTypes)
 {
     const size_t blocksize = 2;
     const size_t N = 2;
     const int nonZeroes = 3;
     using M = Dune::FieldMatrix<T, blocksize, blocksize>;
     using SpMatrix = Dune::BCRSMatrix<M>;
-    using Vector = Dune::BlockVector<Dune::FieldVector<T, blocksize>>;
-    using cujac = Opm::cuistl::CuJac<SpMatrix, Opm::cuistl::CuVector<T>, Opm::cuistl::CuVector<T>>;
     /*
-        create a matrix with this shape
-        | |1 2| | 1  0| |
-        | |0 1| | 0  1| |
-        |                | 
-        | |0 0| |-1  0|| |
-        | |0 0| | 0 -1|| |
+        create this sparse matrix
+        | |1 2 3| | 1  0  0| |
+        | |5 2 3| | 0  1  0| |
+        | |2 1 1| | 0  0  1| |
+        |                    | 
+        | |0 0 0| |-1  0  0| |
+        | |0 0 0| | 0 -1  0| |
+        | |0 0 0| | 0  0 -1| |
 
-        we want to end up with this vector
-        | | 1 -2| |
-        | | 0  1| |
-        |         |
-        | |-1  0| |
-        | | 0 -1| |
+        The diagonal elements inverted, and put in a vector should look like this
+        | |-1/4  1/4  0| |
+        | | 1/4 -4/5  3| |
+        | | 1/4  3/4 -2| |
+        |                |
+        | |  -1    0  0| |
+        | |   0   -1  0| |
+        | |   0    0 -1| |
         
     */
 
@@ -145,28 +150,26 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith2y2Blocks, T, NumericT
 
     B[0][0][0][0]=1.0;
     B[0][0][0][1]=2.0;
-    B[0][0][1][1]=1.0;
-    B[0][0][2][2]=1.0;
+    B[0][0][1][0]=1.0/2.0;
+    B[0][0][1][1]=2.0;
 
     B[0][1][0][0]=1.0;
     B[0][1][1][1]=1.0;
-    B[0][1][2][2]=1.0;
 
     B[1][1][0][0]=-1.0;
     B[1][1][1][1]=-1.0;
-    B[1][1][2][2]=-1.0;
 
     Opm::cuistl::CuSparseMatrix<T> m = Opm::cuistl::CuSparseMatrix<T>::fromMatrix(Opm::cuistl::detail::makeMatrixWithNonzeroDiagonal(B));
     Opm::cuistl::CuVector<T> d_invDiag(blocksize*blocksize*N);
 
     Opm::cuistl::detail::flatten(m.getNonZeroValues().data(), m.getRowIndices().data(), m.getColumnIndices().data(), N, blocksize, d_invDiag.data());
 
-    std::vector<T> expected_inv_diag{1.0,-2.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0,-1.0,0.0,0.0,0.0,-1.0,0.0,0.0,0.0,-1.0};
+    std::vector<T> expected_inv_diag{2.0,-2.0,-1.0/2.0,1.0,-1.0,0.0,0.0,-1.0};
     std::vector<T> computed_inv_diag = d_invDiag.asStdVector();
 
     BOOST_REQUIRE_EQUAL(expected_inv_diag.size(), computed_inv_diag.size());
     for (size_t i = 0; i < expected_inv_diag.size(); i++){
-        BOOST_CHECK_EQUAL(expected_inv_diag[i], computed_inv_diag[i]);
+        BOOST_CHECK_CLOSE(expected_inv_diag[i], computed_inv_diag[i], 1e-7);
     }
 }
 
