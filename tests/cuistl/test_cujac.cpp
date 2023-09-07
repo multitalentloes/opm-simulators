@@ -43,7 +43,7 @@ template<class T> void CuVecPrinter(Opm::cuistl::CuVector<T> arg, std::string na
 template void CuVecPrinter(Opm::cuistl::CuVector<float>, std::string);
 template void CuVecPrinter(Opm::cuistl::CuVector<double>, std::string);
 
-using NumericTypes = boost::mpl::list<double>;
+using NumericTypes = boost::mpl::list<double, float>;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith3By3Blocks, T, NumericTypes)
 {
