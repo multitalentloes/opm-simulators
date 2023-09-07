@@ -33,14 +33,26 @@
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cublas_wrapper.hpp>
 #include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
-#include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
+#include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
+#include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
 
+
+template<class T> void CuVecPrinter(Opm::cuistl::CuVector<T> arg, std::string name){
+    std::cout << name << ": ";
+    std::vector<T> v = arg.asStdVector();
+    for (int i = 0; i < v.size(); i++){
+        std::cout << v[i] << " ";
+    }
+    std::cout << std::endl;
+}
+template void CuVecPrinter(Opm::cuistl::CuVector<float>, std::string);
+template void CuVecPrinter(Opm::cuistl::CuVector<double>, std::string);
 
 namespace Opm::cuistl
 {
@@ -83,18 +95,11 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
-
-    //TODO: Mimic Dunes x_{n+1}=wD^-1(b-Ax_n)
-
-    // OPM_CUSPARSE_SAFE_CALL(Cusparse);
-
     // x_{n+1} = x_n + w* (D^-1 * (b - Ax_n) )
     // cusparseDbsrmv computes -Ax_n + b
-
-    // Maybe we can efficiently read the diagonal from the matrix
-    // and use vector operations to invert it 
-
-    // x_n + w*rhs only consists of dense vectors so use cublasDaxpy
+    // Place the inverted diagonal elements of A in a vector
+    // multiply by element that blockvector with the vector of vectors that is the results of b-Ax
+    // use an axpy to compute the x value + weighted rhs
       
     const field_type one = 1.0, neg_one = -1.0;
 
@@ -108,10 +113,12 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     auto columnIndices = m.getColumnIndices().data();
 
     // bsrmv computes -Ax + b
-    // TODO: avoid making this copy, currently forced to because parameter is a const, result is put in b_cop
-    Y res_vec = CuVector(b); // loss of generality, can I instead call constructor of Y somehow?
+    // TODO: avoid making this copy, currently forced to because parameter is a const
+    Y res_vec = CuVector(b); 
 
     // allocate space for the inverted diagonal elements of m in a vector
+    // CuVecPrinter(res_vec, "b");
+    // CuVecPrinter(x, "x");
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -127,6 +134,8 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  x.data(),
                                                  &one,
                                                  res_vec.data()));
+    // std::cout<<"MV done\n";
+    // CuVecPrinter(res_vec, "b-Ax");
 
 
     // Compute the inverted diagonal of A (D^-1) and put it d_mDiagInv
@@ -135,15 +144,20 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 
     // TODO: multiply D^-1 elementwise with (b-Ax)
     detail::blockVectorMultiplicationAtAllIndices(d_mDiagInv.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), res_vec.data());
+    // CuVecPrinter(res_vec, "D^-1(b-Ax)");
+    // CuVecPrinter(x, "x");
 
 
-    OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
-                                            numberOfRows,
-                                            &m_w,
-                                            res_vec.data(),
-                                            1,
-                                            x.data(),
-                                            1));
+    res_vec *= m_w;
+    x += res_vec;
+    // OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
+    //                                         numberOfRows,
+    //                                         &m_w,
+    //                                         res_vec.data(),
+    //                                         1,
+    //                                         x.data(),
+    //                                         1));
+    // CuVecPrinter(x, "x_n + wD^-1(b-Ax)");
 }
 
 template <class M, class X, class Y, int l>

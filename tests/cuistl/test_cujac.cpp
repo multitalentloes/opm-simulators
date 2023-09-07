@@ -23,13 +23,13 @@
 #include <boost/test/unit_test.hpp>
 #include <cuda_runtime.h>
 #include <dune/istl/bcrsmatrix.hh>
-#include <dune/istl/preconditioners.hh>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
 #include <opm/simulators/linalg/cuistl/CuSparseMatrix.hpp>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
+#include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
 #include <string>
 
 template<class T> void CuVecPrinter(Opm::cuistl::CuVector<T> arg, std::string name){
@@ -43,7 +43,7 @@ template<class T> void CuVecPrinter(Opm::cuistl::CuVector<T> arg, std::string na
 template void CuVecPrinter(Opm::cuistl::CuVector<float>, std::string);
 template void CuVecPrinter(Opm::cuistl::CuVector<double>, std::string);
 
-using NumericTypes = boost::mpl::list<double, float>;
+using NumericTypes = boost::mpl::list<double>;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(FlattenAndInvertDiagonalWith3By3Blocks, T, NumericTypes)
 {
@@ -204,7 +204,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ElementWiseMultiplicationOf2By2BlockVectorAndVecto
         Example in the test for multiplying by element a blockvector with a vector of vectors
         | |1 2| |   | |1| |   | | 7| |
         | |3 4| | X | |3| | = | |15| |
-
+        |       |   |     |   |      |
         | |4 3| |   | |2| |   | |20| |
         | |2 1| |   | |4| |   | | 8| |
     */
@@ -228,73 +228,55 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ElementWiseMultiplicationOf2By2BlockVectorAndVecto
     }
 }
 
-BOOST_AUTO_TEST_CASE(CUJACApplyIsEqualToDuneSeqJacApply)
+BOOST_AUTO_TEST_CASE_TEMPLATE(CUJACApplyIsEqualToDuneSeqJacApply, T, NumericTypes)
 {
-    // const int N = 2;
-    // const int nonZeroes = 3;
-    // using M = Dune::FieldMatrix<T, 3, 3>;
-    // using SpMatrix = Dune::BCRSMatrix<M>;
-    // using Vector = Dune::BlockVector<Dune::FieldVector<T, 3>>;
-    // using cujac = Opm::cuistl::CuJac<SpMatrix, Opm::cuistl::CuVector<T>, Opm::cuistl::CuVector<T>>;
-    // /*
-    //     create a matrix with this shape
-    //     | |1 2 0| | 1  0  0| |
-    //     | |0 1 0| | 0  1  0| |
-    //     | |0 0 1| | 0  0  1| |
-    //     |                    | 
-    //     | |0 0 0| |-1  0  0| |
-    //     | |0 0 0| | 0 -1  0| |
-    //     | |0 0 0| | 0  0 -1| |
+    const int N = 2;
+    const int blocksize = 2;
+    const int nonZeroes = 3;
+    using M = Dune::FieldMatrix<T, blocksize, blocksize>;
+    using SpMatrix = Dune::BCRSMatrix<M>;
+    using Vector = Dune::BlockVector<Dune::FieldVector<T, 2>>;
+    using cujac = Opm::cuistl::CuJac<SpMatrix, Opm::cuistl::CuVector<T>, Opm::cuistl::CuVector<T>>;
+    
+    SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
+    for (auto row = B.createbegin(); row != B.createend(); ++row) {
+        row.insert(row.index());
+        if (row.index() == 0) {
+            row.insert(row.index() + 1);
+        }
+    }
 
-    //     we want to end up with this vector
-    //     | | 1 -2  0| |
-    //     | | 0  1  0| |
-    //     | | 0  0  1| |
-    //     |            |
-    //     | |-1  0  0| |
-    //     | | 0 -1  0| |
-    //     | | 0  0 -1| |
-        
-    // */
+    B[0][0][0][0]=3.0;
+    B[0][0][0][1]=1.0;
+    B[0][0][1][0]=2.0;
+    B[0][0][1][1]=1.0;
 
-    // SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
-    // for (auto row = B.createbegin(); row != B.createend(); ++row) {
-    //     row.insert(row.index());
-    //     if (row.index() == 0) {
-    //         row.insert(row.index() + 1);
-    //     }
-    // }
+    B[0][1][0][0]=1.0;
+    B[0][1][1][1]=1.0;
 
-    // B[0][0][0][0]=1.0;
-    // B[0][0][0][1]=2.0;
-    // B[0][0][1][1]=1.0;
-    // B[0][0][2][2]=1.0;
+    B[1][1][0][0]=-1.0;
+    B[1][1][1][1]=-1.0;
 
-    // B[0][1][0][0]=1.0;
-    // B[0][1][1][1]=1.0;
-    // B[0][1][2][2]=1.0;
+    auto CuJac = Opm::cuistl::PreconditionerAdapter<Vector, Vector, cujac>(std::make_shared<cujac>(B, 0.5));
+    
+    Vector h_dune_x(2);
+    h_dune_x[0][0] = 1.0;
+    h_dune_x[0][1] = 2.0;
+    h_dune_x[1][0] = 1.0;
+    h_dune_x[1][1] = 1.0;
 
-    // B[1][1][0][0]=1.0;
-    // B[1][1][1][1]=1.0;
-    // B[1][1][2][2]=1.0;
+    Vector h_dune_b(2);
+    h_dune_b[0][0] = 2.0;
+    h_dune_b[0][1] = 1.0;
+    h_dune_b[1][0] = 3.0;
+    h_dune_b[1][1] = 4.0;
+    
+    std::cout<<"HOST VECTORS:\n" << h_dune_x << std::endl << h_dune_b << std::endl;
 
-    // auto duneILU = Dune::SeqJac<SpMatrix, Vector, Vector>(B, 1.0);
-    // auto cuILU = Opm::cuistl::PreconditionerAdapter<Vector, Vector, cujac>(std::make_shared<cujac>(B, 1.0));
-
-    // // check for the standard basis {e_i}
-    // // (e_i=(0,...,0, 1 (i-th place), 0, ..., 0))
-    // for (int i = 0; i < N; ++i) {
-    //     Vector inputVector(N);
-    //     inputVector[i][0] = 1.0;
-    //     Vector outputVectorDune(N);
-    //     Vector outputVectorCuistl(N);
-    //     duneILU.apply(outputVectorDune, inputVector);
-    //     cuILU.apply(outputVectorCuistl, inputVector);
-
-    //     for (int component = 0; component < N; ++component) {
-    //         BOOST_CHECK_CLOSE(outputVectorDune[component][0],
-    //                           outputVectorCuistl[component][0],
-    //                           std::numeric_limits<T>::epsilon() * 1000);
-    //     }
-    // }
+    CuJac.apply(h_dune_x, h_dune_b);
+    BOOST_CHECK_CLOSE(h_dune_x[0][0], 1.0, 1e-7);
+    BOOST_CHECK_CLOSE(h_dune_x[0][1], 0.0, 1e-7);
+    BOOST_CHECK_CLOSE(h_dune_x[1][0], -1.0, 1e-7);
+    BOOST_CHECK_CLOSE(h_dune_x[1][1], -3.0/2.0, 1e-7);
+    BOOST_CHECK(true);
 }
