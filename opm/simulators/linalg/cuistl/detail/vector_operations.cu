@@ -47,7 +47,7 @@ namespace
 
     template <class T>
     __global__ void
-    elementWiseMultiplyMVKernel(const T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec)
+    elementWiseMultiplyMVKernel(T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec)
     {
         const auto globalIndex = blockDim.x * blockIdx.x + threadIdx.x;
         
@@ -136,11 +136,11 @@ template int innerProductAtIndices(const int*, const int*, int* buffer, size_t, 
 
 template <class T>
 void 
-blockVectorMultiplicationAtAllIndices(const T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec){
-    return;
+blockVectorMultiplicationAtAllIndices(T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec){
+    elementWiseMultiplyMVKernel<<<getBlocks(numberOfElements), getThreads(numberOfElements)>>>(squareBlockVector, numberOfElements, blocksize, vec);
 }
 
-template void blockVectorMultiplicationAtAllIndices(const double*, const size_t, const size_t, double*);
-template void blockVectorMultiplicationAtAllIndices(const float*, const size_t, const size_t, float*);
+template void blockVectorMultiplicationAtAllIndices(double*, const size_t, const size_t, double*);
+template void blockVectorMultiplicationAtAllIndices(float*, const size_t, const size_t, float*);
 
 } // namespace Opm::cuistl::impl
