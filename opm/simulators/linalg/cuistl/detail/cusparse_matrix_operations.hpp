@@ -24,13 +24,16 @@ namespace Opm::cuistl::detail
 {
 
 /**
- * @brief setVectorValue sets every element of deviceData to value
- * @param deviceData pointer to GPU memory
- * @param numberOfElements number of elements to set to value
- * @param value the value to use
+ * @brief This function receives a matrix, and the inverse of the matrix containing only its diagonal is stored in d_vec
+ * @param d_mat pointer to GPU memory containing nonzerovalues of the sparse matrix
+ * @param rowIndices Pointer to vector on GPU containing row indices compliant wiht bsr format
+ * @param colIndices Pointer to vector on GPU containing col indices compliant wiht bsr format
+ * @param numberOfRows Integer describing the number of rows in the matrix
+ * @param blocksize Integer describing the sidelength of a block in the sparse matrix
+ * @param d_vec Pointer to the vector where the inverse of the diagonal matrix should be stored
  */
 template <class T>
-void invertDiagonalAndFlatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfElements, size_t blocksize, T* d_vec);
+void invertDiagonalAndFlatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* d_vec);
 
 } // namespace Opm::cuistl::detail
 #endif

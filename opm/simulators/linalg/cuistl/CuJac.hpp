@@ -105,6 +105,7 @@ private:
 
     CuSparseMatrix<field_type> m;
     CuVector<field_type> m_diagInvFlattened;
+    CuVector<field_type> d_resultBuffer;
     detail::CuSparseMatrixDescriptionPtr m_description;
 
     detail::CuSparseHandle& m_cuSparseHandle;

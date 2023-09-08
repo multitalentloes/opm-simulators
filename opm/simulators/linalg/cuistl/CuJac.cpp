@@ -54,6 +54,7 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     , m_description(detail::createMatrixDescription())
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
     , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
+    , d_resultBuffer(m.N() * m.blockSize())
 {
     // Some sanity check
     OPM_ERROR_IF(A.N() != m.N(),
@@ -100,7 +101,7 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 
     // bsrmv computes -Ax + b
     // TODO: avoid making this copy, currently forced to because parameter is a const
-    Y res_vec = CuVector(b); 
+    d_resultBuffer = b; 
 
     // allocate space for the inverted diagonal elements of m in a vector
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
@@ -117,16 +118,16 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  blockSize,
                                                  x.data(),
                                                  &one,
-                                                 res_vec.data()));
+                                                 d_resultBuffer.data()));
 
     // multiply D^-1 with (b-Ax)
-    detail::blockVectorMultiplicationAtAllIndices(m_diagInvFlattened.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), res_vec.data());
+    detail::blockVectorMultiplicationAtAllIndices(m_diagInvFlattened.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), d_resultBuffer.data());
 
     // Finish adding w*rhs to x
     OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
                                             numberOfRows*blockSize,
                                             &m_w,
-                                            res_vec.data(),
+                                            d_resultBuffer.data(),
                                             1,
                                             x.data(),
                                             1));

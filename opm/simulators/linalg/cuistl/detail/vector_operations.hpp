@@ -55,7 +55,17 @@ void setZeroAtIndexSet(T* deviceData, size_t numberOfElements, const int* indice
 template <class T>
 T innerProductAtIndices(const T* deviceA, const T* deviceB, T* buffer, size_t numberOfElements, const int* indices);
 
+/**
+ * @brief Compute the product of two vectors element by element, where the first vector containts square blocks, while the second vector containts vectors
+ * @param squareBlockVector A CuVector whose elements are NxN matrix blocks
+ * @param numberOfRows The number of rows in the vector
+ * @param blocksize The sidelength of the square block elements in the vector
+ * @param vec A pointer to the data of the CuVector we multiply the blockvector with, the result is stored in vec
+ *
+ * @note This is equivalent to projecting the vectors to the indices contained in indices, then doing the inner product
+ * of those projected vectors.
+ */
 template <class T>
-void blockVectorMultiplicationAtAllIndices(T* squareBlockVector, const size_t numberOfElements, const size_t blocksize, T* vec);
+void blockVectorMultiplicationAtAllIndices(T* squareBlockVector, const size_t numberOfRows, const size_t blocksize, T* vec);
 } // namespace Opm::cuistl::detail
 #endif
