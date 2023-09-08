@@ -24,7 +24,7 @@ namespace Opm::cuistl::detail
 
 namespace
 {
-    template <class T> __global__ void cuflatten(T* matNonZeroValues, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* vec)
+    template <class T> __global__ void cuInvertDiagonalAndFlatten(T* matNonZeroValues, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* vec)
     {
         const auto thrIndex = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -88,12 +88,12 @@ namespace
 
 template <class T>
 void
-flatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* d_vec)
+invertDiagonalAndFlatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfRows, size_t blocksize, T* d_vec)
 {
-    cuflatten<<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(d_mat, rowIndices, colIndices, numberOfRows, blocksize, d_vec);
+    cuInvertDiagonalAndFlatten<<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(d_mat, rowIndices, colIndices, numberOfRows, blocksize, d_vec);
 }
 
-template void flatten(double*, int*, int*, size_t, size_t, double*);
-template void flatten(float*, int*, int*, size_t, size_t, float*);
+template void invertDiagonalAndFlatten(double*, int*, int*, size_t, size_t, double*);
+template void invertDiagonalAndFlatten(float*, int*, int*, size_t, size_t, float*);
 
 } // namespace Opm::cuistl::impl

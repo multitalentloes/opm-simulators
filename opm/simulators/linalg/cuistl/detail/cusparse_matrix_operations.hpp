@@ -30,7 +30,7 @@ namespace Opm::cuistl::detail
  * @param value the value to use
  */
 template <class T>
-void flatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfElements, size_t blocksize, T* d_vec);
+void invertDiagonalAndFlatten(T* d_mat, int rowIndices[], int colIndices[], size_t numberOfElements, size_t blocksize, T* d_vec);
 
 } // namespace Opm::cuistl::detail
 #endif

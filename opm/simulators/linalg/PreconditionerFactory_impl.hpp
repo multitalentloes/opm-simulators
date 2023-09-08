@@ -242,8 +242,6 @@ struct StandardPreconditioners
         });
 
         F::addCreator("CUJac", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
-            std::cout << "----DEBUG---- STANDARD PRECONDITIONER ADDING CUJAC\n";
-            // PLACEHOLDER FOR COMPILATION
             const double w = prm.get<double>("relaxation", 1.0);
             using field_type = typename V::field_type;
             using CuJac = typename Opm::cuistl::CuJac<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
@@ -461,7 +459,6 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
         });
 
         F::addCreator("CUJac", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
-            std::cout << "----DEBUG---- STANDARD PRECONDITIONER(type specialized struct) ADDING CUJAC\n";
             const double w = prm.get<double>("relaxation", 1.0);
             using field_type = typename V::field_type;
             using CuJac_tmp = typename Opm::cuistl::CuJac<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;

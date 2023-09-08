@@ -67,7 +67,6 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
     , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
 {
-    std::cout << "---- DEBUG ---- CUJAC FILE USED\n";
     // Some sanity check
     OPM_ERROR_IF(A.N() != m.N(),
                  fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m.N(), A.N()));
@@ -98,7 +97,7 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     // x_{n+1} = x_n + w* (D^-1 * (b - Ax_n) )
     // cusparseDbsrmv computes -Ax_n + b
     // Place the inverted diagonal elements of A in a vector
-    // multiply by element that blockvector with the vector of vectors that is the results of b-Ax
+    // multiply blockvector elementwise with the vector of vectors that is the results of b-Ax
     // use an axpy to compute the x value + weighted rhs
       
     const field_type one = 1.0, neg_one = -1.0;
@@ -117,8 +116,6 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     Y res_vec = CuVector(b); 
 
     // allocate space for the inverted diagonal elements of m in a vector
-    // CuVecPrinter(res_vec, "b");
-    // CuVecPrinter(x, "x");
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -134,20 +131,15 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  x.data(),
                                                  &one,
                                                  res_vec.data()));
-    // std::cout<<"MV done\n";
-    // CuVecPrinter(res_vec, "b-Ax");
-
 
     // Compute the inverted diagonal of A (D^-1) and put it d_mDiagInv
     auto d_mDiagInv = CuVector<field_type>((size_t)numberOfNonzeroBlocks*blockSize*blockSize);
-    detail::flatten(nonZeroValues, rowIndices, columnIndices, numberOfRows, detail::to_size_t(blockSize), d_mDiagInv.data());
+    detail::invertDiagonalAndFlatten(nonZeroValues, rowIndices, columnIndices, numberOfRows, detail::to_size_t(blockSize), d_mDiagInv.data());
 
-    // TODO: multiply D^-1 elementwise with (b-Ax)
+    // TODO: multiply D^-1 with (b-Ax)
     detail::blockVectorMultiplicationAtAllIndices(d_mDiagInv.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), res_vec.data());
-    // CuVecPrinter(res_vec, "D^-1(b-Ax)");
-    // CuVecPrinter(x, "x");
 
-
+    // TODO: figure out what is wrong with the axpy call, should be faster to do this last operation in one go
     res_vec *= m_w;
     x += res_vec;
     // OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
@@ -157,7 +149,6 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     //                                         1,
     //                                         x.data(),
     //                                         1));
-    // CuVecPrinter(x, "x_n + wD^-1(b-Ax)");
 }
 
 template <class M, class X, class Y, int l>
@@ -177,7 +168,7 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::update()
 {
-    m.updateNonzeroValues(m_underlyingMatrix);
+    m.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
 }
 
 } // namespace Opm::cuistl
