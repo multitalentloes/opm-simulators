@@ -50,7 +50,6 @@ CuSeqILU0<M, X, Y, l>::CuSeqILU0(const M& A, field_type w)
     , m_descriptionU(detail::createUpperDiagonalDescription())
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
 {
-    std::cout << "---- DEBUG ---- CUSEQ FILE USED\n";
     // Some sanity check
     OPM_ERROR_IF(A.N() != m_LU.N(),
                  fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m_LU.N(), A.N()));
