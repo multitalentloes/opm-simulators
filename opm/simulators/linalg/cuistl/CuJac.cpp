@@ -42,18 +42,6 @@
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
 
-
-template<class T> void CuVecPrinter(Opm::cuistl::CuVector<T> arg, std::string name){
-    std::cout << name << ": ";
-    std::vector<T> v = arg.asStdVector();
-    for (int i = 0; i < v.size(); i++){
-        std::cout << v[i] << " ";
-    }
-    std::cout << std::endl;
-}
-template void CuVecPrinter(Opm::cuistl::CuVector<float>, std::string);
-template void CuVecPrinter(Opm::cuistl::CuVector<double>, std::string);
-
 namespace Opm::cuistl
 {
 
@@ -62,7 +50,7 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
     : m_underlyingMatrix(A)
     , m_w(w)
     , m(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
-    , m_temporaryStorage(m.N() * m.blockSize())
+    , m_diagInvFlattened(m.N() * m.blockSize()*m.blockSize())
     , m_description(detail::createMatrixDescription())
     , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
     , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
@@ -96,9 +84,8 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
     // x_{n+1} = x_n + w* (D^-1 * (b - Ax_n) )
     // cusparseDbsrmv computes -Ax_n + b
-    // Place the inverted diagonal elements of A in a vector
-    // multiply blockvector elementwise with the vector of vectors that is the results of b-Ax
-    // use an axpy to compute the x value + weighted rhs
+    // cuda kernel computes D^-1 * (b- Ax_n), call this rhs
+    // use an axpy to compute x + w*rhs
       
     const field_type one = 1.0, neg_one = -1.0;
 
@@ -132,23 +119,17 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
                                                  &one,
                                                  res_vec.data()));
 
-    // Compute the inverted diagonal of A (D^-1) and put it d_mDiagInv
-    auto d_mDiagInv = CuVector<field_type>((size_t)numberOfNonzeroBlocks*blockSize*blockSize);
-    detail::invertDiagonalAndFlatten(nonZeroValues, rowIndices, columnIndices, numberOfRows, detail::to_size_t(blockSize), d_mDiagInv.data());
+    // multiply D^-1 with (b-Ax)
+    detail::blockVectorMultiplicationAtAllIndices(m_diagInvFlattened.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), res_vec.data());
 
-    // TODO: multiply D^-1 with (b-Ax)
-    detail::blockVectorMultiplicationAtAllIndices(d_mDiagInv.data(), detail::to_size_t(numberOfRows), detail::to_size_t(blockSize), res_vec.data());
-
-    // TODO: figure out what is wrong with the axpy call, should be faster to do this last operation in one go
-    res_vec *= m_w;
-    x += res_vec;
-    // OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
-    //                                         numberOfRows,
-    //                                         &m_w,
-    //                                         res_vec.data(),
-    //                                         1,
-    //                                         x.data(),
-    //                                         1));
+    // Finish adding w*rhs to x
+    OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(),
+                                            numberOfRows*blockSize,
+                                            &m_w,
+                                            res_vec.data(),
+                                            1,
+                                            x.data(),
+                                            1));
 }
 
 template <class M, class X, class Y, int l>
@@ -168,7 +149,10 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::update()
 {
+    //TODO: this update of m is done twice when it is initialized
     m.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
+    // Compute the inverted diagonal of A and store it in a vector format in m_diagInvFlattened
+    detail::invertDiagonalAndFlatten(m.getNonZeroValues().data(), m.getRowIndices().data(), m.getColumnIndices().data(), detail::to_int(m.N()), detail::to_int(m.blockSize()), m_diagInvFlattened.data());
 }
 
 } // namespace Opm::cuistl

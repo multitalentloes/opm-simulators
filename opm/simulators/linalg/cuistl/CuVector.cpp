@@ -290,4 +290,14 @@ template class CuVector<double>;
 template class CuVector<float>;
 template class CuVector<int>;
 
+template <class T>
+std::ostream& operator << (std::ostream &out, const CuVector<T> &arg)
+{
+    std::vector<T> v = arg.asStdVector();
+    for (int i = 0; i < v.size(); i++){
+        out << v[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
 } // namespace Opm::cuistl

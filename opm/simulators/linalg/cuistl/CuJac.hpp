@@ -104,13 +104,9 @@ private:
     field_type m_w;
 
     CuSparseMatrix<field_type> m;
-
-    CuVector<field_type> m_temporaryStorage;
-
+    CuVector<field_type> m_diagInvFlattened;
     detail::CuSparseMatrixDescriptionPtr m_description;
-    detail::CuSparseResource<bsrsv2Info_t> m_infoU;
 
-    std::unique_ptr<CuVector<field_type>> m_buffer;
     detail::CuSparseHandle& m_cuSparseHandle;
     detail::CuBlasHandle& m_cuBlasHandle;
     
