@@ -84,7 +84,7 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
-    // x_{n+1} = x_n + w* (D^-1 * (b - Ax_n) )
+    // x_{n+1} = x_n + w * (D^-1 * (b - Ax_n) )
     // cusparseDbsrmv computes -Ax_n + b
     // cuda kernel computes D^-1 * (b- Ax_n), call this rhs
     // use an axpy to compute x + w*rhs
@@ -100,11 +100,10 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     auto rowIndices = m.getRowIndices().data();
     auto columnIndices = m.getColumnIndices().data();
 
-    // bsrmv computes -Ax + b
     // TODO: avoid making this copy, currently forced to because parameter is a const
     d_resultBuffer = b; 
 
-    // allocate space for the inverted diagonal elements of m in a vector
+    // bsrmv computes b - Ax
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cuSparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
