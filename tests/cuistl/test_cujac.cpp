@@ -219,6 +219,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ElementWiseMultiplicationOf2By2BlockVectorAndVecto
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(CUJACApplyIsEqualToDuneSeqJacApply, T, NumericTypes)
 {
+
+     /*
+        Test data to validate jacobi preconditioner, expected result is x_1
+            | |3 1|  | 1  0|       | |1| |     | |2| |       | |   1| |
+            | |2 1|  | 0  1|       | |2| |     | |1| |       | |   0| |
+        A = |              | x_0 = |     | b = |     | x_1 = |        |
+            | |0 0|  |-1  0|       | |1| |     | |3| |       | |  -1| |
+            | |0 0|  | 0 -1|       | |1| |     | |4| |       | |-1.5| |
+    */
     const int N = 2;
     const int blocksize = 2;
     const int nonZeroes = 3;
