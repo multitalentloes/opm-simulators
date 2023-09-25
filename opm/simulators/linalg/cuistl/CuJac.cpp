@@ -40,6 +40,8 @@
 #include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
+#include <amgx_c.h>
+
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
 
@@ -72,6 +74,10 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
                              A.nonzeroes()));
 
     update();
+
+
+    AMGX_SAFE_CALL(AMGX_initialize());
+    AMGX_SAFE_CALL(AMGX_finalize());
 }
 
 template <class M, class X, class Y, int l>
