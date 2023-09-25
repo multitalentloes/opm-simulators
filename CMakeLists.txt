@@ -179,6 +179,23 @@ if(CUDA_FOUND)
   include_directories(${CUDA_INCLUDE_DIRS})
 endif()
 
+
+
+# Temporary hacky solution: include OpenMP as AMGX requires it
+# AMGX does not have a config.cmake file, so explicitly specify where to fined the 
+# needed header and lib files.
+find_package(OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
+find_path (AMGX_INCLUDE_DIR NAMES amgx_c.h HINTS /home/tobias/Downloads/amgx/include NOCACHE)
+message("Include Directory: ${AMGX_INCLUDE_DIR}")
+find_library(AMGX_LIB NAMES amgxsh HINTS /home/tobias/Downloads/amgx/lib)
+
+
 find_package(OpenCL)
 
 if(OpenCL_FOUND)
@@ -641,6 +658,13 @@ endif()
 add_custom_target(extra_test ${CMAKE_CTEST_COMMAND} -C ExtraTests)
 
 # must link libraries after target 'opmsimulators' has been defined
+
+# target_link_libraries(opmsimulators PRIVATE amgx)
+target_include_directories(opmsimulators PUBLIC ${AMGX_INCLUDE_DIR})
+set(AMGX_PRINT_INFO OFF)  # Turn off metadata and info messages
+target_link_libraries(opmsimulators PUBLIC ${AMGX_LIB})
+
+
 
 if(CUDA_FOUND)
   target_link_libraries( opmsimulators PUBLIC ${CUDA_cusparse_LIBRARY} )
