@@ -52,7 +52,8 @@
 #include <opm/simulators/linalg/cuistl/CuSeqILU0.hpp>
 #include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
 #include <opm/simulators/linalg/cuistl/PreconditionerConvertFieldTypeAdapter.hpp>
-
+#include <opm/simulators/linalg/cuistl/CuBlockPreconditioner.hpp>
+#include <opm/simulators/linalg/cuistl/CuAmgxDilu.hpp>
 #endif
 
 
@@ -357,6 +358,17 @@ struct StandardPreconditioners {
             auto wrapped = std::make_shared<Opm::cuistl::CuBlockPreconditioner<V, V, Comm>>(adapted, comm);
             return wrapped;
         });
+
+        F::addCreator("AmgxDilu", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
+            const double w = prm.get<double>("relaxation", 1.0);
+            using field_type = typename V::field_type;
+            using CuDilu = typename Opm::cuistl::CuDilu<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            auto cuDilu = std::make_shared<CuDilu>(op.getmat(), w);
+
+            auto adapted = std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuDilu>>(cuDilu);
+            auto wrapped = std::make_shared<Opm::cuistl::CuBlockPreconditioner<V, V, Comm>>(adapted, comm);
+            return wrapped;
+        });
 #endif
     }
 
@@ -613,6 +625,12 @@ struct StandardPreconditioners<Operator, Dune::Amg::SequentialInformation> {
             auto adapted = std::make_shared<Adapter>(std::make_shared<CuDILU>(converted->getConvertedMatrix()));
             converted->setUnderlyingPreconditioner(adapted);
             return converted;
+        });
+        F::addCreator("AmgxDilu", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+            const double w = prm.get<double>("relaxation", 1.0);
+            using field_type = typename V::field_type;
+            using cudilu = typename Opm::cuistl::CuDilu<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, cudilu>>(std::make_shared<cudilu>(op.getmat(), w));
         });
 #endif
     }

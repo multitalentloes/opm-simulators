@@ -80,6 +80,7 @@ public:
             m_inputBuffer.reset(new CuVector<field_type>(v.dim()));
             m_outputBuffer.reset(new CuVector<field_type>(v.dim()));
         }
+        m_outputBuffer->copyFromHost(v);
         m_inputBuffer->copyFromHost(d);
         m_underlyingPreconditioner->apply(*m_outputBuffer, *m_inputBuffer);
         m_outputBuffer->copyToHost(v);
