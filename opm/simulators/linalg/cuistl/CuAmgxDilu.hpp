@@ -22,6 +22,8 @@
 #include <opm/simulators/linalg/cuistl/detail/CuSparseHandle.hpp>
 #include <opm/simulators/linalg/cuistl/detail/CuSparseResource.hpp>
 
+#include <amgx_c.h>
+
 namespace Opm::cuistl
 {
 //! \brief Sequential Jacobi preconditioner on the GPU through the CuSparse library.
@@ -107,6 +109,13 @@ private:
     detail::CuBlasHandle& m_cuBlasHandle;
 
     size_t findBufferSize();
+
+    AMGX_config_handle cfg;
+    AMGX_resources_handle rsrc;
+    AMGX_solver_handle amgx_solver;
+    AMGX_vector_handle amgx_x; 
+    AMGX_vector_handle amgx_b;
+    AMGX_matrix_handle amgx_A;
 };
 } // end namespace Opm::cuistl
 
