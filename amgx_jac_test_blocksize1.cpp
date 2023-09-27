@@ -6,10 +6,11 @@
 int main(){
     // Initialize AMGX
     AMGX_SAFE_CALL(AMGX_initialize());
+    AMGX_SAFE_CALL(AMGX_initialize());
 
     // Create an AMGX configuration
     AMGX_config_handle cfg;
-    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=POLYNOMIAL, max_iters=1, relaxation_factor=0.5"));
+    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_DILU, max_iters=1, relaxation_factor=0.9"));
 
     // Create AMGX resources
     AMGX_resources_handle rsrc;

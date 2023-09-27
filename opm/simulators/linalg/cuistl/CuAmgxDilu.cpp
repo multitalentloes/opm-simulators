@@ -41,7 +41,25 @@
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
 
-int amgx_inited = 0;
+class AmgxHelper
+{
+    public:
+        static void ensureAmgxInitialized()
+        {
+            static AmgxHelper ah;
+        }
+
+    private:
+        AmgxHelper()
+        {
+            AMGX_SAFE_CALL(AMGX_initialize());
+        }
+
+        ~AmgxHelper()
+        {
+            AMGX_SAFE_CALL(AMGX_finalize());
+        }
+};
 
 namespace Opm::cuistl
 {
@@ -70,37 +88,31 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
                  fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
                              m.nonzeroes(),
                              A.nonzeroes()));
-    // std::cout << "INIT AMGX" << std::endl;
-    // if (amgx_inited == 0){
-    //     AMGX_SAFE_CALL(AMGX_initialize());
-    //     amgx_inited = 1;
-    // }
-    // AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_GS, max_iters=1, relaxation_factor=0.9, print_solve_stats=0")); // TODO insert w
-    // // AMGX_resources_handle rsrc;
-    // AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
-    // // AMGX_solver_handle amgx_solver;
-    // AMGX_SAFE_CALL(AMGX_solver_create(&amgx_solver, rsrc, AMGX_mode_dDDI, cfg));
-    // // AMGX_vector_handle amgx_x; 
-    // // AMGX_vector_handle amgx_b;
-    // // TODO: create allow for using AMGX with floats by havnig AMGX_mode be dynamically chosen
-    // AMGX_SAFE_CALL(AMGX_vector_create(&amgx_x, rsrc, AMGX_mode_dDDI));
-    // AMGX_SAFE_CALL(AMGX_vector_create(&amgx_b, rsrc, AMGX_mode_dDDI));
-    // // AMGX_matrix_handle amgx_A;
-    // AMGX_SAFE_CALL(AMGX_matrix_create(&amgx_A, rsrc, AMGX_mode_dDDI));
-    update();
 
+    AmgxHelper::ensureAmgxInitialized();
+    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_GS, max_iters=1, relaxation_factor=0.9, print_solve_stats=0")); // TODO insert w
+    // AMGX_resources_handle rsrc;
+    AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
+    // AMGX_solver_handle amgx_solver;
+    AMGX_SAFE_CALL(AMGX_solver_create(&amgx_solver, rsrc, AMGX_mode_dDDI, cfg));
+    // AMGX_vector_handle amgx_x; 
+    // AMGX_vector_handle amgx_b;
+    // TODO: create allow for using AMGX with floats by havnig AMGX_mode be dynamically chosen
+    AMGX_SAFE_CALL(AMGX_vector_create(&amgx_x, rsrc, AMGX_mode_dDDI));
+    AMGX_SAFE_CALL(AMGX_vector_create(&amgx_b, rsrc, AMGX_mode_dDDI));
+    // AMGX_matrix_handle amgx_A;
+    AMGX_SAFE_CALL(AMGX_matrix_create(&amgx_A, rsrc, AMGX_mode_dDDI));
+    update();
 }
 
 template <class M, class X, class Y, int l>
 CuJac<M, X, Y, l>::~CuJac(){
-    // AMGX_SAFE_CALL(AMGX_solver_destroy(amgx_solver));
-    // AMGX_SAFE_CALL(AMGX_matrix_destroy(amgx_A));
-    // AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x));
-    // AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_b));
-    // AMGX_SAFE_CALL(AMGX_resources_destroy(rsrc));
-    // AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
-    // AMGX_SAFE_CALL(AMGX_finalize());
-    // std::cout << "FINALIZE AMGX" << std::endl;
+    AMGX_SAFE_CALL(AMGX_solver_destroy(amgx_solver));
+    AMGX_SAFE_CALL(AMGX_matrix_destroy(amgx_A));
+    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x));
+    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_b));
+    AMGX_SAFE_CALL(AMGX_resources_destroy(rsrc));
+    AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
 }
 
 template <class M, class X, class Y, int l>
@@ -113,16 +125,21 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
-    // const auto numberOfRows = detail::to_int(m.N());
-    // const auto blockSize = detail::to_int(m.blockSize());
+    const auto numberOfRows = detail::to_int(m.N());
+    const auto blockSize = detail::to_int(m.blockSize());
 
-    // AMGX_SAFE_CALL(AMGX_vector_upload(amgx_x, numberOfRows, blockSize, x.data()));
-    // AMGX_SAFE_CALL(AMGX_vector_upload(amgx_b, numberOfRows, blockSize, b.data()));
+    AMGX_SAFE_CALL(AMGX_vector_upload(amgx_x, numberOfRows, blockSize, x.data()));
+    AMGX_SAFE_CALL(AMGX_vector_upload(amgx_b, numberOfRows, blockSize, b.data()));
 
-    // // solver_solve applies the preconditioner
-    // AMGX_SAFE_CALL(AMGX_solver_solve(amgx_solver, amgx_b, amgx_x));
-    // // Download the result vector from AMGX
-    // AMGX_SAFE_CALL(AMGX_vector_download(amgx_x, x.data()));
+    // solver_solve applies the preconditioner
+    AMGX_SAFE_CALL(AMGX_solver_solve(amgx_solver, amgx_b, amgx_x));
+    // Download the result vector from AMGX
+    AMGX_SAFE_CALL(AMGX_vector_download(amgx_x, x.data()));
+
+
+
+
+
 
     // const auto numberOfRows = detail::to_int(m.N());
     // const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
@@ -193,17 +210,17 @@ void
 CuJac<M, X, Y, l>::update()
 {   
     m.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
-    // const auto numberOfRows = detail::to_int(m.N());
-    // const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
-    // const auto blockSize = detail::to_int(m.blockSize());
-    // auto nonZeroValues = m.getNonZeroValues().data();
-    // auto rowIndices = m.getRowIndices().data();
-    // auto columnIndices = m.getColumnIndices().data();
-    // // Create matrix usable by amgx
-    // AMGX_SAFE_CALL(AMGX_matrix_upload_all(amgx_A, numberOfRows, numberOfNonzeroBlocks, blockSize, blockSize, rowIndices, columnIndices, nonZeroValues, NULL));
+    const auto numberOfRows = detail::to_int(m.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
+    const auto blockSize = detail::to_int(m.blockSize());
+    auto nonZeroValues = m.getNonZeroValues().data();
+    auto rowIndices = m.getRowIndices().data();
+    auto columnIndices = m.getColumnIndices().data();
+    // Create matrix usable by amgx
+    AMGX_SAFE_CALL(AMGX_matrix_upload_all(amgx_A, numberOfRows, numberOfNonzeroBlocks, blockSize, blockSize, rowIndices, columnIndices, nonZeroValues, NULL));
 
-    // // Setup the solver
-    // AMGX_SAFE_CALL(AMGX_solver_setup(amgx_solver, amgx_A));
+    // Setup the solver
+    AMGX_SAFE_CALL(AMGX_solver_setup(amgx_solver, amgx_A));
     
     return;
 }
