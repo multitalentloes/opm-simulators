@@ -57,6 +57,7 @@ class AmgxHelper
 
         ~AmgxHelper()
         {
+            std::cout << "Finalize called\n";
             AMGX_SAFE_CALL(AMGX_finalize());
         }
 };
@@ -90,26 +91,19 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
                              A.nonzeroes()));
 
     AmgxHelper::ensureAmgxInitialized();
-    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_GS, max_iters=1, relaxation_factor=0.9, print_solve_stats=0")); // TODO insert w
-    // AMGX_resources_handle rsrc;
+    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_DILU, max_uncolored_percentage=0, coloring_level=1, ilu_sparsity_level=0, max_iters=1, monitor_residual=1, print_solve_stats=0")); // TODO insert w
     AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
-    // AMGX_solver_handle amgx_solver;
-    AMGX_SAFE_CALL(AMGX_solver_create(&amgx_solver, rsrc, AMGX_mode_dDDI, cfg));
-    // AMGX_vector_handle amgx_x; 
-    // AMGX_vector_handle amgx_b;
-    // TODO: create allow for using AMGX with floats by havnig AMGX_mode be dynamically chosen
     AMGX_SAFE_CALL(AMGX_vector_create(&amgx_x, rsrc, AMGX_mode_dDDI));
     AMGX_SAFE_CALL(AMGX_vector_create(&amgx_b, rsrc, AMGX_mode_dDDI));
-    // AMGX_matrix_handle amgx_A;
-    AMGX_SAFE_CALL(AMGX_matrix_create(&amgx_A, rsrc, AMGX_mode_dDDI));
+    
     update();
+
 }
 
 template <class M, class X, class Y, int l>
 CuJac<M, X, Y, l>::~CuJac(){
-    AMGX_SAFE_CALL(AMGX_solver_destroy(amgx_solver));
-    AMGX_SAFE_CALL(AMGX_matrix_destroy(amgx_A));
-    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x));
+    
+    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x)); // recommended that vectors are destroyed before matrices - amgx reference p.112
     AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_b));
     AMGX_SAFE_CALL(AMGX_resources_destroy(rsrc));
     AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
@@ -126,70 +120,28 @@ void
 CuJac<M, X, Y, l>::apply(X& x, const Y& b)
 {
     const auto numberOfRows = detail::to_int(m.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
     const auto blockSize = detail::to_int(m.blockSize());
+    auto nonZeroValues = m.getNonZeroValues().data();
+    auto rowIndices = m.getRowIndices().data();
+    auto columnIndices = m.getColumnIndices().data();
 
+    AMGX_SAFE_CALL(AMGX_solver_create(&amgx_solver, rsrc, AMGX_mode_dDDI, cfg));
+    AMGX_SAFE_CALL(AMGX_matrix_create(&amgx_A, rsrc, AMGX_mode_dDDI));
+
+    AMGX_SAFE_CALL(AMGX_matrix_upload_all(amgx_A, numberOfRows, numberOfNonzeroBlocks, blockSize, blockSize, rowIndices, columnIndices, nonZeroValues, NULL));
+    AMGX_SAFE_CALL(AMGX_solver_setup(amgx_solver, amgx_A));
+    
     AMGX_SAFE_CALL(AMGX_vector_upload(amgx_x, numberOfRows, blockSize, x.data()));
     AMGX_SAFE_CALL(AMGX_vector_upload(amgx_b, numberOfRows, blockSize, b.data()));
 
-    // solver_solve applies the preconditioner
     AMGX_SAFE_CALL(AMGX_solver_solve(amgx_solver, amgx_b, amgx_x));
-    // Download the result vector from AMGX
-    AMGX_SAFE_CALL(AMGX_vector_download(amgx_x, x.data()));
+    AMGX_SAFE_CALL(AMGX_vector_download(amgx_x, x.data())); // put the data 
+
+    AMGX_SAFE_CALL(AMGX_solver_destroy(amgx_solver)); // solver must be destroyed before matrix - amgx reference p.65
 
 
-
-
-
-
-    // const auto numberOfRows = detail::to_int(m.N());
-    // const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
-    // const auto blockSize = detail::to_int(m.blockSize());
-    // auto nonZeroValues = m.getNonZeroValues().data();
-    // auto rowIndices = m.getRowIndices().data();
-    // auto columnIndices = m.getColumnIndices().data();
-
-
-    // AMGX_SAFE_CALL(AMGX_initialize());
-    // AMGX_config_handle cfg;
-    // AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_GS, max_iters=1, relaxation_factor=0.9")); // TODO insert w
-
-    // // Create AMGX resources
-    // AMGX_resources_handle rsrc;
-    // AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
-
-    // AMGX_solver_handle amgx_solver;
-    // AMGX_SAFE_CALL(AMGX_solver_create(&amgx_solver, rsrc, AMGX_mode_dDDI, cfg));
-
-    // // Create vectors usable by amgx
-    // // TODO: create allow for using AMGX with floats by havnig AMGX_mode be dynamically chosen
-    // AMGX_vector_handle amgx_x; 
-    // AMGX_vector_handle amgx_b;
-    // AMGX_SAFE_CALL(AMGX_vector_create(&amgx_x, rsrc, AMGX_mode_dDDI));
-    // AMGX_SAFE_CALL(AMGX_vector_create(&amgx_b, rsrc, AMGX_mode_dDDI));
-    // AMGX_SAFE_CALL(AMGX_vector_upload(amgx_x, numberOfRows, blockSize, x.data()));
-    // AMGX_SAFE_CALL(AMGX_vector_upload(amgx_b, numberOfRows, blockSize, b.data()));
-
-    // // Create matrix usable by amgx
-    // AMGX_matrix_handle amgx_A;
-    // AMGX_SAFE_CALL(AMGX_matrix_create(&amgx_A, rsrc, AMGX_mode_dDDI));
-    // AMGX_SAFE_CALL(AMGX_matrix_upload_all(amgx_A, numberOfRows, numberOfNonzeroBlocks, blockSize, blockSize, rowIndices, columnIndices, nonZeroValues, NULL));
-
-    // // Setup the solver
-    // AMGX_SAFE_CALL(AMGX_solver_setup(amgx_solver, amgx_A));
-
-    // // Perform Jacobi preconditioning
-    // AMGX_SAFE_CALL(AMGX_solver_solve(amgx_solver, amgx_b, amgx_x));
-
-    // // Download the result vector from AMGX
-    // AMGX_SAFE_CALL(AMGX_vector_download(amgx_x, x.data()));
-
-    // AMGX_SAFE_CALL(AMGX_solver_destroy(amgx_solver));
-    // AMGX_SAFE_CALL(AMGX_matrix_destroy(amgx_A));
-    // AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x));
-    // AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_b));
-    // AMGX_SAFE_CALL(AMGX_resources_destroy(rsrc));
-    // AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
-    // AMGX_SAFE_CALL(AMGX_finalize());
+    AMGX_SAFE_CALL(AMGX_matrix_destroy(amgx_A));
 }
 
 template <class M, class X, class Y, int l>
@@ -209,20 +161,9 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::update()
 {   
-    m.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
-    const auto numberOfRows = detail::to_int(m.N());
-    const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
-    const auto blockSize = detail::to_int(m.blockSize());
-    auto nonZeroValues = m.getNonZeroValues().data();
-    auto rowIndices = m.getRowIndices().data();
-    auto columnIndices = m.getColumnIndices().data();
-    // Create matrix usable by amgx
-    AMGX_SAFE_CALL(AMGX_matrix_upload_all(amgx_A, numberOfRows, numberOfNonzeroBlocks, blockSize, blockSize, rowIndices, columnIndices, nonZeroValues, NULL));
+    m.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));  
 
-    // Setup the solver
-    AMGX_SAFE_CALL(AMGX_solver_setup(amgx_solver, amgx_A));
-    
-    return;
+    // TODO: use AMGX_matrix_replace_coefficients here on A with the updated nnz values from m
 }
 
 } // namespace Opm::cuistl
