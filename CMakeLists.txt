@@ -184,6 +184,7 @@ endif()
 # Temporary hacky solution: include OpenMP as AMGX requires it
 # AMGX does not have a config.cmake file, so explicitly specify where to fined the 
 # needed header and lib files.
+# note that amgx was built using -DCMAKE_NO_MPI_True
 find_package(OpenMP)
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -191,9 +192,8 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-find_path (AMGX_INCLUDE_DIR NAMES amgx_c.h HINTS /home/tobias/Downloads/amgx/include NOCACHE)
-message("Include Directory: ${AMGX_INCLUDE_DIR}")
-find_library(AMGX_LIB NAMES amgxsh HINTS /home/tobias/Downloads/amgx/lib)
+find_path (AMGX_INCLUDE_DIR NAMES amgx_c.h HINTS /home/tobias/Downloads/amgx/include)
+find_library(AMGX_LIB NAMES amgxsh HINTS /home/tobias/Downloads/amgx/build)
 
 
 find_package(OpenCL)

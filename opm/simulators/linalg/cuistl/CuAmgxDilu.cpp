@@ -38,9 +38,6 @@
 #include <iostream>
 #include <amgx_c.h>
 
-// This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
-// it highly recommended to read that before proceeding.
-
 class AmgxHelper
 {
     public:
@@ -66,7 +63,7 @@ namespace Opm::cuistl
 {
 
 template <class M, class X, class Y, int l>
-CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
+CuDilu<M, X, Y, l>::CuDilu(const M& A, field_type w)
     : m_underlyingMatrix(A)
     , m_w(w)
     , m(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
@@ -91,33 +88,31 @@ CuJac<M, X, Y, l>::CuJac(const M& A, field_type w)
                              A.nonzeroes()));
 
     AmgxHelper::ensureAmgxInitialized();
-    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_DILU, max_uncolored_percentage=0, coloring_level=1, ilu_sparsity_level=0, max_iters=1, monitor_residual=1, print_solve_stats=0")); // TODO insert w
+    // tested solvers: MULTICOLOR_GS   - works as expected, converges for spe1, seemingly converges on norne, run interrupted for being slow after some months
+    //                 MULTICOLOR_DILU - does not converge on spe1
+    // the config is taken from the test suite of amgx to ensure a valid set of parameters for DILU
+    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_GS, max_uncolored_percentage=0, coloring_level=1, ilu_sparsity_level=0, max_iters=1, monitor_residual=1, print_solve_stats=0"));
     AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
-    AMGX_SAFE_CALL(AMGX_vector_create(&amgx_x, rsrc, AMGX_mode_dDDI));
-    AMGX_SAFE_CALL(AMGX_vector_create(&amgx_b, rsrc, AMGX_mode_dDDI));
     
     update();
 
 }
 
 template <class M, class X, class Y, int l>
-CuJac<M, X, Y, l>::~CuJac(){
-    
-    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x)); // recommended that vectors are destroyed before matrices - amgx reference p.112
-    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_b));
+CuDilu<M, X, Y, l>::~CuDilu(){
     AMGX_SAFE_CALL(AMGX_resources_destroy(rsrc));
     AMGX_SAFE_CALL(AMGX_config_destroy(cfg));
 }
 
 template <class M, class X, class Y, int l>
 void
-CuJac<M, X, Y, l>::pre([[maybe_unused]] X& x, [[maybe_unused]] Y& b)
+CuDilu<M, X, Y, l>::pre([[maybe_unused]] X& x, [[maybe_unused]] Y& b)
 {
 }
 
 template <class M, class X, class Y, int l>
 void
-CuJac<M, X, Y, l>::apply(X& x, const Y& b)
+CuDilu<M, X, Y, l>::apply(X& x, const Y& b)
 {
     const auto numberOfRows = detail::to_int(m.N());
     const auto numberOfNonzeroBlocks = detail::to_int(m.nonzeroes());
@@ -125,6 +120,10 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     auto nonZeroValues = m.getNonZeroValues().data();
     auto rowIndices = m.getRowIndices().data();
     auto columnIndices = m.getColumnIndices().data();
+
+
+    AMGX_SAFE_CALL(AMGX_vector_create(&amgx_x, rsrc, AMGX_mode_dDDI));
+    AMGX_SAFE_CALL(AMGX_vector_create(&amgx_b, rsrc, AMGX_mode_dDDI));
 
     AMGX_SAFE_CALL(AMGX_solver_create(&amgx_solver, rsrc, AMGX_mode_dDDI, cfg));
     AMGX_SAFE_CALL(AMGX_matrix_create(&amgx_A, rsrc, AMGX_mode_dDDI));
@@ -139,27 +138,27 @@ CuJac<M, X, Y, l>::apply(X& x, const Y& b)
     AMGX_SAFE_CALL(AMGX_vector_download(amgx_x, x.data())); // put the data 
 
     AMGX_SAFE_CALL(AMGX_solver_destroy(amgx_solver)); // solver must be destroyed before matrix - amgx reference p.65
-
-
+    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_x)); // recommended that vectors are destroyed before matrices - amgx reference p.112
+    AMGX_SAFE_CALL(AMGX_vector_destroy(amgx_b));
     AMGX_SAFE_CALL(AMGX_matrix_destroy(amgx_A));
 }
 
 template <class M, class X, class Y, int l>
 void
-CuJac<M, X, Y, l>::post([[maybe_unused]] X& x)
+CuDilu<M, X, Y, l>::post([[maybe_unused]] X& x)
 {
 }
 
 template <class M, class X, class Y, int l>
 Dune::SolverCategory::Category
-CuJac<M, X, Y, l>::category() const
+CuDilu<M, X, Y, l>::category() const
 {
     return Dune::SolverCategory::sequential;
 }
 
 template <class M, class X, class Y, int l>
 void
-CuJac<M, X, Y, l>::update()
+CuDilu<M, X, Y, l>::update()
 {   
     m.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));  
 
@@ -167,26 +166,26 @@ CuJac<M, X, Y, l>::update()
 }
 
 } // namespace Opm::cuistl
-#define INSTANTIATE_CUJAC_DUNE(realtype, blockdim)                                                                 \
-    template class ::Opm::cuistl::CuJac<Dune::BCRSMatrix<Dune::FieldMatrix<realtype, blockdim, blockdim>>,         \
+#define INSTANTIATE_CuDilu_DUNE(realtype, blockdim)                                                                 \
+    template class ::Opm::cuistl::CuDilu<Dune::BCRSMatrix<Dune::FieldMatrix<realtype, blockdim, blockdim>>,         \
                                             ::Opm::cuistl::CuVector<realtype>,                                         \
                                             ::Opm::cuistl::CuVector<realtype>>;                                        \
-    template class ::Opm::cuistl::CuJac<Dune::BCRSMatrix<Opm::MatrixBlock<realtype, blockdim, blockdim>>,          \
+    template class ::Opm::cuistl::CuDilu<Dune::BCRSMatrix<Opm::MatrixBlock<realtype, blockdim, blockdim>>,          \
                                             ::Opm::cuistl::CuVector<realtype>,                                         \
                                             ::Opm::cuistl::CuVector<realtype>>
 
 
 
-INSTANTIATE_CUJAC_DUNE(double, 1);
-INSTANTIATE_CUJAC_DUNE(double, 2);
-INSTANTIATE_CUJAC_DUNE(double, 3);
-INSTANTIATE_CUJAC_DUNE(double, 4);
-INSTANTIATE_CUJAC_DUNE(double, 5);
-INSTANTIATE_CUJAC_DUNE(double, 6);
+INSTANTIATE_CuDilu_DUNE(double, 1);
+INSTANTIATE_CuDilu_DUNE(double, 2);
+INSTANTIATE_CuDilu_DUNE(double, 3);
+INSTANTIATE_CuDilu_DUNE(double, 4);
+INSTANTIATE_CuDilu_DUNE(double, 5);
+INSTANTIATE_CuDilu_DUNE(double, 6);
 
-INSTANTIATE_CUJAC_DUNE(float, 1);
-INSTANTIATE_CUJAC_DUNE(float, 2);
-INSTANTIATE_CUJAC_DUNE(float, 3);
-INSTANTIATE_CUJAC_DUNE(float, 4);
-INSTANTIATE_CUJAC_DUNE(float, 5);
-INSTANTIATE_CUJAC_DUNE(float, 6);
+INSTANTIATE_CuDilu_DUNE(float, 1);
+INSTANTIATE_CuDilu_DUNE(float, 2);
+INSTANTIATE_CuDilu_DUNE(float, 3);
+INSTANTIATE_CuDilu_DUNE(float, 4);
+INSTANTIATE_CuDilu_DUNE(float, 5);
+INSTANTIATE_CuDilu_DUNE(float, 6);
