@@ -54,7 +54,6 @@ class AmgxHelper
 
         ~AmgxHelper()
         {
-            std::cout << "Finalize called\n";
             AMGX_SAFE_CALL(AMGX_finalize());
         }
 };
@@ -91,7 +90,7 @@ CuDilu<M, X, Y, l>::CuDilu(const M& A, field_type w)
     // tested solvers: MULTICOLOR_GS   - works as expected, converges for spe1, seemingly converges on norne, run interrupted for being slow after some months
     //                 MULTICOLOR_DILU - does not converge on spe1
     // the config is taken from the test suite of amgx to ensure a valid set of parameters for DILU
-    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "solver=MULTICOLOR_GS, max_uncolored_percentage=0, coloring_level=1, ilu_sparsity_level=0, max_iters=1, monitor_residual=1, print_solve_stats=0"));
+    AMGX_SAFE_CALL(AMGX_config_create(&cfg, "config_version=2, solver(dilu_solv)=MULTICOLOR_DILU, dilu_solv:coloring_level=1, dilu_solv:matrix_coloring_scheme=MIN_MAX, dilu_solv:max_uncolored_percentage=0.15, dilu_solv:relaxation_factor=0.9, dilu_solv:max_iters=1"));
     AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
     
     update();

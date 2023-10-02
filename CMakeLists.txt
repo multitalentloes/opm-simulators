@@ -181,7 +181,7 @@ endif()
 
 
 
-# Temporary hacky solution: include OpenMP as AMGX requires it
+# Temporary hacky solution: include OpenMP as AMGX requires it - TODO: ask for help from someone who knows the proper way to do this
 # AMGX does not have a config.cmake file, so explicitly specify where to fined the 
 # needed header and lib files.
 # note that amgx was built using -DCMAKE_NO_MPI_True
