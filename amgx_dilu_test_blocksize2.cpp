@@ -33,9 +33,9 @@ int main(){
 
     int nnz = 4; //nonzero blockelements
     // Create and populate the vector
-    double input_vector_x[4] = {1, 2, 1, 1};
-    double input_vector_b[4] = {2, 1, 3, 4};
-    int row_ptrs[num_rows] = {0,2,4};
+    double input_vector_x[num_rows*blocksize] = {1, 2, 1, 1};
+    double input_vector_b[num_rows*blocksize] = {2, 1, 3, 4};
+    int row_ptrs[num_rows+1] = {0,2,4};
     int col_indices[nnz] = {0,1,0,1};
     double values[nnz*blocksize*blocksize]  = {3,1,2,1,1,0,0,1,2,0,0,2,-1,0,0,-1};
 
