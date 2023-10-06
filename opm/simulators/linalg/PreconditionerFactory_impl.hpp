@@ -34,7 +34,9 @@
 #include <opm/simulators/linalg/PressureTransferPolicy.hpp>
 #include <opm/simulators/linalg/PropertyTree.hpp>
 #include <opm/simulators/linalg/WellOperators.hpp>
+#include <opm/simulators/linalg/ExtraSmoothers.hpp>
 
+#include <dune/common/unused.hh>
 #include <dune/istl/owneroverlapcopy.hh>
 #include <dune/istl/preconditioners.hh>
 #include <dune/istl/paamg/amg.hh>
@@ -43,6 +45,7 @@
 
 #include <config.h>
 #if HAVE_CUDA
+#include <opm/simulators/linalg/cuistl/CuDILU.hpp>
 #include <opm/simulators/linalg/cuistl/CuSeqILU0.hpp>
 #include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
 #include <opm/simulators/linalg/cuistl/PreconditionerConvertFieldTypeAdapter.hpp>
@@ -86,6 +89,21 @@ struct AMGSmootherArgsHelper<Opm::ParallelOverlappingILU0<M,V,V,C>>
         // smootherArgs.overlap=SmootherArgs::none;
         // smootherArgs.overlap=SmootherArgs::aggregate;
         smootherArgs.relaxationFactor = prm.get<double>("relaxation", 1.0);
+        return smootherArgs;
+    }
+};
+
+ template<class M, class V>
+  struct AMGSmootherArgsHelper<Dune::SeqDilu<M,V,V>>
+{
+    static auto args(const PropertyTree& prm)
+    {
+        using Smoother = Dune::SeqDilu<M, V, V>;
+        using SmootherArgs = typename Dune::Amg::SmootherTraits<Smoother>::Arguments;
+        SmootherArgs smootherArgs;
+	//smootherArgs.iterations = prm.get<int>("iterations", 1);
+      //  smootherArgs.relaxationFactor = prm.get<double>("relaxation", 1.0);
+	//smootherArgs.leftPrecond = prm.get<bool>("left_precond", true);       
         return smootherArgs;
     }
 };
@@ -156,6 +174,10 @@ struct StandardPreconditioners
         });
         F::addCreator("ILUn", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
           return createParILU(op, prm, comm, prm.get<int>("ilulevel", 0));
+        });
+        F::addCreator("DILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
+                        DUNE_UNUSED_PARAMETER(prm);
+                        return wrapBlockPreconditioner<SeqDilu<M, V, V>>(comm, op.getmat());
         });
         F::addCreator("Jac", [](const O& op, const P& prm, const std::function<V()>&,
                      std::size_t, const C& comm) {
@@ -317,6 +339,10 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             return std::make_shared<Opm::ParallelOverlappingILU0<M, V, V, C>>(
                 op.getmat(), n, w, Opm::MILU_VARIANT::ILU);
         });
+         F::addCreator("DILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+            DUNE_UNUSED_PARAMETER(prm);
+            return std::make_shared<SeqDilu<M, V, V>>(op.getmat());
+        });
         F::addCreator("Jac", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const int n = prm.get<int>("repeats", 1);
             const double w = prm.get<double>("relaxation", 1.0);
@@ -348,6 +374,9 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
                     return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
                 } else if (smoother == "Jac") {
                     using Smoother = SeqJac<M, V, V>;
+                    return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
+                } else if (smoother == "DILU") {
+                    using Smoother = SeqDilu<M, V, V>;
                     return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
                 } else if (smoother == "SOR") {
                     using Smoother = SeqSOR<M, V, V>;

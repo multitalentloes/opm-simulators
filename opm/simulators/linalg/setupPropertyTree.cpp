@@ -96,6 +96,11 @@ setupPropertyTree(FlowLinearSolverParameters p, // Note: copying the parameters 
         return setupILU(conf, p);
     }
 
+    // Use ILU0 configuration.
+    if (conf == "dilu") {
+        return setupILU(conf, p);
+    }
+
     if (conf == "umfpack") {
         return setupUMFPack(conf, p);
     }

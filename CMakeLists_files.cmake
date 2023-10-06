@@ -475,8 +475,10 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/simulators/linalg/bda/rocsparseSolverBackend.hpp
   opm/simulators/linalg/bda/WellContributions.hpp
   opm/simulators/linalg/amgcpr.hh
+  opm/simulators/linalg/cuistl/CuDILU.hpp
   opm/simulators/linalg/twolevelmethodcpr.hh
   opm/simulators/linalg/ExtractParallelGridInformationToISTL.hpp
+  opm/simulators/linalg/ExtraSmoothers.hpp
   opm/simulators/linalg/FlexibleSolver.hpp
   opm/simulators/linalg/FlexibleSolver_impl.hpp
   opm/simulators/linalg/FlowLinearSolverParameters.hpp
