@@ -175,10 +175,6 @@ struct StandardPreconditioners
         F::addCreator("ILUn", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
           return createParILU(op, prm, comm, prm.get<int>("ilulevel", 0));
         });
-        F::addCreator("DILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
-                        DUNE_UNUSED_PARAMETER(prm);
-                        return wrapBlockPreconditioner<SeqDilu<M, V, V>>(comm, op.getmat());
-        });
         F::addCreator("Jac", [](const O& op, const P& prm, const std::function<V()>&,
                      std::size_t, const C& comm) {
           const int n = prm.get<int>("repeats", 1);
@@ -261,6 +257,17 @@ struct StandardPreconditioners
             auto wrapped = std::make_shared<Opm::cuistl::CuBlockPreconditioner<V, V, Comm>>(adapted, comm);
             return wrapped;
         });
+
+        F::addCreator("CUDILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
+            const double w = prm.get<double>("relaxation", 1.0);
+            using field_type = typename V::field_type;
+            using CuDILU = typename Opm::cuistl::CuSeqDILU<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            auto cuDILU = std::make_shared<CuDILU>(op.getmat(), w);
+
+            auto adapted = std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuDILU>>(cuDILU);
+            auto wrapped = std::make_shared<Opm::cuistl::CuBlockPreconditioner<V, V, Comm>>(adapted, comm);
+            return wrapped;
+        });
 #endif
     }
 
@@ -339,10 +346,6 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             return std::make_shared<Opm::ParallelOverlappingILU0<M, V, V, C>>(
                 op.getmat(), n, w, Opm::MILU_VARIANT::ILU);
         });
-         F::addCreator("DILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
-            DUNE_UNUSED_PARAMETER(prm);
-            return std::make_shared<SeqDilu<M, V, V>>(op.getmat());
-        });
         F::addCreator("Jac", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const int n = prm.get<int>("repeats", 1);
             const double w = prm.get<double>("relaxation", 1.0);
@@ -374,9 +377,6 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
                     return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
                 } else if (smoother == "Jac") {
                     using Smoother = SeqJac<M, V, V>;
-                    return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
-                } else if (smoother == "DILU") {
-                    using Smoother = SeqDilu<M, V, V>;
                     return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
                 } else if (smoother == "SOR") {
                     using Smoother = SeqSOR<M, V, V>;
@@ -473,6 +473,14 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             converted->setUnderlyingPreconditioner(adapted);
             return converted;
 
+        });
+
+
+        F::addCreator("CUDILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+            const double w = prm.get<double>("relaxation", 1.0);
+            using field_type = typename V::field_type;
+            using CuDILU = typename Opm::cuistl::CuSeqDILU<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CuDILU>>(std::make_shared<CuDILU>(op.getmat(), w));
         });
 #endif
     }

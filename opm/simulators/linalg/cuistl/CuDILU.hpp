@@ -13,8 +13,8 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef OPM_DILU_HEADER_INCLUDED
-#define OPM_DILU_HEADER_INCLUDED
+#ifndef OPM_CUDILU_HEADER_INCLUDED
+#define OPM_CUDILU_HEADER_INCLUDED
 
 #include <config.h>
 #include <opm/common/ErrorMacros.hpp>
@@ -26,74 +26,118 @@
 #include <dune/common/unused.hh>
 #include <dune/istl/bcrsmatrix.hh>
 
+#include <dune/istl/preconditioner.hh>
+#include <opm/simulators/linalg/PreconditionerWithUpdate.hpp>
+#include <opm/simulators/linalg/cuistl/CuSparseMatrix.hpp>
+#include <opm/simulators/linalg/cuistl/detail/CuMatrixDescription.hpp>
+#include <opm/simulators/linalg/cuistl/detail/CuSparseHandle.hpp>
+#include <opm/simulators/linalg/cuistl/detail/CuSparseResource.hpp>
 
-namespace Dune
+namespace Opm::cuistl
 {
-
-/*! \brief The sequential DILU preconditioner.
-
-   \tparam M The matrix type to operate on
-   \tparam X Type of the update
-   \tparam Y Type of the defect
- */
-template <class M, class X, class Y>
-class SeqDilu : public PreconditionerWithUpdate<X, Y>
+//! \brief Sequential ILU0 preconditioner on the GPU through the CuSparse library.
+//!
+//! This implementation calls the CuSparse functions, which in turn essentially
+//! does a level decomposition to get some parallelism.
+//!
+//! \note This is not expected to be a fast preconditioner.
+//!
+//! \tparam M The matrix type to operate on
+//! \tparam X Type of the update
+//! \tparam Y Type of the defect
+//! \tparam l Ignored. Just there to have the same number of template arguments
+//!    as other preconditioners.
+//!
+//! \note We assume X and Y are both CuVector<real_type>, but we leave them as template
+//! arguments in case of future additions.
+template <class M, class X, class Y, int l = 1>
+class CuSeqDILU : public Dune::PreconditionerWithUpdate<X, Y>
 {
 public:
     //! \brief The matrix type the preconditioner is for.
-    typedef M matrix_type;
+    using matrix_type = typename std::remove_const<M>::type ;
     //! \brief The domain type of the preconditioner.
-    typedef X domain_type;
+    using domain_type = X;
     //! \brief The range type of the preconditioner.
-    typedef Y range_type;
+    using range_type = Y;
     //! \brief The field type of the preconditioner.
-    typedef typename X::field_type field_type;
-    //! \brief scalar type underlying the field_type
-#if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 7)
-    typedef Simd::Scalar<field_type> scalar_field_type;
-#else
-    typedef SimdScalar<field_type> scalar_field_type;
-#endif
+    using field_type = typename X::field_type;
 
-    /*! \brief Constructor.
-       Constructor gets all parameters to operate the prec.
-       \param A The matrix to operate on.
-     */
-    SeqDilu(const M& A);
+    //! \brief Constructor.
+    //!
+    //!  Constructor gets all parameters to operate the prec.
+    //! \param A The matrix to operate on.
+    //! \param w The relaxation factor.
+    //!
+    CuSeqDILU(const M& A, field_type w);
 
-    virtual void update() override;
+    //! \brief Prepare the preconditioner.
+    //! \note Does nothing at the time being.
+    virtual void pre(X& x, Y& b) override;
 
-    /*!
-       \brief Prepare the preconditioner.
-       \copydoc Preconditioner::pre(X&,Y&)
-     */
-    virtual void pre(X& v, Y& d) override;
+    //! \brief Apply the preconditoner.
+    virtual void apply(X& v, const Y& d) override;
 
-  /*!
-       \brief Apply the preconditioner.
-       \copydoc Preconditioner::apply(X&,const Y&)
-     */
- virtual void apply(X& v, const Y& d) override;
-
-    /*!
-       \brief Clean up.
-       \copydoc Preconditioner::post(X&)
-     */
+    //! \brief Post processing
+    //! \note Does nothing at the moment
     virtual void post(X& x) override;
-    
-    std::vector<typename M::block_type> getDiagonal();
 
     //! Category of the preconditioner (see SolverCategory::Category)
-    virtual SolverCategory::Category category() const override;
+    virtual Dune::SolverCategory::Category category() const override;
+
+    //! \brief Updates the matrix data.
+    virtual void update() override;
+
+
+    //! \returns false
+    static constexpr bool shouldCallPre()
+    {
+        return false;
+    }
+
+    //! \returns false
+    static constexpr bool shouldCallPost()
+    {
+        return false;
+    }
+
 
 private:
-    //! \brief The matrix we operate on.
-    const M& A_;
     //! \brief The inverse of the diagnal matrix
     typedef typename M::block_type matrix_block_type;
     std::vector<matrix_block_type> Dinv_;
-};
 
-} // namespace Dune
+    //! \brief Reference to the underlying matrix
+    const M& m_underlyingMatrix;
+    //! \brief The relaxation factor to use.
+    field_type m_w;
+
+    //! This is the storage for the LU composition.
+    //! Initially this will have the values of A, but will be
+    //! modified in the constructor to be the proper LU decomposition.
+    CuSparseMatrix<field_type> m_LU;
+
+    CuVector<field_type> m_temporaryStorage;
+
+
+    detail::CuSparseMatrixDescriptionPtr m_descriptionL;
+    detail::CuSparseMatrixDescriptionPtr m_descriptionU;
+    detail::CuSparseResource<bsrsv2Info_t> m_infoL;
+    detail::CuSparseResource<bsrsv2Info_t> m_infoU;
+    detail::CuSparseResource<bsrilu02Info_t> m_infoM;
+
+    std::unique_ptr<CuVector<field_type>> m_buffer;
+    detail::CuSparseHandle& m_cuSparseHandle;
+
+    bool m_analysisDone = false;
+
+    void analyzeMatrix();
+    size_t findBufferSize();
+
+    void createILU();
+
+    void updateILUConfiguration();
+};
+} // end namespace Opm::cuistl
 
 #endif

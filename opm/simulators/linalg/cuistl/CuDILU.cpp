@@ -23,55 +23,137 @@
 #include <dune/common/unused.hh>
 #include <dune/istl/bcrsmatrix.hh>
 
+#include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuDILU.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
+#include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
+#include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
+#include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 
 
-namespace Dune
+namespace Opm::cuistl
 {
 
-/*! \brief The sequential DILU preconditioner.
-
-   \tparam M The matrix type to operate on
-   \tparam X Type of the update
-   \tparam Y Type of the defect
- */
-template <class M, class X, class Y>
-class SeqDilu : public PreconditionerWithUpdate<X, Y>
+template <class M, class X, class Y, int l>
+CuSeqDILU<M, X, Y, l>::CuSeqDILU(const M& A, field_type w)
+    : m_underlyingMatrix(A)
+    , m_w(w)
+    , m_LU(CuSparseMatrix<field_type>::fromMatrix(detail::makeMatrixWithNonzeroDiagonal(A)))
+    , m_temporaryStorage(m_LU.N() * m_LU.blockSize())
+    , m_descriptionL(detail::createLowerDiagonalDescription())
+    , m_descriptionU(detail::createUpperDiagonalDescription())
+    , m_cuSparseHandle(detail::CuSparseHandle::getInstance())
 {
-public:
-    //! \brief The matrix type the preconditioner is for.
-    typedef M matrix_type;
-    //! \brief The domain type of the preconditioner.
-    typedef X domain_type;
-    //! \brief The range type of the preconditioner.
-    typedef Y range_type;
-    //! \brief The field type of the preconditioner.
-    typedef typename X::field_type field_type;
-    //! \brief scalar type underlying the field_type
-#if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 7)
-    typedef Simd::Scalar<field_type> scalar_field_type;
-#else
-    typedef SimdScalar<field_type> scalar_field_type;
-#endif
+    // Some sanity check
+    OPM_ERROR_IF(A.N() != m_LU.N(),
+                 fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m_LU.N(), A.N()));
+    OPM_ERROR_IF(
+        A[0][0].N() != m_LU.blockSize(),
+        fmt::format("CuSparse matrix not same blocksize as DUNE matrix. {} vs {}.", m_LU.blockSize(), A[0][0].N()));
+    OPM_ERROR_IF(
+        A.N() * A[0][0].N() != m_LU.dim(),
+        fmt::format("CuSparse matrix not same dimension as DUNE matrix. {} vs {}.", m_LU.dim(), A.N() * A[0][0].N()));
+    OPM_ERROR_IF(A.nonzeroes() != m_LU.nonzeroes(),
+                 fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
+                             m_LU.nonzeroes(),
+                             A.nonzeroes()));
+    updateILUConfiguration();
 
-    /*! \brief Constructor.
-       Constructor gets all parameters to operate the prec.
-       \param A The matrix to operate on.
-     */
-    SeqDilu(const M& A)
-        : A_(A)
-    {
-        CheckIfDiagonalPresent<M, 1>::check(A_);
-        // we build the inverseD matrix
-        Dinv_.resize(A_.N());
+    // CPU DILU
+    CheckIfDiagonalPresent<M, 1>::check(A_);
+    // we build the inverseD matrix
+    Dinv_.resize(A_.N());
 
-        // is this the correct usage?
-        update();
-    }
+    // is this the correct usage?
+    update();
+}
 
-    virtual void update() override {
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::pre([[maybe_unused]] X& x, [[maybe_unused]] Y& b)
+{
+}
 
-        using block = typename M::block_type;
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::apply(X& v, const Y& d)
+{
+
+    // We need to pass the solve routine a scalar to multiply.
+    // In our case this scalar is 1.0
+    const field_type one = 1.0;
+
+    const auto numberOfRows = detail::to_int(m_LU.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
+    const auto blockSize = detail::to_int(m_LU.blockSize());
+
+    auto nonZeroValues = m_LU.getNonZeroValues().data();
+    auto rowIndices = m_LU.getRowIndices().data();
+    auto columnIndices = m_LU.getColumnIndices().data();
+
+    // Solve L m_temporaryStorage = d
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
+                                                        detail::CUSPARSE_MATRIX_ORDER,
+                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                        numberOfRows,
+                                                        numberOfNonzeroBlocks,
+                                                        &one,
+                                                        m_descriptionL->get(),
+                                                        nonZeroValues,
+                                                        rowIndices,
+                                                        columnIndices,
+                                                        blockSize,
+                                                        m_infoL.get(),
+                                                        d.data(),
+                                                        m_temporaryStorage.data(),
+                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                        m_buffer->data()));
+
+    // Solve U v = m_temporaryStorage
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
+                                                        detail::CUSPARSE_MATRIX_ORDER,
+                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                        numberOfRows,
+                                                        numberOfNonzeroBlocks,
+                                                        &one,
+                                                        m_descriptionU->get(),
+                                                        nonZeroValues,
+                                                        rowIndices,
+                                                        columnIndices,
+                                                        blockSize,
+                                                        m_infoU.get(),
+                                                        m_temporaryStorage.data(),
+                                                        v.data(),
+                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                        m_buffer->data()));
+
+
+    v *= m_w;
+}
+
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::post([[maybe_unused]] X& x)
+{
+}
+
+template <class M, class X, class Y, int l>
+Dune::SolverCategory::Category
+CuSeqDILU<M, X, Y, l>::category() const
+{
+    return Dune::SolverCategory::sequential;
+}
+
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::update()
+{
+    m_LU.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
+    createILU();
+
+    // CPU DILU
+    using block = typename M::block_type;
         
         for ( auto i = A_.begin(); i != A_.end(); ++i)
         {
@@ -97,110 +179,213 @@ public:
             Dinv_temp.invert();
             Dinv_[i.index()] = Dinv_temp;
         }
+}
+
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::analyzeMatrix()
+{
+
+    if (!m_buffer) {
+        OPM_THROW(std::runtime_error,
+                  "Buffer not initialized. Call findBufferSize() then initialize with the appropiate size.");
     }
+    const auto numberOfRows = detail::to_int(m_LU.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
+    const auto blockSize = detail::to_int(m_LU.blockSize());
 
-    /*!
-       \brief Prepare the preconditioner.
-       \copydoc Preconditioner::pre(X&,Y&)
-     */
-    virtual void pre(X& v, Y& d) override
-    {
-        DUNE_UNUSED_PARAMETER(v);
-        DUNE_UNUSED_PARAMETER(d);
+    auto nonZeroValues = m_LU.getNonZeroValues().data();
+    auto rowIndices = m_LU.getRowIndices().data();
+    auto columnIndices = m_LU.getColumnIndices().data();
+    // analysis of ilu LU decomposition
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrilu02_analysis(m_cuSparseHandle.get(),
+                                                             detail::CUSPARSE_MATRIX_ORDER,
+                                                             numberOfRows,
+                                                             numberOfNonzeroBlocks,
+                                                             m_LU.getDescription().get(),
+                                                             nonZeroValues,
+                                                             rowIndices,
+                                                             columnIndices,
+                                                             blockSize,
+                                                             m_infoM.get(),
+                                                             CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                             m_buffer->data()));
+
+    // Make sure we can decompose the matrix.
+    int structuralZero;
+    auto statusPivot = cusparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
+    OPM_ERROR_IF(statusPivot != CUSPARSE_STATUS_SUCCESS,
+                 fmt::format("Found a structural zero at A({}, {}). Could not decompose LU \\approx A.\n\n A has "
+                             "dimension {}, and has {} nonzeroes.",
+                             structuralZero,
+                             structuralZero,
+                             m_LU.N(),
+                             m_LU.nonzeroes()));
+
+    // analysis of ilu apply
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
+                                                           detail::CUSPARSE_MATRIX_ORDER,
+                                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                           numberOfRows,
+                                                           numberOfNonzeroBlocks,
+                                                           m_descriptionL->get(),
+                                                           nonZeroValues,
+                                                           rowIndices,
+                                                           columnIndices,
+                                                           blockSize,
+                                                           m_infoL.get(),
+                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                           m_buffer->data()));
+
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
+                                                           detail::CUSPARSE_MATRIX_ORDER,
+                                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                           numberOfRows,
+                                                           numberOfNonzeroBlocks,
+                                                           m_descriptionU->get(),
+                                                           nonZeroValues,
+                                                           rowIndices,
+                                                           columnIndices,
+                                                           blockSize,
+                                                           m_infoU.get(),
+                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                           m_buffer->data()));
+    m_analysisDone = true;
+}
+
+template <class M, class X, class Y, int l>
+size_t
+CuSeqDILU<M, X, Y, l>::findBufferSize()
+{
+    // We have three calls that need buffers:
+    //   1) LU decomposition
+    //   2) solve Lv = y
+    //   3) solve Ux = z
+    // we combine these buffers into one since it is not used across calls,
+    const auto numberOfRows = detail::to_int(m_LU.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
+    const auto blockSize = detail::to_int(m_LU.blockSize());
+
+    auto nonZeroValues = m_LU.getNonZeroValues().data();
+    auto rowIndices = m_LU.getRowIndices().data();
+    auto columnIndices = m_LU.getColumnIndices().data();
+
+    int bufferSizeM = 0;
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrilu02_bufferSize(m_cuSparseHandle.get(),
+                                                               detail::CUSPARSE_MATRIX_ORDER,
+                                                               numberOfRows,
+                                                               numberOfNonzeroBlocks,
+                                                               m_LU.getDescription().get(),
+                                                               nonZeroValues,
+                                                               rowIndices,
+                                                               columnIndices,
+                                                               blockSize,
+                                                               m_infoM.get(),
+                                                               &bufferSizeM));
+    int bufferSizeL = 0;
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_bufferSize(m_cuSparseHandle.get(),
+                                                             detail::CUSPARSE_MATRIX_ORDER,
+                                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                             numberOfRows,
+                                                             numberOfNonzeroBlocks,
+                                                             m_descriptionL->get(),
+                                                             nonZeroValues,
+                                                             rowIndices,
+                                                             columnIndices,
+                                                             blockSize,
+                                                             m_infoL.get(),
+                                                             &bufferSizeL));
+
+    int bufferSizeU = 0;
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_bufferSize(m_cuSparseHandle.get(),
+                                                             detail::CUSPARSE_MATRIX_ORDER,
+                                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                             numberOfRows,
+                                                             numberOfNonzeroBlocks,
+                                                             m_descriptionL->get(),
+                                                             nonZeroValues,
+                                                             rowIndices,
+                                                             columnIndices,
+                                                             blockSize,
+                                                             m_infoU.get(),
+                                                             &bufferSizeU));
+
+    OPM_ERROR_IF(bufferSizeL <= 0, fmt::format("bufferSizeL is non-positive. Given value is {}.", bufferSizeL));
+    OPM_ERROR_IF(bufferSizeU <= 0, fmt::format("bufferSizeU is non-positive. Given value is {}.", bufferSizeU));
+    OPM_ERROR_IF(bufferSizeM <= 0, fmt::format("bufferSizeM is non-positive. Given value is {}.", bufferSizeM));
+
+    return size_t(std::max(bufferSizeL, std::max(bufferSizeU, bufferSizeM)));
+}
+
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::createILU()
+{
+    OPM_ERROR_IF(!m_buffer, "Buffer not initialized. Call findBufferSize() then initialize with the appropiate size.");
+    OPM_ERROR_IF(!m_analysisDone, "Analyzis of matrix not done. Call analyzeMatrix() first.");
+
+    const auto numberOfRows = detail::to_int(m_LU.N());
+    const auto numberOfNonzeroBlocks = detail::to_int(m_LU.nonzeroes());
+    const auto blockSize = detail::to_int(m_LU.blockSize());
+
+    auto nonZeroValues = m_LU.getNonZeroValues().data();
+    auto rowIndices = m_LU.getRowIndices().data();
+    auto columnIndices = m_LU.getColumnIndices().data();
+    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrilu02(m_cuSparseHandle.get(),
+                                                    detail::CUSPARSE_MATRIX_ORDER,
+                                                    numberOfRows,
+                                                    numberOfNonzeroBlocks,
+                                                    m_LU.getDescription().get(),
+                                                    nonZeroValues,
+                                                    rowIndices,
+                                                    columnIndices,
+                                                    blockSize,
+                                                    m_infoM.get(),
+                                                    CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                    m_buffer->data()));
+
+    // We need to do this here as well. The first call was to check that we could decompose the system A=LU
+    // the second call here is to make sure we can solve LUx=y
+    int structuralZero;
+    // cusparseXbsrilu02_zeroPivot() calls cudaDeviceSynchronize()
+    auto statusPivot = cusparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
+
+    OPM_ERROR_IF(
+        statusPivot != CUSPARSE_STATUS_SUCCESS,
+        fmt::format("Found a structucal zero at LU({}, {}). Could not solve LUx = y.", structuralZero, structuralZero));
+}
+
+template <class M, class X, class Y, int l>
+void
+CuSeqDILU<M, X, Y, l>::updateILUConfiguration()
+{
+    auto bufferSize = findBufferSize();
+    if (!m_buffer || m_buffer->dim() < bufferSize) {
+        m_buffer.reset(new CuVector<field_type>((bufferSize + sizeof(field_type) - 1) / sizeof(field_type)));
     }
+    analyzeMatrix();
+    createILU();
+}
+} // namespace Opm::cuistl
+#define INSTANTIATE_CUSEQDILU(realtype, blockdim)                                                                 \
+    template class ::Opm::cuistl::CuSeqDILU<Dune::BCRSMatrix<Dune::FieldMatrix<realtype, blockdim, blockdim>>,         \
+                                            ::Opm::cuistl::CuVector<realtype>,                                         \
+                                            ::Opm::cuistl::CuVector<realtype>>;                                        \
+    template class ::Opm::cuistl::CuSeqDILU<Dune::BCRSMatrix<Opm::MatrixBlock<realtype, blockdim, blockdim>>,          \
+                                            ::Opm::cuistl::CuVector<realtype>,                                         \
+                                            ::Opm::cuistl::CuVector<realtype>>
 
 
-  /*!
-       \brief Apply the preconditioner.
-       \copydoc Preconditioner::apply(X&,const Y&)
-     */
- virtual void apply(X& v, const Y& d) override
-    {
-        
-    // M = (D + L_A) D^-1 (D + U_A)   (a LU decomposition of M)
-    // where L_A and U_A are the strictly lower and upper parts of A and M has the properties:
-    // diag(A) = diag(M)
-    // solving the product M^-1(b-Ax) using upper and lower triangular solve
-    // z = x_k+1 - x_k = M^-1(b - Ax) = (D + L_A)^-1 D (D + U_A)^-1 (b - Ax)
+INSTANTIATE_CUSEQDILU(double, 1);
+INSTANTIATE_CUSEQDILU(double, 2);
+INSTANTIATE_CUSEQDILU(double, 3);
+INSTANTIATE_CUSEQDILU(double, 4);
+INSTANTIATE_CUSEQDILU(double, 5);
+INSTANTIATE_CUSEQDILU(double, 6);
 
-    typedef typename Y::block_type dblock;
-    
-    // copy current v
-    X x(v);
-    X z;
-    Y y;
-    z.resize(A_.N());
-    y.resize(A_.N());
-    
-    // lower triangular solve: (D + L) y = b - Ax
-    auto endi=A_.end();
-    for (auto i=A_.begin(); i != endi; ++i)
-      {
-        dblock rhsValue(d[i.index()]);
-        auto&& rhs = Impl::asVector(rhsValue);
-        for (auto j=(*i).begin(); j != i->end(); ++j) {
-            // if  A[i][j] != 0
-            // rhs -= A[i][j]* x[j];
-            Impl::asMatrix(*j).mmv(Impl::asVector(x[j.index()]), rhs);
-                
-            // rhs -= A[i][j]* y[j];
-            if (j.index() < i.index()) {
-                Impl::asMatrix(*j).mmv(Impl::asVector(y[j.index()]), rhs);
-            }
-        }
-        // y = Dinv * rhs
-        Impl::asMatrix(Dinv_[i.index()]).mv(rhs, y[i.index()]);
-    }
-
-
-    // upper triangular solve: (D + U) z = Dy 
-    auto rendi=A_.beforeBegin();
-    for (auto i=A_.beforeEnd(); i!=rendi; --i)
-    {
-        // rhs = 0
-        dblock rhs;
-
-        for (auto j=(*i).beforeEnd(); j.index()>i.index(); --j) {
-            // if A [i][j] != 0
-            //rhs += A[i][j]*z[j]
-            Impl::asMatrix(*j).umv(Impl::asVector(z[j.index()]), rhs);
-
-        }
-        // calculate update z = M^-1(b - Ax)
-        // z_i = y_i - Dinv*temp
-        dblock temp;
-        Impl::asMatrix(Dinv_[i.index()]).mv(rhs, temp); 
-        z[i.index()] = y[i.index()] - temp;
-    }
-    // update v
-    v += z;
-    }
-
-    /*!
-       \brief Clean up.
-       \copydoc Preconditioner::post(X&)
-     */
-    virtual void post(X& x) override
-    {
-        DUNE_UNUSED_PARAMETER(x);
-    }
-    
-    std::vector<typename M::block_type> getDiagonal() {
-        return Dinv_;
-    }
-
-    //! Category of the preconditioner (see SolverCategory::Category)
-    virtual SolverCategory::Category category() const override
-    {
-        return SolverCategory::sequential;
-    }
-
-private:
-    //! \brief The matrix we operate on.
-    const M& A_;
-    //! \brief The inverse of the diagnal matrix
-    typedef typename M::block_type matrix_block_type;
-    std::vector<matrix_block_type> Dinv_;
-};
-
-} // namespace Dune
+INSTANTIATE_CUSEQDILU(float, 1);
+INSTANTIATE_CUSEQDILU(float, 2);
+INSTANTIATE_CUSEQDILU(float, 3);
+INSTANTIATE_CUSEQDILU(float, 4);
+INSTANTIATE_CUSEQDILU(float, 5);
+INSTANTIATE_CUSEQDILU(float, 6);
