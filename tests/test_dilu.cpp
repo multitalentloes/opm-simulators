@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(SeqDILUApplyIsCorrectNoZeros, T, NumericTypes)
     // x_k+1 = x_k + z
     Vector new_x = x;
     new_x += z;
-    
+
     Dune::SeqDilu<Matrix, Vector, Vector> seqdilu(A);
     seqdilu.apply(x, b);
 
@@ -362,7 +362,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(SeqDILUApplyIsCorrect1, T, NumericTypes)
     // x_k+1 = x_k + z
     Vector new_x = x;
     new_x += z;
-    
+
     Dune::SeqDilu<Matrix, Vector, Vector> seqdilu(A);
     seqdilu.apply(x, b);
 
@@ -461,7 +461,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(SeqDILUApplyIsCorrect2, T, NumericTypes)
     // x_k+1 = x_k + z
     Vector new_x = x;
     new_x += z;
-    
+
     Dune::SeqDilu<Matrix, Vector, Vector> seqdilu(A);
     seqdilu.apply(x, b);
 
@@ -765,7 +765,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(SeqDILUApplyIsCorrect3, T, NumericTypes)
     // x_k+1 = x_k + z
     Vector new_x = x;
     new_x += z;
-    
+
     Dune::SeqDilu<Matrix, Vector, Vector> seqdilu(A);
     seqdilu.apply(x, b);
 
@@ -846,5 +846,87 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(SeqDILUApplyIsEqualToDuneSeqILUApply, T, NumericTy
         for (int j = 0; j < 2; ++j) {
             BOOST_CHECK_CLOSE(dilu_x[i][j], ilu_x[i][j], 1e-7);
         }
+    }
+}
+
+
+#include <iostream>
+BOOST_AUTO_TEST_CASE_TEMPLATE(TEMPORARYDEBUGGING, T, NumericTypes)
+{
+    /*
+        Tests that the dilu decomposition mathces the expected result
+        for a 2x2 matrix, with block size 2x2.
+
+                 A
+        | | 3  1| | 1  0| |
+        | | 2  1| | 0  1| |
+        |                 |
+        | | 0  0| |-1  0| |
+        | | 0  0| | 0 -1| |
+    */
+
+    const int N = 2;
+    const int bz = 2;
+    const int nonZeroes = 3;
+    using Matrix = Dune::BCRSMatrix<Dune::FieldMatrix<double, bz, bz>>;
+    using Vector = Dune::BlockVector<Dune::FieldVector<double, bz>>;
+
+    Matrix A(N, N, nonZeroes, Matrix::row_wise);
+    for (auto row = A.createbegin(); row != A.createend(); ++row) {
+        row.insert(row.index());
+        if (row.index() == 0) {
+            row.insert(row.index() + 1);
+        }
+    }
+
+    A[0][0][0][0] = 3.0;
+    A[0][0][0][1] = 1.0;
+    A[0][0][1][0] = 2.0;
+    A[0][0][1][1] = 1.0;
+
+    A[0][1][0][0] = 1.0;
+    A[0][1][1][1] = 1.0;
+
+    A[1][1][0][0] = -1.0;
+    A[1][1][1][1] = -1.0;
+
+    // create A_new matrix that given a row permutation
+    const int perm[] = {1, 0};
+    Matrix A_new(N, N, nonZeroes, Matrix::row_wise);
+
+    // for rows in A_new
+    for (auto dst_row_it = A_new.createbegin(); dst_row_it != A_new.createend(); ++dst_row_it) {
+        auto src_row = A.begin() + perm[dst_row_it.index()];
+        // For eleemnts in A
+        for (auto elem = src_row->begin(); elem != src_row->end(); elem++) {
+            dst_row_it.insert(elem.index());
+            // A_new[dst_row_it.index()][elem.index()] = *elem;
+        }
+    }
+    for (auto dst_row_it = A_new.begin(); dst_row_it != A_new.end(); ++dst_row_it) {
+        auto src_row = A.begin() + perm[dst_row_it.index()];
+        // For eleemnts in A
+        for (auto elem = src_row->begin(); elem != src_row->end(); elem++) {
+            // dst_row_it.insert(elem.index());
+            A_new[dst_row_it.index()][elem.index()] = *elem;
+        }
+    }
+    // for (auto dst_row_it = A_new.begin(); dst_row_it != A_new.end(); ++dst_row_it) {
+    //     auto src_row = A.begin() + perm[dst_row_it.index()];
+    //     // For eleemnts in A
+    //     for (auto elem = src_row->begin(); elem != src_row->end(); elem++) {
+    //         for (int i = 0; i < bz; i++){
+    //             for (int j = 0; j < bz; j++){
+    //                 A_new[dst_row_it.index()][elem.index()][i][j] = *A[src_row.index()][elem.index()];//[i][j];
+    //             }
+    //         }
+    //     }
+    // }
+
+    for (auto i = A_new.begin(); i != A_new.end(); i++) {
+        for (auto j = i->begin(); j != i->end(); j++) {
+            std::cout << *j << " ";
+        }
+        std::cout << std::endl;
     }
 }

@@ -29,76 +29,76 @@
 #include <limits>
 #include <numeric>
 #include <queue>
-#include <string>
 #include <tuple>
 #include <vector>
 
-namespace Opm {
-namespace Detail {
-template <class Graph>
-std::size_t colorGraphWelshPowell(const Graph& graph,
-                                  std::deque<typename Graph::VertexDescriptor>& orderedVertices,
-                                  std::vector<int>& colors,
-                                  int color,
-                                  int noVertices)
+#include <opm/common/TimingMacros.hpp>
+#include <opm/grid/utility/SparseTable.hpp>
+#include <string>
+
+namespace Opm
 {
-    std::vector<int> forbidden(noVertices, false);
-    std::size_t noColored = 0;
 
-    for (auto vertex = orderedVertices.begin(),
-              vertexEnd = orderedVertices.end(); vertex != vertexEnd; ++vertex) {
-        // Skip forbidden vertices
-        while (vertex != vertexEnd && forbidden[*vertex])
-            ++vertex;
-        if (vertex == vertexEnd) {
-            break;
-        }
-
-        // Color Vertex
-        colors[*vertex] = color;
-        ++noColored;
-        // Forbid neighors
-        for (auto edge = graph.beginEdges(*vertex),
-                  endEdge = graph.endEdges(*vertex); edge != endEdge; ++edge) {
-            forbidden[edge.target()] = true;
-        }
-    }
-    // forbidden vertices will be colored next for coloring
-    using Vertex = typename Graph::VertexDescriptor;
-    auto newEnd = std::remove_if(orderedVertices.begin(),
-                                 orderedVertices.end(),
-                                 [&forbidden](const Vertex& vertex) { return !forbidden[vertex]; });
-    orderedVertices.resize(newEnd - orderedVertices.begin());
-    return noColored;
-}
-
-template <class Graph, class Functor>
-std::size_t breadthFirstSearch(const Graph& graph,
-                               typename Graph::VertexDescriptor root,
-                               Functor functor)
+namespace Detail
 {
-    std::vector<int> visited(graph.maxVertex() + 1, false);
-    using Vertex = typename Graph::VertexDescriptor;
-    std::queue<Vertex> nextVertices;
-    std::size_t noVisited = 0;
-    nextVertices.push(root);
-    visited[root] = true; // We do not visit root.
+    template <class Graph>
+    std::size_t colorGraphWelshPowell(const Graph& graph,
+                                      std::deque<typename Graph::VertexDescriptor>& orderedVertices,
+                                      std::vector<int>& colors,
+                                      int color,
+                                      int noVertices)
+    {
+        std::vector<int> forbidden(noVertices, false);
+        std::size_t noColored = 0;
 
-    while (!nextVertices.empty()) {
-        auto current = nextVertices.front();
-        for (auto edge = graph.beginEdges(current),
-                  endEdge = graph.endEdges(current); edge != endEdge; ++edge) {
-            if (!visited[edge.target()]) {
-                visited[edge.target()] = true;
-                nextVertices.push(edge.target());
-                functor(edge.target());
-                ++noVisited;
+        for (auto vertex = orderedVertices.begin(), vertexEnd = orderedVertices.end(); vertex != vertexEnd; ++vertex) {
+            // Skip forbidden vertices
+            while (vertex != vertexEnd && forbidden[*vertex])
+                ++vertex;
+            if (vertex == vertexEnd) {
+                break;
+            }
+
+            // Color Vertex
+            colors[*vertex] = color;
+            ++noColored;
+            // Forbid neighors
+            for (auto edge = graph.beginEdges(*vertex), endEdge = graph.endEdges(*vertex); edge != endEdge; ++edge) {
+                forbidden[edge.target()] = true;
             }
         }
-        nextVertices.pop();
+        // forbidden vertices will be colored next for coloring
+        using Vertex = typename Graph::VertexDescriptor;
+        auto newEnd = std::remove_if(orderedVertices.begin(),
+                                     orderedVertices.end(),
+                                     [&forbidden](const Vertex& vertex) { return !forbidden[vertex]; });
+        orderedVertices.resize(newEnd - orderedVertices.begin());
+        return noColored;
     }
-    return noVisited;
-}
+    template <class Graph, class Functor>
+    std::size_t breadthFirstSearch(const Graph& graph, typename Graph::VertexDescriptor root, Functor functor)
+    {
+        std::vector<int> visited(graph.maxVertex() + 1, false);
+        using Vertex = typename Graph::VertexDescriptor;
+        std::queue<Vertex> nextVertices;
+        std::size_t noVisited = 0;
+        nextVertices.push(root);
+        visited[root] = true; // We do not visit root.
+
+        while (!nextVertices.empty()) {
+            auto current = nextVertices.front();
+            for (auto edge = graph.beginEdges(current), endEdge = graph.endEdges(current); edge != endEdge; ++edge) {
+                if (!visited[edge.target()]) {
+                    visited[edge.target()] = true;
+                    nextVertices.push(edge.target());
+                    functor(edge.target());
+                    ++noVisited;
+                }
+            }
+            nextVertices.pop();
+        }
+        return noVisited;
+    }
 } // end namespace Detail
 
 
@@ -120,15 +120,15 @@ colorVerticesWelshPowell(const Graph& graph)
     std::ptrdiff_t firstDegreeChange = 0;
 
     // populate deque
-    for (auto vertex = graph.begin(),
-              endVertex = graph.end(); vertex != endVertex; ++vertex) {
+    for (auto vertex = graph.begin(), endVertex = graph.end(); vertex != endVertex; ++vertex) {
         auto currentVertex = *vertex;
         auto& degree = degrees[currentVertex];
 
-        for (auto edge = graph.beginEdges(currentVertex),
-                  endEdge = graph.endEdges(currentVertex); edge != endEdge; ++edge) {
+        for (auto edge = graph.beginEdges(currentVertex), endEdge = graph.endEdges(currentVertex); edge != endEdge;
+             ++edge) {
             ++degree;
         }
+
 
         if (degree >= maxDegree) {
             orderedVertices.emplace_front(currentVertex);
@@ -145,8 +145,7 @@ colorVerticesWelshPowell(const Graph& graph)
     // order deque by descending degree
     std::stable_sort(orderedVertices.begin() + firstDegreeChange,
                      orderedVertices.end(),
-                     [&degrees](const Vertex& v1, const Vertex& v2)
-                     { return degrees[v1] > degrees[v2]; });
+                     [&degrees](const Vertex& v1, const Vertex& v2) { return degrees[v1] > degrees[v2]; });
 
     // Overwrite degree with color
     auto& colors = degrees;
@@ -157,8 +156,7 @@ colorVerticesWelshPowell(const Graph& graph)
     verticesPerColor.reserve(10);
 
     while (!orderedVertices.empty()) {
-        verticesPerColor.push_back(Detail::colorGraphWelshPowell(graph, orderedVertices,
-                                                                 colors, color++, noVertices));
+        verticesPerColor.push_back(Detail::colorGraphWelshPowell(graph, orderedVertices, colors, color++, noVertices));
     }
     return std::make_tuple(colors, color, verticesPerColor);
 }
@@ -173,9 +171,8 @@ reorderVerticesPreserving(const std::vector<int>& colors,
 {
     std::vector<std::size_t> colorIndex(noColors, 0);
     std::vector<std::size_t> indices(graph.maxVertex() + 1);
-    std::partial_sum(verticesPerColor.begin(),
-                     verticesPerColor.begin() + verticesPerColor.size() - 1,
-                     colorIndex.begin() + 1);
+    std::partial_sum(
+        verticesPerColor.begin(), verticesPerColor.begin() + verticesPerColor.size() - 1, colorIndex.begin() + 1);
 
     for (const auto& vertex : graph) {
         indices[vertex] = colorIndex[colors[vertex]]++;
@@ -196,14 +193,10 @@ reorderVerticesSpheres(const std::vector<int>& colors,
     const auto notVisitedTag = std::numeric_limits<std::size_t>::max();
     std::vector<std::size_t> indices(graph.maxVertex() + 1, notVisitedTag);
     using Vertex = typename Graph::VertexDescriptor;
-    std::partial_sum(verticesPerColor.begin(),
-                     verticesPerColor.begin() + verticesPerColor.size() - 1,
-                     colorIndex.begin() + 1);
+    std::partial_sum(
+        verticesPerColor.begin(), verticesPerColor.begin() + verticesPerColor.size() - 1, colorIndex.begin() + 1);
     std::size_t noVisited = 0;
-    auto numberer = [&colorIndex, &colors, &indices](Vertex vertex)
-    {
-        indices[vertex] = colorIndex[colors[vertex]]++;
-    };
+    auto numberer = [&colorIndex, &colors, &indices](Vertex vertex) { indices[vertex] = colorIndex[colors[vertex]]++; };
 
     while (noVisited < graph.maxVertex() + 1) {
         numberer(root);

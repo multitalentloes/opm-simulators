@@ -11,6 +11,8 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include <iostream>
+
 ///! \brief check that all indices are represented in the new ordering.
 void checkAllIndices(const std::vector<std::size_t>& ordering)
 {
