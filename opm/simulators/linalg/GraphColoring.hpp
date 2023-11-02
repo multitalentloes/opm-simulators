@@ -261,7 +261,10 @@ getMatrixRowColoring(const M& matrix, ColoringType coloringType)
             }
             if (color[i.index()] >= colorCnt.size()) {
                 colorCnt.push_back(1);
+            if (color[i.index()] >= colorCnt.size()) {
+                colorCnt.push_back(1);
             } else {
+                ++colorCnt[color[i.index()]];
                 ++colorCnt[color[i.index()]];
             }
         }
@@ -272,7 +275,10 @@ getMatrixRowColoring(const M& matrix, ColoringType coloringType)
             }
             if (color[i.index()] >= colorCnt.size()) {
                 colorCnt.push_back(1);
+            if (color[i.index()] >= colorCnt.size()) {
+                colorCnt.push_back(1);
             } else {
+                ++colorCnt[color[i.index()]];
                 ++colorCnt[color[i.index()]];
             }
         }
@@ -283,7 +289,10 @@ getMatrixRowColoring(const M& matrix, ColoringType coloringType)
             }
             if (color[i.index()] >= colorCnt.size()) {
                 colorCnt.push_back(1);
+            if (color[i.index()] >= colorCnt.size()) {
+                colorCnt.push_back(1);
             } else {
+                ++colorCnt[color[i.index()]];
                 ++colorCnt[color[i.index()]];
             }
         }

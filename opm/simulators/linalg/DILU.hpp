@@ -32,14 +32,12 @@
 
 #include <vector>
 
-// TODO: major code revision to use the level terminology instead of coloring, should it affect graphcoloring.hpp too?
 // TODO: rewrite factory and constructor to keep track of a number of threads variable
-// TODO: clean up apply, update, and constructor such that the code is more readable
-// TODO: use clang-format and make sure variable names follow correct style
 namespace Dune
 {
 
-/*! \brief The sequential DILU preconditioner.
+/*! \brief The OpenMP thread parallelized DILU preconditioner. Safe to run serially without OpenMP. When run in parallel
+   the matrix is assumed to be symmetric
 
    \tparam M The matrix type to operate on
    \tparam X Type of the update
@@ -59,28 +57,28 @@ public:
     using field_type = typename X::field_type;
     //! \brief scalar type underlying the field_type
 
-    /*! \brief Constructor.
-       Constructor gets all parameters to operate the prec.
+    /*! \brief Constructor gets all parameters to operate the prec.
        \param A The matrix to operate on.
     */
     MultithreadDILU(const M& A)
         : A_(A)
         , A_reordered_(M(A_.N(), A_.N(), A_.nonzeroes(), M::row_wise))
     {
-        OPM_TIMEBLOCK(prec_constructor);
+        OPM_TIMEBLOCK(prec_construct);
         // TODO: rewrite so this value is set by an argument to the constructor
         use_multithreading = omp_get_max_threads() > 1;
+
         if (use_multithreading) {
             //! Assuming symmetric matrices using a lower triangular coloring to construct
             //! the levels is sufficient
             level_sets = Opm::getMatrixRowColoring(A_, Opm::ColoringType::LOWER);
             reordered_to_natural_ = std::vector<size_t>(A_.N());
             natural_to_reorder_ = std::vector<size_t>(A_.N());
-            int globcnt = 0;
+            int globCnt = 0;
             for (int i = 0; i < level_sets.size(); i++) {
                 for (size_t j = 0; j < level_sets[i].size(); j++) {
-                    reordered_to_natural_[globcnt] = level_sets[i][j];
-                    natural_to_reorder_[level_sets[i][j]] = globcnt++;
+                    reordered_to_natural_[globCnt] = level_sets[i][j];
+                    natural_to_reorder_[level_sets[i][j]] = globCnt++;
                 }
             }
 
@@ -103,7 +101,7 @@ public:
     */
     virtual void update() override
     {
-        OPM_TIMEBLOCK(update_prec);
+        OPM_TIMEBLOCK(prec_update);
         if (use_multithreading) {
             parallelUpdate();
         } else {
@@ -128,7 +126,7 @@ public:
     */
     virtual void apply(X& v, const Y& d) override
     {
-        OPM_TIMEBLOCK(apply_in_prec);
+        OPM_TIMEBLOCK(prec_apply);
         if (use_multithreading) {
             parallelApply(v, d);
         } else {
@@ -308,8 +306,7 @@ private:
 #pragma omp parallel for
 #endif
                 for (int row_idx_in_level = 0; row_idx_in_level < num_of_rows_in_level; ++row_idx_in_level) {
-                    auto row = A_reordered_.begin() + level_start_idx
-                        + row_idx_in_level;
+                    auto row = A_reordered_.begin() + level_start_idx + row_idx_in_level;
                     const auto row_i = reordered_to_natural_[row.index()];
                     Yblock rhs = d[row_i];
                     for (auto a_ij = (*row).begin(); a_ij.index() < row_i; ++a_ij) {
