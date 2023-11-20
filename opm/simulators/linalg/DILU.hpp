@@ -71,14 +71,14 @@ public:
         if (use_multithreading) {
             //! Assuming symmetric matrices using a lower triangular coloring to construct
             //! the levels is sufficient
-            level_sets = Opm::getMatrixRowColoring(A_, Opm::ColoringType::LOWER);
+            level_sets_ = Opm::getMatrixRowColoring(A_, Opm::ColoringType::LOWER);
             reordered_to_natural_ = std::vector<size_t>(A_.N());
             natural_to_reorder_ = std::vector<size_t>(A_.N());
             int globCnt = 0;
-            for (int i = 0; i < level_sets.size(); i++) {
-                for (size_t j = 0; j < level_sets[i].size(); j++) {
-                    reordered_to_natural_[globCnt] = level_sets[i][j];
-                    natural_to_reorder_[level_sets[i][j]] = globCnt++;
+            for (int i = 0; i < level_sets_.size(); i++) {
+                for (size_t j = 0; j < level_sets_[i].size(); j++) {
+                    reordered_to_natural_[globCnt] = level_sets_[i][j];
+                    natural_to_reorder_[level_sets_[i][j]] = globCnt++;
                 }
             }
 
@@ -162,10 +162,8 @@ private:
     M A_reordered_;
     //! \brief The inverse of the diagnal matrix
     std::vector<typename M::block_type> Dinv_;
-    // //! \brief Stores the Dinv_ indexed according to the rows sorted by level
-    // std::vector<typename M::block_type> Dinv_;
     //! \brief SparseTable storing each row by level
-    Opm::SparseTable<size_t> level_sets;
+    Opm::SparseTable<size_t> level_sets_;
     //! \brief converts from index in reordered structure to index natural ordered structure
     std::vector<size_t> reordered_to_natural_;
     //! \brief converts from index in natural ordered structure to index reordered strucutre
@@ -213,8 +211,8 @@ private:
         }
 
         int level_start_idx = 0;
-        for (int level = 0; level < level_sets.size(); ++level) {
-            const int num_of_rows_in_level = level_sets[level].size();
+        for (int level = 0; level < level_sets_.size(); ++level) {
+            const int num_of_rows_in_level = level_sets_[level].size();
 
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -299,8 +297,8 @@ private:
         {
             OPM_TIMEBLOCK(lower_solve);
             int level_start_idx = 0;
-            for (int level = 0; level < level_sets.size(); ++level) {
-                const int num_of_rows_in_level = level_sets[level].size();
+            for (int level = 0; level < level_sets_.size(); ++level) {
+                const int num_of_rows_in_level = level_sets_[level].size();
 
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -326,8 +324,8 @@ private:
         {
             int level_start_idx = A_.N();
             //  upper triangular solve: (D + U_A) v = Dy
-            for (int level = level_sets.size() - 1; level >= 0; --level) {
-                const int num_of_rows_in_level = level_sets[level].size();
+            for (int level = level_sets_.size() - 1; level >= 0; --level) {
+                const int num_of_rows_in_level = level_sets_[level].size();
                 level_start_idx -= num_of_rows_in_level;
 #ifdef _OPENMP
 #pragma omp parallel for
