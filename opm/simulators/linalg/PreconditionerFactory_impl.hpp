@@ -73,6 +73,22 @@ struct AMGSmootherArgsHelper
     }
 };
 
+  template<class M, class V, int l>
+  struct AMGSmootherArgsHelper<Dune::SeqSpai0<M,V,V, l>>
+{
+    static auto args(const PropertyTree& prm)
+    {
+        using Smoother = Dune::SeqSpai0<M, V, V, l>;
+        using SmootherArgs = typename Dune::Amg::SmootherTraits<Smoother>::Arguments;
+        SmootherArgs smootherArgs;
+	smootherArgs.iterations = prm.get<int>("iterations", 1);
+        smootherArgs.relaxationFactor = prm.get<double>("relaxation", 1.0);
+	smootherArgs.leftPrecond = prm.get<bool>("left_precond", true);       
+        return smootherArgs;
+    }
+};
+
+  
 template<class M, class V, class C>
 struct AMGSmootherArgsHelper<Opm::ParallelOverlappingILU0<M,V,V,C>>
 {
@@ -153,8 +169,17 @@ struct StandardPreconditioners
         using M = typename F::Matrix;
         using V = typename F::Vector;
         using P = PropertyTree;
+#if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 7)
+        F::addCreator("ILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
+            using Smoother = SeqILU<M, V, V>;
+            const int ilulevel = prm.get<int>("ilulevel", 0);
+            const double w = prm.get<double>("relaxation", 1.0);
+            const bool resort = prm.get<bool>("resort", 1.0);
+            return wrapBlockPreconditioner<DummyUpdatePreconditioner<Smoother>>(comm, op.getmat(), ilulevel, w, resort);
+        });
+#endif
         F::addCreator("ILU0", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
-          return createParILU(op, prm, comm, 0);
+          return createParILU(op, prm, comm, prm.get<int>("ilulevel", 0));
         });
         F::addCreator("ParOverILU0", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
           return createParILU(op, prm, comm, prm.get<int>("ilulevel", 0));
@@ -171,6 +196,19 @@ struct StandardPreconditioners
           const int n = prm.get<int>("repeats", 1);
           const double w = prm.get<double>("relaxation", 1.0);
           return wrapBlockPreconditioner<DummyUpdatePreconditioner<SeqJac<M, V, V>>>(comm, op.getmat(), n, w);
+        });
+        F::addCreator("JacNew", [](const O& op, const P& prm, const std::function<V()>&,
+                     std::size_t, const C& comm) {
+          const int n = prm.get<int>("repeats", 1);
+          const double w = prm.get<double>("relaxation", 1.0);
+          return wrapBlockPreconditioner<DummyUpdatePreconditioner<SeqJacNew<M, V, V>>>(comm, op.getmat(), n, w);
+        });
+        F::addCreator("SPAI0", [](const O& op, const P& prm, const std::function<V()>&,
+                     std::size_t, const C& comm) {
+          const int n = prm.get<int>("repeats", 1);
+          const double w = prm.get<double>("relaxation", 1.0);
+	  const bool left_precond = prm.get<bool>("left_precond", true);
+          return wrapBlockPreconditioner<DummyUpdatePreconditioner<SeqSpai0<M, V, V>>>(comm, op.getmat(), n, w, left_precond);
         });
         F::addCreator("GS", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
           const int n = prm.get<int>("repeats", 1);
@@ -202,6 +240,13 @@ struct StandardPreconditioners
               auto sargs = AMGSmootherArgsHelper<Smoother>::args(prm);
               PrecPtr prec = std::make_shared<Dune::Amg::AMGCPR<O, V, Smoother, C>>(op, crit, sargs, comm);
               return prec;
+            }
+            else if (smoother == "SPAI0") {
+                    using Smoother = Dune::BlockPreconditioner<V, V, C, Dune::SeqSpai0<M, V, V>>;
+                    auto crit = AMGHelper<O, C, M, V>::criterion(prm);
+                    auto sargs = AMGSmootherArgsHelper<Smoother>::args(prm);
+                    PrecPtr prec = std::make_shared<Dune::Amg::AMGCPR<O, V, Smoother, C>>(op, crit, sargs, comm);
+                    return prec;
             }
             else if (smoother == "DILU") {
               using SeqSmoother = Dune::MultithreadDILU<M, V, V>;
@@ -331,11 +376,22 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
         using M = typename F::Matrix;
         using V = typename F::Vector;
         using P = PropertyTree;
+#if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 7)        
+        F::addCreator("ILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+          using Smoother = SeqILU<M, V, V>;
+          const int ilulevel = prm.get<int>("ilulevel", 0);
+          const double w = prm.get<double>("relaxation", 1.0);
+          const bool resort = prm.get<bool>("resort", true);
+          return wrapPreconditioner<Smoother>(op.getmat(), ilulevel, w, resort);
+        });
+#endif
         F::addCreator("ILU0", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const double w = prm.get<double>("relaxation", 1.0);
+            const int n = prm.get<int>("ilulevel", 0);
             return std::make_shared<Opm::ParallelOverlappingILU0<M, V, V, C>>(
-                op.getmat(), 0, w, Opm::MILU_VARIANT::ILU);
+                op.getmat(), n, w, Opm::MILU_VARIANT::ILU);
         });
+
         F::addCreator("ParOverILU0", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const double w = prm.get<double>("relaxation", 1.0);
             const int n = prm.get<int>("ilulevel", 0);
@@ -356,6 +412,17 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             const int n = prm.get<int>("repeats", 1);
             const double w = prm.get<double>("relaxation", 1.0);
             return wrapPreconditioner<SeqJac<M, V, V>>(op.getmat(), n, w);
+        });
+        F::addCreator("Spai0", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+            const int n = prm.get<int>("repeats", 1);
+            const double w = prm.get<double>("relaxation", 1.0);
+	    const bool left_precond = prm.get<bool>("left_precond", true);
+            return wrapPreconditioner<SeqSpai0<M, V, V>>(op.getmat(), n, w,left_precond);
+        });
+        F::addCreator("JacNew", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+            const int n = prm.get<int>("repeats", 1);
+            const double w = prm.get<double>("relaxation", 1.0);
+            return wrapPreconditioner<SeqJacNew<M, V, V>>(op.getmat(), n, w);
         });
         F::addCreator("GS", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const int n = prm.get<int>("repeats", 1);
@@ -384,6 +451,9 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
                 } else if (smoother == "Jac") {
                     using Smoother = SeqJac<M, V, V>;
                     return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
+                } else if (smoother == "SPAI0") {
+                    using Smoother = SeqSpai0<M, V, V>;
+                    return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);    
                 } else if (smoother == "DILU") {
                     using Smoother = MultithreadDILU<M, V, V>;
                     return AMGHelper<O,C,M,V>::template makeAmgPreconditioner<Smoother>(op, prm);
