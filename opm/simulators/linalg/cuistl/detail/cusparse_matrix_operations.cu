@@ -384,7 +384,7 @@ template void invertDiagonalAndFlatten(float*, int*, int*, size_t, size_t, float
 // perform the lower solve for all rows in the same level set
 template <class T, int blocksize>
 void
-computeLowerSolveLevelSet(T* mat,
+computeLowerSolveLevelSet(T* reorderedMat,
                           int* rowIndices,
                           int* colIndices,
                           size_t numberOfRows,
@@ -396,13 +396,13 @@ computeLowerSolveLevelSet(T* mat,
                           T* v)
 {
     cuComputeLowerSolveLevelSet<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
-        mat, rowIndices, colIndices, numberOfRows, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
 }
 
 // perform the upper solve for all rows in the same level set
 template <class T, int blocksize>
 void
-computeUpperSolveLevelSet(T* mat,
+computeUpperSolveLevelSet(T* reorderedMat,
                           int* rowIndices,
                           int* colIndices,
                           size_t numberOfRows,
@@ -414,12 +414,12 @@ computeUpperSolveLevelSet(T* mat,
                           T* v)
 {
     cuComputeUpperSolveLevelSet<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
-        mat, rowIndices, colIndices, numberOfRows, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
 }
 
 template <class T, int blocksize>
 void
-computeDiluDiagonal(T* mat,
+computeDiluDiagonal(T* reorderedMat,
                     int* rowIndices,
                     int* colIndices,
                     size_t numberOfRows,
@@ -431,7 +431,7 @@ computeDiluDiagonal(T* mat,
 {
     if (blocksize <= 3) {
         cuComputeDiluDiagonal<T, blocksize>
-            <<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(mat,
+            <<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(reorderedMat,
                                                                         rowIndices,
                                                                         colIndices,
                                                                         numberOfRows,
@@ -447,7 +447,7 @@ computeDiluDiagonal(T* mat,
 
 template <class T, int blocksize>
 void
-moveMatDataToReordered(T* srcMatrix,
+copyMatDataToReordered(T* srcMatrix,
                        int* srcRowIndices,
                        int* srcColIndices,
                        T* dstMatrix,
@@ -467,8 +467,8 @@ moveMatDataToReordered(T* srcMatrix,
 }
 
 #define INSTANTIATE_KERNEL_WRAPPERS(blocksize)                                                                         \
-    template void moveMatDataToReordered<float, blocksize>(float*, int*, int*, float*, int*, int*, int*, size_t);      \
-    template void moveMatDataToReordered<double, blocksize>(double*, int*, int*, double*, int*, int*, int*, size_t);   \
+    template void copyMatDataToReordered<float, blocksize>(float*, int*, int*, float*, int*, int*, int*, size_t);      \
+    template void copyMatDataToReordered<double, blocksize>(double*, int*, int*, double*, int*, int*, int*, size_t);   \
     template void computeDiluDiagonal<float, blocksize>(                                                               \
         float*, int*, int*, size_t, int*, int*, const int, int, float*);                                               \
     template void computeDiluDiagonal<double, blocksize>(                                                              \
