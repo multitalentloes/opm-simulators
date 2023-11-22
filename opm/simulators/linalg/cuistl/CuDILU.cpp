@@ -279,7 +279,7 @@ CuDILU<M, X, Y, l>::update()
 
     m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
 
-    detail::moveMatDataToReordered<field_type, matrix_type::block_type::cols>(m_gpuMatrix.getNonZeroValues().data(),
+    detail::copyMatDataToReordered<field_type, matrix_type::block_type::cols>(m_gpuMatrix.getNonZeroValues().data(),
                                     m_gpuMatrix.getRowIndices().data(),
                                     m_gpuMatrix.getColumnIndices().data(),
                                     m_gpuMatrixReordered.getNonZeroValues().data(),
