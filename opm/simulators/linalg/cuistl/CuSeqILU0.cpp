@@ -25,6 +25,7 @@
 #include <dune/istl/bvector.hh>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
+#include <opm/common/TimingMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuSeqILU0.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
@@ -32,6 +33,8 @@
 #include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
+
+#include <chrono>
 
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
@@ -78,6 +81,8 @@ template <class M, class X, class Y, int l>
 void
 CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    cudaDeviceSynchronize();
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     // We need to pass the solve routine a scalar to multiply.
     // In our case this scalar is 1.0
@@ -90,7 +95,9 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
     auto nonZeroValues = m_LU.getNonZeroValues().data();
     auto rowIndices = m_LU.getRowIndices().data();
     auto columnIndices = m_LU.getColumnIndices().data();
-
+    OPM_TIMEBLOCK(prec_apply);
+    {
+        OPM_TIMEBLOCK(lower_solve);
     // Solve L m_temporaryStorage = d
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
                                                         detail::CUSPARSE_MATRIX_ORDER,
@@ -108,7 +115,9 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         m_temporaryStorage.data(),
                                                         CUSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                         m_buffer->data()));
-
+    }
+    {
+        OPM_TIMEBLOCK(upper_solve);
     // Solve U v = m_temporaryStorage
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
                                                         detail::CUSPARSE_MATRIX_ORDER,
@@ -126,9 +135,18 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         v.data(),
                                                         CUSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                         m_buffer->data()));
+    }
 
 
     v *= m_w;
+
+
+    cudaDeviceSynchronize();
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+    std::cout << "Apply: " << duration.count() << " microseconds." << std::endl;
+
 }
 
 template <class M, class X, class Y, int l>
@@ -148,8 +166,19 @@ template <class M, class X, class Y, int l>
 void
 CuSeqILU0<M, X, Y, l>::update()
 {
+    cudaDeviceSynchronize();
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+
     m_LU.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
     createILU();
+
+
+    cudaDeviceSynchronize();
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+    std::cout << "Update: " << duration.count() << " microseconds." << std::endl;
 }
 
 template <class M, class X, class Y, int l>

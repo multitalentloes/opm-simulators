@@ -35,5 +35,31 @@ namespace Opm::cuistl::detail
 template <class T>
 void invertDiagonalAndFlatten(T* mat, int* rowIndices, int* colIndices, size_t numberOfRows, size_t blocksize, T* vec);
 
+/**
+ * @brief Perform a lower solve on certain rows in a matrix that can safely be computed in parallel
+ * @param reorderedMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered such that rows in the same level sets are contiguous
+ * @param rowIndices Pointer to vector on GPU containing row indices compliant wiht bsr format
+ * @param colIndices Pointer to vector on GPU containing col indices compliant wiht bsr format
+ * @param numberOfRows Integer describing the number of rows in the matrix
+ * @param indexConversion Integer array containing mapping an index in the reordered matrix to its corresponding index in the natural ordered matrix
+ * @param startIdx Index of the first row of the matrix to be solve
+ * @param rowsInLevelSet Number of rows in this level set, which number the amount of rows solved in parallel by this function
+ * @param dInv The diagonal matrix used by the Diagonal ILU preconditioner
+ * @param d Stores the defect
+ * @param [out] v Will store the results of the lower solve
+ */
+template <class T, int blocksize>
+void computeLowerSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices, size_t numberOfRows, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
+
+// TODO: document this version when it is stable
+template <class T, int blocksize>
+void computeUpperSolveLevelSet(T* mat, int* rowIndices, int* colIndices, size_t numberOfRows, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
+
+// TODO: document this version when it is stable
+template <class T, int blocksize>
+void computeDiluDiagonal(T* mat, int* rowIndices, int* colIndices, size_t numberOfRows, int* reorderedToNatural, int* naturalToReordered, const int startIdx, int rowsInLevelSet, T* dInv);
+
+template <class T, int blocksize>
+void moveMatDataToReordered(T* srcMatrix, int* srcRowIndices, int* srcColIndices, T* dstMatrix, int* dstRowIndices, int* dstColIndices, int* naturalToReordered, size_t numberOfRows);
 } // namespace Opm::cuistl::detail
 #endif
