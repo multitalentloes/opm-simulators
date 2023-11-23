@@ -127,6 +127,7 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         CUSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                         m_buffer->data()));
 
+
     v *= m_w;
 }
 
