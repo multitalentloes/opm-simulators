@@ -289,8 +289,6 @@ template<class Matrix, class Domain, class Range, class ParallelInfoT>
 void ParallelOverlappingILU0<Matrix,Domain,Range,ParallelInfoT>::
 apply (Domain& v, const Range& d)
 {
-    // auto start_time = std::chrono::high_resolution_clock::now();
-
     OPM_TIMEBLOCK(apply);
     Range& md = reorderD(d);
     Domain& mv = reorderV(v);
@@ -345,12 +343,6 @@ apply (Domain& v, const Range& d)
         mv *= w_;
     }
     reorderBack(mv, v);
-
-
-    // auto end_time = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
-    // std::cout << "Apply: " << duration.count() << " microseconds." << std::endl;
 }
 
 template<class Matrix, class Domain, class Range, class ParallelInfoT>
@@ -367,8 +359,6 @@ template<class Matrix, class Domain, class Range, class ParallelInfoT>
 void ParallelOverlappingILU0<Matrix,Domain,Range,ParallelInfoT>::
 update()
 {
-    // auto start_time = std::chrono::high_resolution_clock::now();
-    
     OPM_TIMEBLOCK(update);
     // (For older DUNE versions the communicator might be
     // invalid if redistribution in AMG happened on the coarset level.
@@ -534,11 +524,6 @@ update()
 
     // store ILU in simple CRS format
     detail::convertToCRS(*ILU_, lower_, upper_, inv_);
-
-    // auto end_time = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
-    // std::cout << "Update: " << duration.count() << " microseconds." << std::endl;
 }
 
 template<class Matrix, class Domain, class Range, class ParallelInfoT>

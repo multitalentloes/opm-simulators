@@ -48,69 +48,6 @@
 std::vector<int> createReorderedToNatural(int, Opm::SparseTable<size_t>);
 std::vector<int> createNaturalToReordered(int, Opm::SparseTable<size_t>);
 
-template <class M>
-void
-printMatrix(M mat)
-{
-    for (auto row = mat.begin(); row != mat.end(); ++row) {
-        for (auto elem = row->begin(); elem != row->end(); elem++) {
-            auto matBlock = *elem;
-            for (int brow = 0; brow < M::block_type::cols; brow++) {
-                for (int bcol = 0; bcol < M::block_type::cols; bcol++) {
-                    printf("%lf ", matBlock[brow][bcol]);
-                }
-            }
-            printf("\n");
-        }
-    }
-}
-
-template <class field_type>
-void
-printCuMatrix(Opm::cuistl::CuSparseMatrix<field_type>* m)
-{
-    std::vector<field_type> v = m->getNonZeroValues().asStdVector();
-    for (int i = 0; i < m->getNonZeroValues().dim() / (m->blockSize() * m->blockSize()); i++) {
-        for (int j = 0; j < m->blockSize() * m->blockSize(); j++) {
-            printf("%lf ", v[i * m->blockSize() * m->blockSize() + j]);
-        }
-        printf("\n");
-    }
-}
-
-template <class T>
-void
-printCuVec(Opm::cuistl::CuVector<T> vec)
-{
-    auto cpuVec = vec.asStdVector();
-    for (auto e : cpuVec)
-        printf("%lf\n", e);
-}
-
-template <class V>
-void
-printDuneVec(V v, int blocksize)
-{
-    for (int i = 0; i < v.N(); i++) {
-        for (int j = 0; j < blocksize; j++) {
-            printf("%lf\n", v[i][j]);
-        }
-    }
-}
-
-template <class V>
-void
-printDuneBlockVec(V v, int blocksize)
-{
-    for (int i = 0; i < v.size(); i++) {
-        for (int j = 0; j < blocksize; j++) {
-            for (int k = 0; k < blocksize; k++) {
-                printf("%lf\n", v[i][j][k]);
-            }
-        }
-    }
-}
-
 // TODO: I think sending size is excessive
 std::vector<int>
 createReorderedToNatural(int size, Opm::SparseTable<size_t> levelSets)
@@ -181,7 +118,7 @@ CuDILU<M, X, Y, l>::CuDILU(const M& A, field_type w)
     , m_gpuDInv(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
 
 {
-    // TODO: verify that matrix is symmetric
+    // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
     OPM_ERROR_IF(A.N() != m_gpuMatrix.N(),
                  fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m_gpuMatrix.N(), A.N()));
@@ -210,8 +147,6 @@ template <class M, class X, class Y, int l>
 void
 CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
-    // CUTIME(start_time);
-
     OPM_TIMEBLOCK(prec_apply);
     {
         OPM_TIMEBLOCK(lower_solve);
@@ -250,10 +185,6 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
                                               v.data());
         }
     }
-
-    // CUTIME(end_time);
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    // std::cout << "Apply: " << duration.count() << " microseconds." << std::endl;
 }
 
 template <class M, class X, class Y, int l>
