@@ -62,7 +62,7 @@ public:
     //! \param A The matrix to operate on.
     //! \param w The relaxation factor.
     //!
-    CuDILU(const M& A, field_type w);
+    CuDILU(const M& A);
 
     //! \brief Prepare the preconditioner.
     //! \note Does nothing at the time being.
@@ -101,8 +101,6 @@ private:
     const M& m_cpuMatrix;
     //! \brief SparseTable storing each row by level
     Opm::SparseTable<size_t> m_levelSets;
-    //! \brief TODO: remove without causing warnings in factory for having unused prm arguemnt
-    const field_type m_relaxationFactor;
     //! \brief converts from index in reordered structure to index natural ordered structure
     std::vector<int> m_reorderedToNatural;
     //! \brief converts from index in natural ordered structure to index reordered strucutre

@@ -40,11 +40,6 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
-#include <chrono>
-#include <unistd.h>
-
-#define CUTIME(var)  cudaDeviceSynchronize(); auto var = std::chrono::high_resolution_clock::now();
-
 std::vector<int> createReorderedToNatural(int, Opm::SparseTable<size_t>);
 std::vector<int> createNaturalToReordered(int, Opm::SparseTable<size_t>);
 
@@ -105,10 +100,9 @@ namespace Opm::cuistl
 {
 
 template <class M, class X, class Y, int l>
-CuDILU<M, X, Y, l>::CuDILU(const M& A, field_type w)
+CuDILU<M, X, Y, l>::CuDILU(const M& A)
     : m_cpuMatrix(A)
     , m_levelSets(Opm::getMatrixRowColoring(m_cpuMatrix, Opm::ColoringType::LOWER))
-    , m_relaxationFactor(w)
     , m_reorderedToNatural(createReorderedToNatural(m_cpuMatrix.N(), m_levelSets))
     , m_naturalToReordered(createNaturalToReordered(m_cpuMatrix.N(), m_levelSets))
     , m_gpuMatrix(CuSparseMatrix<field_type>::fromMatrix(m_cpuMatrix, true))
@@ -148,42 +142,37 @@ void
 CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
     OPM_TIMEBLOCK(prec_apply);
-    {
-        OPM_TIMEBLOCK(lower_solve);
-        int levelStartIdx = 0;
-        for (int level = 0; level < m_levelSets.size(); ++level) {
-            const int numOfRowsInLevel = m_levelSets[level].size();
-            detail::computeLowerSolveLevelSet<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                              m_gpuMatrixReordered.getRowIndices().data(),
-                                              m_gpuMatrixReordered.getColumnIndices().data(),
-                                              m_gpuMatrixReordered.N(),
-                                              m_gpuReorderToNatural.data(),
-                                              levelStartIdx,
-                                              numOfRowsInLevel,
-                                              m_gpuDInv.data(),
-                                              d.data(),
-                                              v.data());
-            levelStartIdx += numOfRowsInLevel;
-        }
+    int levelStartIdx = 0;
+    for (int level = 0; level < m_levelSets.size(); ++level) {
+        const int numOfRowsInLevel = m_levelSets[level].size();
+        detail::computeLowerSolveLevelSet<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
+                                            m_gpuMatrixReordered.getRowIndices().data(),
+                                            m_gpuMatrixReordered.getColumnIndices().data(),
+                                            m_gpuMatrixReordered.N(),
+                                            m_gpuReorderToNatural.data(),
+                                            levelStartIdx,
+                                            numOfRowsInLevel,
+                                            m_gpuDInv.data(),
+                                            d.data(),
+                                            v.data());
+        levelStartIdx += numOfRowsInLevel;
     }
-    {
-        OPM_TIMEBLOCK(upper_solve);
-        int levelStartIdx = m_cpuMatrix.N();
-        //  upper triangular solve: (D + U_A) v = Dy
-        for (int level = m_levelSets.size() - 1; level >= 0; --level) {
-            const int numOfRowsInLevel = m_levelSets[level].size();
-            levelStartIdx -= numOfRowsInLevel;
-            detail::computeUpperSolveLevelSet<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                              m_gpuMatrixReordered.getRowIndices().data(),
-                                              m_gpuMatrixReordered.getColumnIndices().data(),
-                                              m_gpuMatrixReordered.N(),
-                                              m_gpuReorderToNatural.data(),
-                                              levelStartIdx,
-                                              numOfRowsInLevel,
-                                              m_gpuDInv.data(),
-                                              d.data(),
-                                              v.data());
-        }
+
+    levelStartIdx = m_cpuMatrix.N();
+    //  upper triangular solve: (D + U_A) v = Dy
+    for (int level = m_levelSets.size() - 1; level >= 0; --level) {
+        const int numOfRowsInLevel = m_levelSets[level].size();
+        levelStartIdx -= numOfRowsInLevel;
+        detail::computeUpperSolveLevelSet<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
+                                            m_gpuMatrixReordered.getRowIndices().data(),
+                                            m_gpuMatrixReordered.getColumnIndices().data(),
+                                            m_gpuMatrixReordered.N(),
+                                            m_gpuReorderToNatural.data(),
+                                            levelStartIdx,
+                                            numOfRowsInLevel,
+                                            m_gpuDInv.data(),
+                                            d.data(),
+                                            v.data());
     }
 }
 
@@ -206,7 +195,7 @@ template <class M, class X, class Y, int l>
 void
 CuDILU<M, X, Y, l>::update()
 {
-    // CUTIME(start_time);
+    OPM_TIMEBLOCK(prec_update);
 
     m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
 
@@ -234,12 +223,6 @@ CuDILU<M, X, Y, l>::update()
                                     m_gpuDInv.data());
         levelStartIdx += numOfRowsInLevel;
     }
-
-
-    // CUTIME(end_time);
-    // auto full = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    // std::cout << "Update: " << full.count() << "\n";
-
 }
 
 } // namespace Opm::cuistl
