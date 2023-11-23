@@ -213,6 +213,38 @@ namespace
     }
 
     template <class T, int blocksize>
+    __device__ void cuDebugComputeLowerSolveLevelSet(T* mat,
+                                                int* rowIndices,
+                                                int* colIndices,
+                                                size_t numberOfRows,
+                                                int* indexConversion,
+                                                const int startIdx,
+                                                int rowsInLevelSet,
+                                                T* dInv,
+                                                const T* d,
+                                                T* v)
+    {
+        const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
+        if (reorderedRowIdx < rowsInLevelSet + startIdx) {
+
+            size_t nnzIdx = rowIndices[reorderedRowIdx];
+            int naturalRowIdx = indexConversion[reorderedRowIdx];
+
+            T rhs[blocksize];
+            for (int i = 0; i < blocksize; i++)
+                rhs[i] = d[naturalRowIdx * blocksize + i];
+
+            for (int block = nnzIdx; colIndices[block] < naturalRowIdx; ++block) {
+                const int col = colIndices[block];
+                mv<T, blocksize, MVType::MINUS>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+            }
+
+            mv<T, blocksize, MVType::SET>(
+                &dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+        }
+    }
+
+    template <class T, int blocksize>
     __global__ void cuComputeUpperSolveLevelSet(T* mat,
                                                 int* rowIndices,
                                                 int* colIndices,
@@ -240,6 +272,25 @@ namespace
                 &dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
         }
     }
+
+template <class T, int blocksize>
+__global__ void cuDILUApply(T* reorderedMat,
+        int* rowIndices,
+        int* colIndices,
+        size_t numberOfRows,
+        int* indexConversion,
+        int* levelSetSizes,
+        int maxLevelSetSize,
+        T* dInv,
+        const T* d,
+        T* v)
+{
+    const auto thr = blockDim.x * blockIdx.x + threadIdx.x;
+    if (thr == 0){
+        cuDebugComputeLowerSolveLevelSet<T, blocksize><<<(levelSetSizes[1] - levelSetSizes[0]+1023)/1024, 1024>>>(
+            reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, levelSetSizes[0], levelSetSizes[1] - levelSetSizes[0], dInv, d, v);
+    }
+}
 
     template <class T, int blocksize>
     __global__ void cuComputeDiluDiagonal(T* mat,
@@ -419,6 +470,23 @@ computeUpperSolveLevelSet(T* reorderedMat,
 
 template <class T, int blocksize>
 void
+DILUApply(T* reorderedMat,
+        int* rowIndices,
+        int* colIndices,
+        size_t numberOfRows,
+        int* indexConversion,
+        int* levelSetSizes,
+        int maxLevelSetSize,
+        T* dInv,
+        const T* d,
+        T* v)
+{
+    cuDILUApply<T, blocksize><<<1, 1>>>(
+        reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, levelSetSizes, maxLevelSetSize, dInv, d, v);
+}
+
+template <class T, int blocksize>
+void
 computeDiluDiagonal(T* reorderedMat,
                     int* rowIndices,
                     int* colIndices,
@@ -479,8 +547,8 @@ copyMatDataToReordered(T* srcMatrix,
         double*, int*, int*, size_t, int*, const int, int, double*, const double*, double*);                           \
     template void computeLowerSolveLevelSet<float, blocksize>(                                                         \
         float*, int*, int*, size_t, int*, const int, int, float*, const float*, float*);                               \
-    template void computeLowerSolveLevelSet<double, blocksize>(                                                        \
-        double*, int*, int*, size_t, int*, const int, int, double*, const double*, double*);
+    template void DILUApply<float, blocksize>(float*, int*, int*, size_t, int*, int*, int, float*, const float*, float*);                \
+    template void DILUApply<double, blocksize>(double*, int*, int*, size_t, int*, int*, int, double*, const double*, double*);
 
 INSTANTIATE_KERNEL_WRAPPERS(1);
 INSTANTIATE_KERNEL_WRAPPERS(2);

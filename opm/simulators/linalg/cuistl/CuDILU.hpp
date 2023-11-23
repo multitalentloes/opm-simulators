@@ -114,6 +114,10 @@ private:
     CuVector<int> m_gpuReorderToNatural;
     //! \brief Stores the inverted diagonal that we use in DILU
     CuVector<field_type> m_gpuDInv;
+    //! \brief Store the sizes of the different level sizes on the GPU
+    CuVector<int> m_gpuLevelSetSizes;
+
+    int maxRowsInLevelSet;
 };
 } // end namespace Opm::cuistl
 

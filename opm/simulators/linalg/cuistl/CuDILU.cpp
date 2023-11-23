@@ -40,6 +40,9 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
+#include <algorithm>
+#include <numeric>
+
 std::vector<int> createReorderedToNatural(int, Opm::SparseTable<size_t>);
 std::vector<int> createNaturalToReordered(int, Opm::SparseTable<size_t>);
 
@@ -110,6 +113,8 @@ CuDILU<M, X, Y, l>::CuDILU(const M& A)
     , m_gpuNaturalToReorder(m_naturalToReordered)
     , m_gpuReorderToNatural(m_reorderedToNatural)
     , m_gpuDInv(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
+    , m_gpuLevelSetSizes(m_levelSets.size())
+    , maxRowsInLevelSet(-1)
 
 {
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
@@ -128,6 +133,19 @@ CuDILU<M, X, Y, l>::CuDILU(const M& A)
                  fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
                              m_gpuMatrix.nonzeroes(),
                              A.nonzeroes()));
+
+    std::vector<int> cpuLevelSetSizes(m_levelSets.size());
+    for (int i = 0; i < m_levelSets.size(); ++i){
+        cpuLevelSetSizes[i] = m_levelSets[i].size();
+    }
+    auto res = std::max_element(cpuLevelSetSizes.begin(), cpuLevelSetSizes.end());
+    maxRowsInLevelSet = *res;
+    // TODO: change the name of the variable to reflect the prefix sum
+    // turn the sizes of the individual level sets into a prefix sum so we have starting index easily accessible
+    std::partial_sum(cpuLevelSetSizes.begin(), cpuLevelSetSizes.end(), cpuLevelSetSizes.begin());
+
+    m_gpuLevelSetSizes.copyFromHost(cpuLevelSetSizes.data(), m_levelSets.size());
+
     update();
 }
 
@@ -142,6 +160,18 @@ void
 CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
     OPM_TIMEBLOCK(prec_apply);
+
+    detail::DILUApply<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
+                                    m_gpuMatrixReordered.getRowIndices().data(),
+                                    m_gpuMatrixReordered.getColumnIndices().data(),
+                                    m_gpuMatrixReordered.N(),
+                                    m_gpuReorderToNatural.data(),
+                                    m_gpuLevelSetSizes.data(),
+                                    maxRowsInLevelSet,
+                                    m_gpuDInv.data(),
+                                    d.data(),
+                                    v.data());
+
     int levelStartIdx = 0;
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
