@@ -189,8 +189,6 @@ CuDILU<M, X, Y, l>::category() const
     return Dune::SolverCategory::sequential;
 }
 
-
-//! the moveDataToReordered typically takes 182ms, whereas the computediagonal takes less than 7ms
 template <class M, class X, class Y, int l>
 void
 CuDILU<M, X, Y, l>::update()
