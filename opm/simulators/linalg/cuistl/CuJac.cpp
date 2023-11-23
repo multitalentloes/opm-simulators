@@ -25,7 +25,6 @@
 #include <dune/istl/bvector.hh>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
-#include <opm/common/TimingMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
 #include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
@@ -86,8 +85,6 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& v, const Y& d)
 {
-
-    OPM_TIMEBLOCK_LOCAL(prec_apply);
     // Jacobi preconditioner: x_{n+1} = x_n + w * (D^-1 * (b - Ax_n) )
     // Working with defect d and update v it we only need to set v = w*(D^-1)*d
 
