@@ -1,12 +1,12 @@
 #ifndef OPM_EXTRAPRECONTIONERS_HPP
 #define OPM_EXTRAPRECONTIONERS_HPP
 
-#include <dune/common/unused.hh>
+#include <dune/common/densematrix.hh>
 #include <dune/common/transpose.hh>
+#include <dune/common/unused.hh>
 #include <dune/istl/matrixutils.hh>
 #include <dune/istl/preconditioner.hh>
 #include <vector>
-#include <dune/common/densematrix.hh>
 namespace Dune
 {
 namespace Details
@@ -54,11 +54,11 @@ namespace Details
         using std::max;
         using std::swap;
 
-        //typedef typename FieldTraits<value_type>::real_type real_type;
+        // typedef typename FieldTraits<value_type>::real_type real_type;
         using real_type = double;
-	using size_type = std::size_t;
-	using simd_index_type = std::size_t;
-	using field_type = double;
+        using size_type = std::size_t;
+        using simd_index_type = std::size_t;
+        using field_type = double;
         // LU decomposition of A in A
         for (size_type i = 0; i < A.N(); i++) // loop over all rows
         {
@@ -157,8 +157,7 @@ namespace Details
                 std::size_t pi = Simd::lane(l, pivot[i]);
                 if (i != pi)
                     for (size_type j = 0; j < A.N(); ++j)
-                        swap(Simd::lane(l, AOUT[j][pi]),
-			     Simd::lane(l, AOUT[j][i]));
+                        swap(Simd::lane(l, AOUT[j][pi]), Simd::lane(l, AOUT[j][i]));
             }
         }
         return AOUT;
@@ -300,7 +299,7 @@ public:
     typedef typename X::field_type field_type;
     //! \brief The inverse of the diagnal matrix
     typedef typename M::block_type matrix_block_type;
-    
+
     //! \brief scalar type underlying the field_type
 #if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 7)
     typedef Simd::Scalar<field_type> scalar_field_type;
@@ -314,11 +313,11 @@ public:
        \param n The number of iterations to perform.
        \param w The relaxation factor.
      */
-  SeqSpai0(const M& A, int n, scalar_field_type w, bool left_precond = true)
+    SeqSpai0(const M& A, int n, scalar_field_type w, bool left_precond = true)
         : _A_(A)
         , _n(n)
         , _w(w)
-	, _left_precond(left_precond)  
+        , _left_precond(left_precond)
     {
         // EASY_FUNCTION();
         CheckIfDiagonalPresent<M, l>::check(_A_);
@@ -326,13 +325,13 @@ public:
         _M_.resize(_A_.N());
         matrix_block_type temp;
         constexpr int sz = matrix_block_type::rows;
-        //using dune_matrix = Dune::FieldMatrix<double,sz,sz>;
-        // FIXME: without considering the block size
-        // Assuming the block size to be 1
-        
-        if constexpr (sz == 1){
-            //  OPM_THROW(std::invalid_argument, "Now allways use invert branch ");    
-                  //scalar case             
+        // using dune_matrix = Dune::FieldMatrix<double,sz,sz>;
+        //  FIXME: without considering the block size
+        //  Assuming the block size to be 1
+
+        if constexpr (sz == 1) {
+            //  OPM_THROW(std::invalid_argument, "Now allways use invert branch ");
+            // scalar case
             for (auto row = _A_.begin(); row != _A_.end(); ++row) {
                 double den = 0.;
                 double v = 0.;
@@ -345,54 +344,51 @@ public:
                 }
                 _M_[row.index()][0][0] = v / den;
             }
-        }else{
+        } else {
 #if DUNE_VERSION_NEWER(DUNE_ISTL, 2, 7)
-	  // code based on f(M) = min || A M -Y ||
-	  // f'(M) = A' (A M -Y)  W = (A'*A) \A' *Y(would give sparse right invers)  
-	  // code based on g(M) = min || M A  -Y ||
-          // g(M') = A (A' M' - Y') M' =(A*A')\ A*Y' -> M = Y*A'/(A*A')
-	  // with blackoil matrices left is more stable.
+            // code based on f(M) = min || A M -Y ||
+            // f'(M) = A' (A M -Y)  W = (A'*A) \A' *Y(would give sparse right invers)
+            // code based on g(M) = min || M A  -Y ||
+            // g(M') = A (A' M' - Y') M' =(A*A')\ A*Y' -> M = Y*A'/(A*A')
+            // with blackoil matrices left is more stable.
             for (auto row = _A_.begin(); row != _A_.end(); ++row) {
                 matrix_block_type den(0.0);
                 matrix_block_type vt(0.0);
-		//matrix_block_type v(0.0);
+                // matrix_block_type v(0.0);
                 for (auto col = (*row).begin(); col != (*row).end(); ++col) {
                     const matrix_block_type tempv = (*col);
                     const matrix_block_type tempvt = Details::transposeDenseMatrix(tempv);
-		    if(_left_precond){
-		      den += tempv.template rightmultiplyany<sz>(tempvt);//tempv * tempvt;
-		    }else{
-		      den += tempvt.template rightmultiplyany<sz>(tempv);//tempvt * tempv;
-		    }
+                    if (_left_precond) {
+                        den += tempv.template rightmultiplyany<sz>(tempvt); // tempv * tempvt;
+                    } else {
+                        den += tempvt.template rightmultiplyany<sz>(tempv); // tempvt * tempv;
+                    }
                     if (col.index() == row.index()) {
-		      // if SPA >0 has to be extended to an matrix matrix multiplication
-		      vt = tempvt;
+                        // if SPA >0 has to be extended to an matrix matrix multiplication
+                        vt = tempvt;
                     }
                 }
-                //NB better with LU factorization
-                //matrix_block_type invden = den;
-		//invden.invert();
-		//LU for robustenes
-		matrix_block_type invden = Dune::Details::invertMatrix(den,true);
-		if(_left_precond){		  
-		  _M_[row.index()] = vt.template rightmultiplyany<sz>(invden);// vt* inv(v*vt)
-		  
-		  //matrix_block_type Mtrans = den.solve(v);
-		  //_M_[row.index()] = transposeDenseMatrix(Mtrans);// vt* den.invert()
-		}else{
-		  _M_[row.index()] = invden.template rightmultiplyany<sz>(vt);// inv(vt*v) *vt
-		  //Best code probably
-		  //_M_[row.index()] = den.solve(vt);// vt* den.invert()
-		}
-		// IF SPAI> 0 should be implemented more indexing
-		
-	     }
+                // NB better with LU factorization
+                // matrix_block_type invden = den;
+                // invden.invert();
+                // LU for robustenes
+                matrix_block_type invden = Dune::Details::invertMatrix(den, true);
+                if (_left_precond) {
+                    _M_[row.index()] = vt.template rightmultiplyany<sz>(invden); // vt* inv(v*vt)
+
+                    // matrix_block_type Mtrans = den.solve(v);
+                    //_M_[row.index()] = transposeDenseMatrix(Mtrans);// vt* den.invert()
+                } else {
+                    _M_[row.index()] = invden.template rightmultiplyany<sz>(vt); // inv(vt*v) *vt
+                    // Best code probably
+                    //_M_[row.index()] = den.solve(vt);// vt* den.invert()
+                }
+                // IF SPAI> 0 should be implemented more indexing
+            }
 #else
             OPM_THROW(std::invalid_argument, "Spai0 with blocksize>0 not suppoted for dune<=2.7 ");
 #endif
         }
- 
-
     }
 
     /*!
@@ -441,7 +437,7 @@ private:
     //! \brief The matrix we operate on.
     const M& _A_;
     //! \brief the diagnal matrix handling the scaling
-    //typedef typename M::block_type matrix_block_type;
+    // typedef typename M::block_type matrix_block_type;
     std::vector<matrix_block_type> _M_;
     //! \brief The number of steps to perform during apply.
     int _n;
@@ -478,7 +474,6 @@ private:
             }
         }
     }
-
 };
 
 
