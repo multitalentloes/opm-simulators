@@ -203,12 +203,12 @@ struct StandardPreconditioners
           const double w = prm.get<double>("relaxation", 1.0);
           return wrapBlockPreconditioner<DummyUpdatePreconditioner<SeqJacNew<M, V, V>>>(comm, op.getmat(), n, w);
         });
-        F::addCreator("SPAI0", [](const O& op, const P& prm, const std::function<V()>&,
+        F::addCreator("Spai0", [](const O& op, const P& prm, const std::function<V()>&,
                      std::size_t, const C& comm) {
           const int n = prm.get<int>("repeats", 1);
           const double w = prm.get<double>("relaxation", 1.0);
 	  const bool left_precond = prm.get<bool>("left_precond", true);
-          return wrapBlockPreconditioner<DummyUpdatePreconditioner<SeqSpai0<M, V, V>>>(comm, op.getmat(), n, w, left_precond);
+          return wrapBlockPreconditioner<SeqSpai0<M, V, V>>(comm, op.getmat(), n, w, left_precond);
         });
         F::addCreator("GS", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
           const int n = prm.get<int>("repeats", 1);

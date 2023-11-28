@@ -323,11 +323,45 @@ public:
         CheckIfDiagonalPresent<M, l>::check(_A_);
         // we build the scaling matrix, for SPAI0, it is a diagonal matrix
         _M_.resize(_A_.N());
+        _D_.resize(_A_.N());
+        _V_.resize(_A_.N());
+        update();
+    }
+
+    /*!
+       \brief Prepare the preconditioner.
+
+       \copydoc Preconditioner::pre(X&,Y&)
+     */
+    virtual void pre(X& x, Y& b)
+    {
+        DUNE_UNUSED_PARAMETER(x);
+        DUNE_UNUSED_PARAMETER(b);
+    }
+
+    /*!
+       \brief Apply the preconditioner.
+
+       \copydoc Preconditioner::apply(X&,const Y&)
+     */
+    virtual void apply(X& v, const Y& d)
+    {
+        // EASY_FUNCTION(profiler::colors::Magenta);
+        if (_n == 1) {
+            this->applyOnce_(v, d);
+        } else {
+            this->applyMultiple_(v, d);
+        }
+    }
+
+    void update(){
         matrix_block_type temp;
         constexpr int sz = matrix_block_type::rows;
         // using dune_matrix = Dune::FieldMatrix<double,sz,sz>;
         //  FIXME: without considering the block size
         //  Assuming the block size to be 1
+
+        // double worst_cond = 0;
 
         if constexpr (sz == 1) {
             //  OPM_THROW(std::invalid_argument, "Now allways use invert branch ");
@@ -373,6 +407,19 @@ public:
                 // invden.invert();
                 // LU for robustenes
                 matrix_block_type invden = Dune::Details::invertMatrix(den, true);
+                // auto invden_dune = den;
+                // invden_dune.invert();
+
+                // if (invden.frobenius_norm() > worst_cond){
+                //     worst_cond = invden.frobenius_norm();
+                //     printf("%.0lf %.0lf %.0lf %.0lf %.0lf %.0lf %.0lf %.0lf %.0lf \n", invden[0][0], invden[0][1], invden[0][2], invden[1][0], invden[1][1], invden[1][2], invden[2][0], invden[2][1], invden[2][2]);
+                // }
+
+                // printf("%lf, %lf, %lf\n", den.frobenius_norm(), invden.frobenius_norm(), invden_dune.frobenius_norm());
+
+                _D_[row.index()] = den;
+                _V_[row.index()] = vt;
+
                 if (_left_precond) {
                     _M_[row.index()] = vt.template rightmultiplyany<sz>(invden); // vt* inv(v*vt)
 
@@ -390,33 +437,6 @@ public:
 #endif
         }
     }
-
-    /*!
-       \brief Prepare the preconditioner.
-
-       \copydoc Preconditioner::pre(X&,Y&)
-     */
-    virtual void pre(X& x, Y& b)
-    {
-        DUNE_UNUSED_PARAMETER(x);
-        DUNE_UNUSED_PARAMETER(b);
-    }
-
-    /*!
-       \brief Apply the preconditioner.
-
-       \copydoc Preconditioner::apply(X&,const Y&)
-     */
-    virtual void apply(X& v, const Y& d)
-    {
-        // EASY_FUNCTION(profiler::colors::Magenta);
-        if (_n == 1) {
-            this->applyOnce_(v, d);
-        } else {
-            this->applyMultiple_(v, d);
-        }
-    }
-
     /*!
        \brief Clean up.
 
@@ -439,6 +459,9 @@ private:
     //! \brief the diagnal matrix handling the scaling
     // typedef typename M::block_type matrix_block_type;
     std::vector<matrix_block_type> _M_;
+    //! SPAI0 WIP
+    std::vector<matrix_block_type> _V_;
+    std::vector<matrix_block_type> _D_;
     //! \brief The number of steps to perform during apply.
     int _n;
     //! \brief The relaxation parameter to use.
@@ -446,10 +469,21 @@ private:
     bool _left_precond;
 
     void applyOnce_(X& v, const Y& d)
-    {
-        // v = _M_ * d;
-        for (size_t ii = 0; ii < _M_.size(); ++ii) {
-            _M_[ii].mv(d[ii], v[ii]);
+    {   
+        constexpr int sz = matrix_block_type::rows;
+        if constexpr (sz == 1) {
+            // v = _M_ * d;
+            for (size_t ii = 0; ii < _M_.size(); ++ii) {
+                _M_[ii].mv(d[ii], v[ii]);
+            }
+        }
+        else{
+            // TODO: this gave no better convergence, but should it not since we avoided an inversion?
+            X x(1);
+            for (size_t ii = 0; ii < _M_.size(); ++ii) {
+                _D_[ii].solve(x[0], d[ii]);
+                _V_[ii].mv(x[0], v[ii]);
+            }
         }
     }
 
