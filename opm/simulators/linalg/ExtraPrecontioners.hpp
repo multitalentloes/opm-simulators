@@ -7,6 +7,8 @@
 #include <dune/istl/matrixutils.hh>
 #include <dune/istl/preconditioner.hh>
 #include <vector>
+
+#include <algorithm>
 namespace Dune
 {
 namespace Details
@@ -402,6 +404,8 @@ public:
                         vt = tempvt;
                     }
                 }
+                _D_[row.index()] = den;
+                _V_[row.index()] = vt;
                 // NB better with LU factorization
                 // matrix_block_type invden = den;
                 // invden.invert();
@@ -417,8 +421,6 @@ public:
 
                 // printf("%lf, %lf, %lf\n", den.frobenius_norm(), invden.frobenius_norm(), invden_dune.frobenius_norm());
 
-                _D_[row.index()] = den;
-                _V_[row.index()] = vt;
 
                 if (_left_precond) {
                     _M_[row.index()] = vt.template rightmultiplyany<sz>(invden); // vt* inv(v*vt)
@@ -480,9 +482,27 @@ private:
         else{
             // TODO: this gave no better convergence, but should it not since we avoided an inversion?
             X x(1);
+            double globMaxv = -1.0;
             for (size_t ii = 0; ii < _M_.size(); ++ii) {
                 _D_[ii].solve(x[0], d[ii]);
                 _V_[ii].mv(x[0], v[ii]);
+
+                // double locMaxv = std::max({v[ii][0], v[ii][1], v[ii][2]});
+                // double locMaxV = std::max({_V_[ii][0][0], _V_[ii][0][1], _V_[ii][0][2], _V_[ii][1][0], _V_[ii][1][1], _V_[ii][1][2], _V_[ii][2][0], _V_[ii][2][1], _V_[ii][2][2]});
+                // double locMinV = std::min({_V_[ii][0][0], _V_[ii][0][1], _V_[ii][0][2], _V_[ii][1][0], _V_[ii][1][1], _V_[ii][1][2], _V_[ii][2][0], _V_[ii][2][1], _V_[ii][2][2]});
+                // double locMaxd = std::max({d[ii][0], d[ii][1], d[ii][2]});
+                // double locMaxD = std::max({_D_[ii][0][0], _D_[ii][0][1], _D_[ii][0][2], _D_[ii][1][0], _D_[ii][1][1], _D_[ii][1][2], _D_[ii][2][0], _D_[ii][2][1], _D_[ii][2][2]});
+                // double locMinD = std::min({_D_[ii][0][0], _D_[ii][0][1], _D_[ii][0][2], _D_[ii][1][0], _D_[ii][1][1], _D_[ii][1][2], _D_[ii][2][0], _D_[ii][2][1], _D_[ii][2][2]});
+                // double locMaxx = std::max({x[0][0], x[0][1], x[0][2]});
+                // if (locMaxv > globMaxv){
+                //     globMaxv = locMaxv;
+                //     // printf("maxv: %.0lf, maxd: %.0lf, maxx: %.0lf, D:[%.0lf,%.0lf], V:[%.0lf,%.0lf]\n", globMaxv, locMaxd, locMaxx, locMinD, locMaxD, locMinV, locMaxV);
+                //     printf("[%lf %lf %lf %lf %lf %lf %lf %lf %lf] x [%lf %lf %lf]\n\n",_D_[ii][0][0], _D_[ii][0][1], _D_[ii][0][2], _D_[ii][1][0], _D_[ii][1][1], _D_[ii][1][2], _D_[ii][2][0], _D_[ii][2][1], _D_[ii][2][2], d[ii][0], d[ii][1], d[ii][2]);
+                // }
+                /*
+                [8.858081 -14.335843 2003.658782 -14.335843 23.201040 -3242.719778 2003.658782 -3242.719778 453225.821585] x [-0.711852 1954.145832 -116.105523]
+                X=[137226281933574964706454/13551621809573, -122115525567121940913468/13551621809573, -267045210747839398803/13551621809573]
+                */
             }
         }
     }
