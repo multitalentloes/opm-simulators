@@ -52,7 +52,7 @@ template <class T, int blocksize>
 void computeLowerSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices, size_t numberOfRows, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
 
 template <class T, int blocksize>
-void DILUApply(T* reorderedMat, int* rowIndices, int* colIndices, size_t numberOfRows, int* indexConversion, int* levelSetSizes, int maxLevelSetSize, T* dInv, const T* d, T* v);
+void DILUApply(T* reorderedMat, int* rowIndices, int* colIndices, size_t numLevelSets, int* indexConversion, int* levelSetSizes, int maxLevelSetSize, T* dInv, const T* d, T* v);
 
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel

@@ -213,10 +213,9 @@ namespace
     }
 
     template <class T, int blocksize>
-    __device__ void cuDebugComputeLowerSolveLevelSet(T* mat,
+    __global__ void cuDebugComputeLowerSolveLevelSet(T* mat,
                                                 int* rowIndices,
                                                 int* colIndices,
-                                                size_t numberOfRows,
                                                 int* indexConversion,
                                                 const int startIdx,
                                                 int rowsInLevelSet,
@@ -240,6 +239,34 @@ namespace
             }
 
             mv<T, blocksize, MVType::SET>(
+                &dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+        }
+    }
+
+    template <class T, int blocksize>
+    __global__ void cuDebugComputeUpperSolveLevelSet(T* mat,
+                                                int* rowIndices,
+                                                int* colIndices,
+                                                int* indexConversion,
+                                                const int startIdx,
+                                                int rowsInLevelSet,
+                                                T* dInv,
+                                                const T* d,
+                                                T* v)
+    {
+        const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
+        if (reorderedRowIdx < rowsInLevelSet + startIdx) {
+            size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
+            int naturalRowIdx = indexConversion[reorderedRowIdx];
+
+            T rhs[blocksize] = {0};
+
+            for (int block = nnzIdxLim - 1; colIndices[block] > naturalRowIdx; --block) {
+                const int col = colIndices[block];
+                mv<T, blocksize, MVType::PLUS>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+            }
+
+            mv<T, blocksize, MVType::MINUS>(
                 &dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
         }
     }
@@ -277,7 +304,7 @@ template <class T, int blocksize>
 __global__ void cuDILUApply(T* reorderedMat,
         int* rowIndices,
         int* colIndices,
-        size_t numberOfRows,
+        size_t numLevelSets,
         int* indexConversion,
         int* levelSetSizes,
         int maxLevelSetSize,
@@ -287,8 +314,18 @@ __global__ void cuDILUApply(T* reorderedMat,
 {
     const auto thr = blockDim.x * blockIdx.x + threadIdx.x;
     if (thr == 0){
-        cuDebugComputeLowerSolveLevelSet<T, blocksize><<<(levelSetSizes[1] - levelSetSizes[0]+1023)/1024, 1024>>>(
-            reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, levelSetSizes[0], levelSetSizes[1] - levelSetSizes[0], dInv, d, v);
+        for (int level = 0; level + 1 < numLevelSets; ++level) {
+            int setSize = levelSetSizes[level+1] - levelSetSizes[level];
+            int startIdx = levelSetSizes[level];
+            cuDebugComputeLowerSolveLevelSet<T, blocksize><<<(setSize+1023)/1024, 1024>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, setSize, dInv, d, v);
+        }
+        for (int level = numLevelSets - 2; level >= 0; --level) {
+            const int setSize = levelSetSizes[level+1] - levelSetSizes[level];
+            int startIdx = levelSetSizes[level];
+            cuDebugComputeUpperSolveLevelSet<T, blocksize><<<(setSize+1023)/1024, 1024>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, setSize, dInv, d, v);
+        }
     }
 }
 
@@ -473,7 +510,7 @@ void
 DILUApply(T* reorderedMat,
         int* rowIndices,
         int* colIndices,
-        size_t numberOfRows,
+        size_t numLevelSets,
         int* indexConversion,
         int* levelSetSizes,
         int maxLevelSetSize,
@@ -482,7 +519,7 @@ DILUApply(T* reorderedMat,
         T* v)
 {
     cuDILUApply<T, blocksize><<<1, 1>>>(
-        reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, levelSetSizes, maxLevelSetSize, dInv, d, v);
+        reorderedMat, rowIndices, colIndices, numLevelSets, indexConversion, levelSetSizes, maxLevelSetSize, dInv, d, v);
 }
 
 template <class T, int blocksize>
@@ -547,6 +584,8 @@ copyMatDataToReordered(T* srcMatrix,
         double*, int*, int*, size_t, int*, const int, int, double*, const double*, double*);                           \
     template void computeLowerSolveLevelSet<float, blocksize>(                                                         \
         float*, int*, int*, size_t, int*, const int, int, float*, const float*, float*);                               \
+    template void computeLowerSolveLevelSet<double, blocksize>(                                                        \
+        double*, int*, int*, size_t, int*, const int, int, double*, const double*, double*);                           \
     template void DILUApply<float, blocksize>(float*, int*, int*, size_t, int*, int*, int, float*, const float*, float*);                \
     template void DILUApply<double, blocksize>(double*, int*, int*, size_t, int*, int*, int, double*, const double*, double*);
 
@@ -558,3 +597,28 @@ INSTANTIATE_KERNEL_WRAPPERS(5);
 INSTANTIATE_KERNEL_WRAPPERS(6);
 
 } // namespace Opm::cuistl::detail
+
+
+/*
+0
+1
+4
+10
+19
+31
+46
+64
+85
+109
+136
+164
+191
+215
+236
+254
+269
+281
+290
+296
+299
+*/

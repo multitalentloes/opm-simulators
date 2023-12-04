@@ -240,52 +240,52 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(testMvHelperFunction, T, NumericTypes)
     }
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(moveToReorderedMatrix, T, NumericTypes)
-{
-    const size_t blocksize = 2;
-    const size_t N = 2;
-    const int nonZeroes = 3;
-    using M = Dune::FieldMatrix<T, blocksize, blocksize>;
-    using SpMatrix = Dune::BCRSMatrix<M>;
+// BOOST_AUTO_TEST_CASE_TEMPLATE(moveToReorderedMatrix, T, NumericTypes)
+// {
+//     const size_t blocksize = 2;
+//     const size_t N = 2;
+//     const int nonZeroes = 3;
+//     using M = Dune::FieldMatrix<T, blocksize, blocksize>;
+//     using SpMatrix = Dune::BCRSMatrix<M>;
 
-    SpMatrix A(N, N, nonZeroes, SpMatrix::row_wise);
-    for (auto row = A.createbegin(); row != A.createend(); ++row) {
-        row.insert(row.index());
-        if (row.index() == 0) {
-            row.insert(row.index() + 1);
-        }
-    }
-    SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
-    for (auto row = B.createbegin(); row != B.createend(); ++row) {
-        row.insert(row.index());
-        if (row.index() == 1) {
-            row.insert(row.index() - 1);
-        }
-    }
-    A[0][0][0][0] = 1.0;
-    A[0][1][0][1] = 2.0;
-    A[1][1][1][0] = 3.0;
-    B[0][0][0][0] = -1.0;
-    B[1][0][0][0] = -1.0;
-    B[1][1][0][0] = -1.0;
+//     SpMatrix A(N, N, nonZeroes, SpMatrix::row_wise);
+//     for (auto row = A.createbegin(); row != A.createend(); ++row) {
+//         row.insert(row.index());
+//         if (row.index() == 0) {
+//             row.insert(row.index() + 1);
+//         }
+//     }
+//     SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
+//     for (auto row = B.createbegin(); row != B.createend(); ++row) {
+//         row.insert(row.index());
+//         if (row.index() == 1) {
+//             row.insert(row.index() - 1);
+//         }
+//     }
+//     A[0][0][0][0] = 1.0;
+//     A[0][1][0][1] = 2.0;
+//     A[1][1][1][0] = 3.0;
+//     B[0][0][0][0] = -1.0;
+//     B[1][0][0][0] = -1.0;
+//     B[1][1][0][0] = -1.0;
 
-    Opm::cuistl::CuSparseMatrix<T> mA = Opm::cuistl::CuSparseMatrix<T>::fromMatrix(A);
-    Opm::cuistl::CuSparseMatrix<T> mB = Opm::cuistl::CuSparseMatrix<T>::fromMatrix(B);
+//     Opm::cuistl::CuSparseMatrix<T> mA = Opm::cuistl::CuSparseMatrix<T>::fromMatrix(A);
+//     Opm::cuistl::CuSparseMatrix<T> mB = Opm::cuistl::CuSparseMatrix<T>::fromMatrix(B);
 
-    Opm::cuistl::CuVector<int> naturalToReorder({1, 0});
+//     Opm::cuistl::CuVector<int> naturalToReorder({1, 0});
 
-    Opm::cuistl::detail::moveMatDataToReordered2<T, 2>(mA.getNonZeroValues().data(), mA.getRowIndices().data(), mA.getColumnIndices().data(), mB.getNonZeroValues().data(), mB.getRowIndices().data(), mB.getColumnIndices().data(), naturalToReorder.data(), N, nonZeroes);
+//     Opm::cuistl::detail::moveMatDataToReordered2<T, 2>(mA.getNonZeroValues().data(), mA.getRowIndices().data(), mA.getColumnIndices().data(), mB.getNonZeroValues().data(), mB.getRowIndices().data(), mB.getColumnIndices().data(), naturalToReorder.data(), N, nonZeroes);
 
-    std::vector<T> orig(mA.getNonZeroValues().asStdVector());
-    std::vector<T> res(mB.getNonZeroValues().asStdVector());
+//     std::vector<T> orig(mA.getNonZeroValues().asStdVector());
+//     std::vector<T> res(mB.getNonZeroValues().asStdVector());
 
-    printf("=======\n");
-    for (auto e : orig){
-        printf("%lf ", e);
-    }
-    printf("\n");
-    for (auto e : res){
-        printf("%lf ", e);
-    }
-    printf("=======\n");
-}
+//     printf("=======\n");
+//     for (auto e : orig){
+//         printf("%lf ", e);
+//     }
+//     printf("\n");
+//     for (auto e : res){
+//         printf("%lf ", e);
+//     }
+//     printf("=======\n");
+// }
