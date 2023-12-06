@@ -473,7 +473,7 @@ private:
     void applyOnce_(X& v, const Y& d)
     {   
         constexpr int sz = matrix_block_type::rows;
-        if constexpr (sz == 1) {
+        if constexpr (sz == 1 || true) {
             // v = _M_ * d;
             for (size_t ii = 0; ii < _M_.size(); ++ii) {
                 _M_[ii].mv(d[ii], v[ii]);
