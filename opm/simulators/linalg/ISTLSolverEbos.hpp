@@ -57,7 +57,7 @@
 #include <tuple>
 #include <vector>
 
-const double PRESSURE_UNIT_ADJUSTER = 1e8;
+const double PRESSURE_UNIT_ADJUSTER = 1e0;
 
 namespace Opm::Properties {
 
@@ -323,18 +323,6 @@ std::unique_ptr<Matrix> blockJacobiAdjacency(const Grid& grid,
                 // to the original one with a deleter that does nothing.
                 // Outch! We need to be able to scale the linear system! Hence const_cast
                 matrix_ = const_cast<Matrix*>(&M);
-
-                //! Hacky preconditioning experiment
-                for (auto row = matrix_->begin(); row != matrix_->end(); ++row) {
-                    for (auto m_ij = row->begin(); m_ij != row->end(); ++m_ij) {
-                        const size_t blockSize = 3; // TODO: replace with templated argument
-                        auto block = *m_ij;
-                        for (size_t k = 0; k < blockSize; k++){
-                            block[k][pressureIndex] *= PRESSURE_UNIT_ADJUSTER;
-                        }
-                    }
-                }
-
                 useWellConn_ = EWOMS_GET_PARAM(TypeTag, bool, MatrixAddWellContributions);
                 // setup sparsity pattern for jacobi matrix for preconditioner (only used for openclSolver)
             } else {
@@ -362,6 +350,18 @@ std::unique_ptr<Matrix> blockJacobiAdjacency(const Grid& grid,
             OPM_TIMEBLOCK(istlSolverEbosPrepare);
 
             initPrepare(M,b);
+
+            //! Hacky preconditioning experiment
+            auto mutableM = const_cast<Matrix*>(&M);
+            for (auto row = mutableM->begin(); row != mutableM->end(); ++row) {
+                for (auto m_ij = row->begin(); m_ij != row->end(); ++m_ij) {
+                    const size_t blockSize = 3; // TODO: replace with templated argument
+                    auto block = *m_ij;
+                    for (size_t k = 0; k < blockSize; k++){
+                        block[k][pressureIndex] *= PRESSURE_UNIT_ADJUSTER;
+                    }
+                }
+            }
 
             prepareFlexibleSolver();
         }
@@ -409,12 +409,14 @@ std::unique_ptr<Matrix> blockJacobiAdjacency(const Grid& grid,
             {
                 OPM_TIMEBLOCK(flexibleSolverApply);
                 assert(flexibleSolver_[activeSolverNum_].solver_);
+
                 flexibleSolver_[activeSolverNum_].solver_->apply(x, *rhs_, result);
 
                 //! Hacky preconditioning experiment
-                for (auto vec = rhs_->begin(); vec != rhs_->end(); ++vec) {
+                for (auto vec = x.begin(); vec != x.end(); ++vec) {
                     (*vec)[pressureIndex] *= PRESSURE_UNIT_ADJUSTER;
                 }
+
             }
 
             // Check convergence, iterations etc.
