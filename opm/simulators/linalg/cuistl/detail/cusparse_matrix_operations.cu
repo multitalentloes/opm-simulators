@@ -415,27 +415,23 @@ copyMatDataToReordered(
         srcMatrix, srcRowIndices, dstMatrix, dstRowIndices, naturalToReordered, numberOfRows);
 }
 
-#define INSTANTIATE_KERNEL_WRAPPERS(blocksize)                                                                         \
-    template void invertDiagonalAndFlatten<float, blocksize>(float*, int*, int*, size_t, float*);                      \
-    template void invertDiagonalAndFlatten<double, blocksize>(double*, int*, int*, size_t, double*);                   \
-    template void copyMatDataToReordered<float, blocksize>(float*, int*, float*, int*, int*, size_t);                  \
-    template void copyMatDataToReordered<double, blocksize>(double*, int*, double*, int*, int*, size_t);               \
-    template void computeDiluDiagonal<float, blocksize>(float*, int*, int*, int*, int*, const int, int, float*);       \
-    template void computeDiluDiagonal<double, blocksize>(double*, int*, int*, int*, int*, const int, int, double*);    \
-    template void computeUpperSolveLevelSet<float, blocksize>(                                                         \
-        float*, int*, int*, int*, const int, int, float*, float*);                                                     \
-    template void computeUpperSolveLevelSet<double, blocksize>(                                                        \
-        double*, int*, int*, int*, const int, int, double*, double*);                                                  \
-    template void computeLowerSolveLevelSet<float, blocksize>(                                                         \
-        float*, int*, int*, int*, const int, int, float*, const float*, float*);                                       \
-    template void computeLowerSolveLevelSet<double, blocksize>(                                                        \
-        double*, int*, int*, int*, const int, int, double*, const double*, double*);
+#define INSTANTIATE_KERNEL_WRAPPERS(T, blocksize)                                                                      \
+    template void invertDiagonalAndFlatten<T, blocksize>(T*, int*, int*, size_t, T*);                                  \
+    template void copyMatDataToReordered<T, blocksize>(T*, int*, T*, int*, int*, size_t);                              \
+    template void computeDiluDiagonal<T, blocksize>(T*, int*, int*, int*, int*, const int, int, T*);                   \
+    template void computeUpperSolveLevelSet<T, blocksize>(T*, int*, int*, int*, const int, int, T*, T*);               \
+    template void computeLowerSolveLevelSet<T, blocksize>(T*, int*, int*, int*, const int, int, T*, const T*, T*);
 
-INSTANTIATE_KERNEL_WRAPPERS(1);
-INSTANTIATE_KERNEL_WRAPPERS(2);
-INSTANTIATE_KERNEL_WRAPPERS(3);
-INSTANTIATE_KERNEL_WRAPPERS(4);
-INSTANTIATE_KERNEL_WRAPPERS(5);
-INSTANTIATE_KERNEL_WRAPPERS(6);
-
+INSTANTIATE_KERNEL_WRAPPERS(float, 1);
+INSTANTIATE_KERNEL_WRAPPERS(float, 2);
+INSTANTIATE_KERNEL_WRAPPERS(float, 3);
+INSTANTIATE_KERNEL_WRAPPERS(float, 4);
+INSTANTIATE_KERNEL_WRAPPERS(float, 5);
+INSTANTIATE_KERNEL_WRAPPERS(float, 6);
+INSTANTIATE_KERNEL_WRAPPERS(double, 1);
+INSTANTIATE_KERNEL_WRAPPERS(double, 2);
+INSTANTIATE_KERNEL_WRAPPERS(double, 3);
+INSTANTIATE_KERNEL_WRAPPERS(double, 4);
+INSTANTIATE_KERNEL_WRAPPERS(double, 5);
+INSTANTIATE_KERNEL_WRAPPERS(double, 6);
 } // namespace Opm::cuistl::detail

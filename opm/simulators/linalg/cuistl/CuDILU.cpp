@@ -144,7 +144,7 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     int levelStartIdx = 0;
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
-        detail::computeLowerSolveLevelSet<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
+        detail::computeLowerSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
                                             m_gpuMatrixReordered.getRowIndices().data(),
                                             m_gpuMatrixReordered.getColumnIndices().data(),
                                             m_gpuReorderToNatural.data(),
@@ -161,7 +161,7 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     for (int level = m_levelSets.size() - 1; level >= 0; --level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
         levelStartIdx -= numOfRowsInLevel;
-        detail::computeUpperSolveLevelSet<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
+        detail::computeUpperSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
                                             m_gpuMatrixReordered.getRowIndices().data(),
                                             m_gpuMatrixReordered.getColumnIndices().data(),
                                             m_gpuReorderToNatural.data(),
@@ -193,7 +193,7 @@ CuDILU<M, X, Y, l>::update()
 
     m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
 
-    detail::copyMatDataToReordered<field_type, matrix_type::block_type::cols>(m_gpuMatrix.getNonZeroValues().data(),
+    detail::copyMatDataToReordered<field_type, blocksize_>(m_gpuMatrix.getNonZeroValues().data(),
                                     m_gpuMatrix.getRowIndices().data(),
                                     m_gpuMatrixReordered.getNonZeroValues().data(),
                                     m_gpuMatrixReordered.getRowIndices().data(),
@@ -204,7 +204,7 @@ CuDILU<M, X, Y, l>::update()
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
 
-        detail::computeDiluDiagonal<field_type, matrix_type::block_type::cols>(m_gpuMatrixReordered.getNonZeroValues().data(),
+        detail::computeDiluDiagonal<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
                                     m_gpuMatrixReordered.getRowIndices().data(),
                                     m_gpuMatrixReordered.getColumnIndices().data(),
                                     m_gpuReorderToNatural.data(),

@@ -96,9 +96,10 @@ public:
 
 
 private:
-    
     //! \brief Reference to the underlying matrix
     const M& m_cpuMatrix;
+    //! \brief size_t describing the dimensions of the square block elements
+    static constexpr const size_t blocksize_ = matrix_type::block_type::cols;
     //! \brief SparseTable storing each row by level
     Opm::SparseTable<size_t> m_levelSets;
     //! \brief converts from index in reordered structure to index natural ordered structure
