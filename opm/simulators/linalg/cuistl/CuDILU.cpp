@@ -40,17 +40,16 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
-std::vector<int> createReorderedToNatural(int, Opm::SparseTable<size_t>);
-std::vector<int> createNaturalToReordered(int, Opm::SparseTable<size_t>);
+std::vector<int> createReorderedToNatural(Opm::SparseTable<size_t>);
+std::vector<int> createNaturalToReordered(Opm::SparseTable<size_t>);
 
-// TODO: I think sending size is excessive
 std::vector<int>
-createReorderedToNatural(int size, Opm::SparseTable<size_t> levelSets)
+createReorderedToNatural(Opm::SparseTable<size_t> levelSets)
 {
-    auto res = std::vector<int>(size);
+    auto res = std::vector<int>(levelSets.dataSize());
     int globCnt = 0;
-    for (int i = 0; i < levelSets.size(); i++) {
-        for (size_t j = 0; j < levelSets[i].size(); j++) {
+    for (int i = 0; i < levelSets.size(); ++i) {
+        for (size_t j = 0; j < levelSets[i].size(); ++j) {
             res[globCnt++] = (int)levelSets[i][j];
         }
     }
@@ -58,12 +57,12 @@ createReorderedToNatural(int size, Opm::SparseTable<size_t> levelSets)
 }
 
 std::vector<int>
-createNaturalToReordered(int size, Opm::SparseTable<size_t> levelSets)
+createNaturalToReordered(Opm::SparseTable<size_t> levelSets)
 {
-    auto res = std::vector<int>(size);
+    auto res = std::vector<int>(levelSets.dataSize());
     int globCnt = 0;
-    for (int i = 0; i < levelSets.size(); i++) {
-        for (size_t j = 0; j < levelSets[i].size(); j++) {
+    for (int i = 0; i < levelSets.size(); ++i) {
+        for (size_t j = 0; j < levelSets[i].size(); ++j) {
             res[levelSets[i][j]] = globCnt++;
         }
     }
@@ -103,8 +102,8 @@ template <class M, class X, class Y, int l>
 CuDILU<M, X, Y, l>::CuDILU(const M& A)
     : m_cpuMatrix(A)
     , m_levelSets(Opm::getMatrixRowColoring(m_cpuMatrix, Opm::ColoringType::LOWER))
-    , m_reorderedToNatural(createReorderedToNatural(m_cpuMatrix.N(), m_levelSets))
-    , m_naturalToReordered(createNaturalToReordered(m_cpuMatrix.N(), m_levelSets))
+    , m_reorderedToNatural(createReorderedToNatural(m_levelSets))
+    , m_naturalToReordered(createNaturalToReordered(m_levelSets))
     , m_gpuMatrix(CuSparseMatrix<field_type>::fromMatrix(m_cpuMatrix, true))
     , m_gpuMatrixReordered(createReorderedMatrix<M, field_type>(m_cpuMatrix, m_reorderedToNatural))
     , m_gpuNaturalToReorder(m_naturalToReordered)
