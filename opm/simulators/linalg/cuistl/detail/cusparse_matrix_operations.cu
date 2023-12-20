@@ -216,7 +216,6 @@ namespace
                                                 const int startIdx,
                                                 int rowsInLevelSet,
                                                 T* dInv,
-                                                const T* d,
                                                 T* v)
     {
         const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
@@ -303,14 +302,8 @@ namespace
     }
 
     template <class T, int blocksize>
-    __global__ void cuMoveDataToReordered(T* srcMatrix,
-                                          int* srcRowIndices,
-                                          int* srcColIndices,
-                                          T* dstMatrix,
-                                          int* dstRowIndices,
-                                          int* dstColIndices,
-                                          int* indexConversion,
-                                          size_t numberOfRows)
+    __global__ void cuMoveDataToReordered(
+        T* srcMatrix, int* srcRowIndices, T* dstMatrix, int* dstRowIndices, int* indexConversion, size_t numberOfRows)
     {
         const auto srcRow = blockDim.x * blockIdx.x + threadIdx.x;
         if (srcRow < numberOfRows) {
@@ -342,33 +335,17 @@ namespace
     }
 } // namespace
 
-template <class T>
+template <class T, int blocksize>
 void
-invertDiagonalAndFlatten(T* mat, int* rowIndices, int* colIndices, size_t numberOfRows, size_t blocksize, T* vec)
+invertDiagonalAndFlatten(T* mat, int* rowIndices, int* colIndices, size_t numberOfRows, T* vec)
 {
-    switch (blocksize) {
-    case 1:
-        cuInvertDiagonalAndFlatten<T, 1>
+    if (blocksize <= 3) {
+        cuInvertDiagonalAndFlatten<T, blocksize>
             <<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(mat, rowIndices, colIndices, numberOfRows, vec);
-        break;
-    case 2:
-        cuInvertDiagonalAndFlatten<T, 2>
-            <<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(mat, rowIndices, colIndices, numberOfRows, vec);
-        break;
-    case 3:
-        cuInvertDiagonalAndFlatten<T, 3>
-            <<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(mat, rowIndices, colIndices, numberOfRows, vec);
-        break;
-    default:
-        // TODO: Figure out what is why it did not produce an error or any output in the output stream or the DBG file
-        // when I forced this case to execute
+    } else {
         OPM_THROW(std::invalid_argument, "Inverting diagonal is not implemented for blocksizes > 3");
-        break;
     }
 }
-
-template void invertDiagonalAndFlatten(double*, int*, int*, size_t, size_t, double*);
-template void invertDiagonalAndFlatten(float*, int*, int*, size_t, size_t, float*);
 
 // perform the lower solve for all rows in the same level set
 template <class T, int blocksize>
@@ -397,11 +374,10 @@ computeUpperSolveLevelSet(T* reorderedMat,
                           const int startIdx,
                           int rowsInLevelSet,
                           T* dInv,
-                          const T* d,
                           T* v)
 {
     cuComputeUpperSolveLevelSet<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
-        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
 }
 
 template <class T, int blocksize>
@@ -432,34 +408,24 @@ computeDiluDiagonal(T* reorderedMat,
 
 template <class T, int blocksize>
 void
-copyMatDataToReordered(T* srcMatrix,
-                       int* srcRowIndices,
-                       int* srcColIndices,
-                       T* dstMatrix,
-                       int* dstRowIndices,
-                       int* dstColIndices,
-                       int* naturalToReordered,
-                       size_t numberOfRows)
+copyMatDataToReordered(
+    T* srcMatrix, int* srcRowIndices, T* dstMatrix, int* dstRowIndices, int* naturalToReordered, size_t numberOfRows)
 {
-    cuMoveDataToReordered<T, blocksize><<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(srcMatrix,
-                                                                                               srcRowIndices,
-                                                                                               srcColIndices,
-                                                                                               dstMatrix,
-                                                                                               dstRowIndices,
-                                                                                               dstColIndices,
-                                                                                               naturalToReordered,
-                                                                                               numberOfRows);
+    cuMoveDataToReordered<T, blocksize><<<getBlocks(numberOfRows), getThreads(numberOfRows)>>>(
+        srcMatrix, srcRowIndices, dstMatrix, dstRowIndices, naturalToReordered, numberOfRows);
 }
 
 #define INSTANTIATE_KERNEL_WRAPPERS(blocksize)                                                                         \
-    template void copyMatDataToReordered<float, blocksize>(float*, int*, int*, float*, int*, int*, int*, size_t);      \
-    template void copyMatDataToReordered<double, blocksize>(double*, int*, int*, double*, int*, int*, int*, size_t);   \
+    template void invertDiagonalAndFlatten<float, blocksize>(float*, int*, int*, size_t, float*);                      \
+    template void invertDiagonalAndFlatten<double, blocksize>(double*, int*, int*, size_t, double*);                   \
+    template void copyMatDataToReordered<float, blocksize>(float*, int*, float*, int*, int*, size_t);                  \
+    template void copyMatDataToReordered<double, blocksize>(double*, int*, double*, int*, int*, size_t);               \
     template void computeDiluDiagonal<float, blocksize>(float*, int*, int*, int*, int*, const int, int, float*);       \
     template void computeDiluDiagonal<double, blocksize>(double*, int*, int*, int*, int*, const int, int, double*);    \
     template void computeUpperSolveLevelSet<float, blocksize>(                                                         \
-        float*, int*, int*, int*, const int, int, float*, const float*, float*);                                       \
+        float*, int*, int*, int*, const int, int, float*, float*);                                                     \
     template void computeUpperSolveLevelSet<double, blocksize>(                                                        \
-        double*, int*, int*, int*, const int, int, double*, const double*, double*);                                   \
+        double*, int*, int*, int*, const int, int, double*, double*);                                                  \
     template void computeLowerSolveLevelSet<float, blocksize>(                                                         \
         float*, int*, int*, int*, const int, int, float*, const float*, float*);                                       \
     template void computeLowerSolveLevelSet<double, blocksize>(                                                        \

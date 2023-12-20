@@ -168,7 +168,6 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
                                             levelStartIdx,
                                             numOfRowsInLevel,
                                             m_gpuDInv.data(),
-                                            d.data(),
                                             v.data());
     }
 }
@@ -196,10 +195,8 @@ CuDILU<M, X, Y, l>::update()
 
     detail::copyMatDataToReordered<field_type, matrix_type::block_type::cols>(m_gpuMatrix.getNonZeroValues().data(),
                                     m_gpuMatrix.getRowIndices().data(),
-                                    m_gpuMatrix.getColumnIndices().data(),
                                     m_gpuMatrixReordered.getNonZeroValues().data(),
                                     m_gpuMatrixReordered.getRowIndices().data(),
-                                    m_gpuMatrixReordered.getColumnIndices().data(),
                                     m_gpuNaturalToReorder.data(),
                                     m_gpuMatrixReordered.N());
 
