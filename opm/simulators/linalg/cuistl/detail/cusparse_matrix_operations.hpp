@@ -40,7 +40,6 @@ void invertDiagonalAndFlatten(T* mat, int* rowIndices, int* colIndices, size_t n
  * @param reorderedMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered such that rows in the same level sets are contiguous
  * @param rowIndices Pointer to vector on GPU containing row indices compliant wiht bsr format
  * @param colIndices Pointer to vector on GPU containing col indices compliant wiht bsr format
- * @param numberOfRows Integer describing the number of rows in the matrix
  * @param indexConversion Integer array containing mapping an index in the reordered matrix to its corresponding index in the natural ordered matrix
  * @param startIdx Index of the first row of the matrix to be solve
  * @param rowsInLevelSet Number of rows in this level set, which number the amount of rows solved in parallel by this function
@@ -49,14 +48,13 @@ void invertDiagonalAndFlatten(T* mat, int* rowIndices, int* colIndices, size_t n
  * @param [out] v Will store the results of the lower solve
  */
 template <class T, int blocksize>
-void computeLowerSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices, size_t numberOfRows, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
+void computeLowerSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
 
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel
  * @param reorderedMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered such that rows in the same level sets are contiguous
  * @param rowIndices Pointer to vector on GPU containing row indices compliant wiht bsr format
  * @param colIndices Pointer to vector on GPU containing col indices compliant wiht bsr format
- * @param numberOfRows Integer describing the number of rows in the matrix
  * @param indexConversion Integer array containing mapping an index in the reordered matrix to its corresponding index in the natural ordered matrix
  * @param startIdx Index of the first row of the matrix to be solve
  * @param rowsInLevelSet Number of rows in this level set, which number the amount of rows solved in parallel by this function
@@ -65,14 +63,13 @@ void computeLowerSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices
  * @param [out] v Will store the results of the lower solve. To begin with it should store the output from the lower solve
  */
 template <class T, int blocksize>
-void computeUpperSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices, size_t numberOfRows, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
+void computeUpperSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices, int* indexConversion, const int startIdx, int rowsInLevelSet, T* dInv, const T* d, T* v);
 
 /**
  * @brief Computes the ILU0 of the diagonal elements of the reordered matrix and stores it in a reordered vector containing the diagonal blocks
  * @param reorderedMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered such that rows in the same level sets are contiguous
  * @param rowIndices Pointer to vector on GPU containing row indices compliant wiht bsr format
  * @param colIndices Pointer to vector on GPU containing col indices compliant wiht bsr format
- * @param numberOfRows Integer describing the number of rows in the matrix
  * @param reorderedToNatural Integer array containing mapping an index in the reordered matrix to its corresponding index in the natural ordered matrix
  * @param naturalToreordered Integer array containing mapping an index in the reordered matrix to its corresponding index in the natural ordered matrix
  * @param startIdx Index of the first row of the matrix to be solve
@@ -80,7 +77,7 @@ void computeUpperSolveLevelSet(T* reorderedMat, int* rowIndices, int* colIndices
  * @param [out] dInv The diagonal matrix used by the Diagonal ILU preconditioner
  */
 template <class T, int blocksize>
-void computeDiluDiagonal(T* reorderedMat, int* rowIndices, int* colIndices, size_t numberOfRows, int* reorderedToNatural, int* naturalToReordered, const int startIdx, int rowsInLevelSet, T* dInv);
+void computeDiluDiagonal(T* reorderedMat, int* rowIndices, int* colIndices, int* reorderedToNatural, int* naturalToReordered, const int startIdx, int rowsInLevelSet, T* dInv);
 
 /**
  * @brief Reorders the elements of a matrix by copying them from one matrix to another using a permutation list

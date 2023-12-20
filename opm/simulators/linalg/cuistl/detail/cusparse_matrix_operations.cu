@@ -126,10 +126,7 @@ namespace
         }
     }
 
-    // TODO: verify if this is dumb
-    // The intention is to allow for more optimization by having a function that does
-    // two consecutive small matrix products in a single functions call
-    // dst = A*B*C
+    // dst -= A*B*C
     template <class T, int blocksize>
     __device__ __forceinline__ void mmx2Subtraction(T* A, T* B, T* C, T* dst)
     {
@@ -184,7 +181,6 @@ namespace
     __global__ void cuComputeLowerSolveLevelSet(T* mat,
                                                 int* rowIndices,
                                                 int* colIndices,
-                                                size_t numberOfRows,
                                                 int* indexConversion,
                                                 const int startIdx,
                                                 int rowsInLevelSet,
@@ -216,7 +212,6 @@ namespace
     __global__ void cuComputeUpperSolveLevelSet(T* mat,
                                                 int* rowIndices,
                                                 int* colIndices,
-                                                size_t numberOfRows,
                                                 int* indexConversion,
                                                 const int startIdx,
                                                 int rowsInLevelSet,
@@ -245,7 +240,6 @@ namespace
     __global__ void cuComputeDiluDiagonal(T* mat,
                                           int* rowIndices,
                                           int* colIndices,
-                                          size_t numberOfRows,
                                           int* reorderedToNatural,
                                           int* naturalToReordered,
                                           const int startIdx,
@@ -265,10 +259,8 @@ namespace
             for (int i = 0; i < blocksize; ++i) {
                 for (int j = 0; j < blocksize; ++j) {
                     dInvTmp[i * blocksize + j] = mat[diagIdx * blocksize * blocksize + i * blocksize + j];
-                    // dInvTmp[i*blocksize + j]  = dInv[reorderedRowIdx*blocksize*blocksize + i*blocksize + j];
                 }
             }
-
 
             for (int block = nnzIdx; colIndices[block] < naturalRowIdx; ++block) {
                 const int col = naturalToReordered[colIndices[block]];
@@ -283,21 +275,20 @@ namespace
                     mid = left + (right - left) / 2; // overflow-safe average
                     const int col = colIndices[mid];
 
-                    if (col == naturalRowIdx){
+                    if (col == naturalRowIdx) {
                         break;
-                    }
-                    else if (col < naturalRowIdx) {
+                    } else if (col < naturalRowIdx) {
                         left = mid + 1;
                     } else {
                         right = mid - 1;
                     }
                 }
 
-                int mirror = mid;
+                int symOpposite = mid;
 
                 mmx2Subtraction<T, blocksize>(&mat[block * blocksize * blocksize],
                                               &dInv[col * blocksize * blocksize],
-                                              &mat[mirror * blocksize * blocksize],
+                                              &mat[symOpposite * blocksize * blocksize],
                                               dInvTmp);
             }
 
@@ -311,8 +302,6 @@ namespace
         }
     }
 
-    // consider rewriting to use a warp per row instead of a thread
-    // this might give much better memory throughput because of coalesced memory accesses
     template <class T, int blocksize>
     __global__ void cuMoveDataToReordered(T* srcMatrix,
                                           int* srcRowIndices,
@@ -387,7 +376,6 @@ void
 computeLowerSolveLevelSet(T* reorderedMat,
                           int* rowIndices,
                           int* colIndices,
-                          size_t numberOfRows,
                           int* indexConversion,
                           const int startIdx,
                           int rowsInLevelSet,
@@ -396,7 +384,7 @@ computeLowerSolveLevelSet(T* reorderedMat,
                           T* v)
 {
     cuComputeLowerSolveLevelSet<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
-        reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
 }
 
 // perform the upper solve for all rows in the same level set
@@ -405,7 +393,6 @@ void
 computeUpperSolveLevelSet(T* reorderedMat,
                           int* rowIndices,
                           int* colIndices,
-                          size_t numberOfRows,
                           int* indexConversion,
                           const int startIdx,
                           int rowsInLevelSet,
@@ -414,7 +401,7 @@ computeUpperSolveLevelSet(T* reorderedMat,
                           T* v)
 {
     cuComputeUpperSolveLevelSet<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
-        reorderedMat, rowIndices, colIndices, numberOfRows, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
 }
 
 template <class T, int blocksize>
@@ -422,7 +409,6 @@ void
 computeDiluDiagonal(T* reorderedMat,
                     int* rowIndices,
                     int* colIndices,
-                    size_t numberOfRows,
                     int* reorderedToNatural,
                     int* naturalToReordered,
                     const int startIdx,
@@ -434,7 +420,6 @@ computeDiluDiagonal(T* reorderedMat,
             <<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(reorderedMat,
                                                                         rowIndices,
                                                                         colIndices,
-                                                                        numberOfRows,
                                                                         reorderedToNatural,
                                                                         naturalToReordered,
                                                                         startIdx,
@@ -469,18 +454,16 @@ copyMatDataToReordered(T* srcMatrix,
 #define INSTANTIATE_KERNEL_WRAPPERS(blocksize)                                                                         \
     template void copyMatDataToReordered<float, blocksize>(float*, int*, int*, float*, int*, int*, int*, size_t);      \
     template void copyMatDataToReordered<double, blocksize>(double*, int*, int*, double*, int*, int*, int*, size_t);   \
-    template void computeDiluDiagonal<float, blocksize>(                                                               \
-        float*, int*, int*, size_t, int*, int*, const int, int, float*);                                               \
-    template void computeDiluDiagonal<double, blocksize>(                                                              \
-        double*, int*, int*, size_t, int*, int*, const int, int, double*);                                             \
+    template void computeDiluDiagonal<float, blocksize>(float*, int*, int*, int*, int*, const int, int, float*);       \
+    template void computeDiluDiagonal<double, blocksize>(double*, int*, int*, int*, int*, const int, int, double*);    \
     template void computeUpperSolveLevelSet<float, blocksize>(                                                         \
-        float*, int*, int*, size_t, int*, const int, int, float*, const float*, float*);                               \
+        float*, int*, int*, int*, const int, int, float*, const float*, float*);                                       \
     template void computeUpperSolveLevelSet<double, blocksize>(                                                        \
-        double*, int*, int*, size_t, int*, const int, int, double*, const double*, double*);                           \
+        double*, int*, int*, int*, const int, int, double*, const double*, double*);                                   \
     template void computeLowerSolveLevelSet<float, blocksize>(                                                         \
-        float*, int*, int*, size_t, int*, const int, int, float*, const float*, float*);                               \
+        float*, int*, int*, int*, const int, int, float*, const float*, float*);                                       \
     template void computeLowerSolveLevelSet<double, blocksize>(                                                        \
-        double*, int*, int*, size_t, int*, const int, int, double*, const double*, double*);
+        double*, int*, int*, int*, const int, int, double*, const double*, double*);
 
 INSTANTIATE_KERNEL_WRAPPERS(1);
 INSTANTIATE_KERNEL_WRAPPERS(2);
