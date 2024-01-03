@@ -52,6 +52,8 @@
 #include <opm/simulators/linalg/cuistl/CuBlockPreconditioner.hpp>
 #include <opm/simulators/linalg/cuistl/CuDILU.hpp>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
+#include <opm/simulators/linalg/cuistl/CuSPAI.hpp>
+
 
 #endif
 
@@ -519,6 +521,13 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             auto adapted = std::make_shared<Adapter>(std::make_shared<CuDILU>(converted->getConvertedMatrix()));
             converted->setUnderlyingPreconditioner(adapted);
             return converted;
+        });
+
+        F::addCreator("CUSPAI", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+            const double w = prm.get<double>("relaxation", 1.0);
+            using field_type = typename V::field_type;
+            using CUSPAI = typename Opm::cuistl::CuSPAI<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
         });
 #endif
     }
