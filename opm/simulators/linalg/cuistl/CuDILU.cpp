@@ -40,6 +40,8 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
+namespace {
+
 std::vector<int> createReorderedToNatural(Opm::SparseTable<size_t>);
 std::vector<int> createNaturalToReordered(Opm::SparseTable<size_t>);
 
@@ -94,6 +96,8 @@ createReorderedMatrix(M naturalMatrix, std::vector<int> reorderedToNatural)
 
     return Opm::cuistl::CuSparseMatrix<field_type>::fromMatrix(reorderedMatrix, true);
 }
+
+} // NAMESPACE
 
 namespace Opm::cuistl
 {
