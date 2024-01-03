@@ -51,6 +51,7 @@
 #include <opm/simulators/linalg/cuistl/PreconditionerConvertFieldTypeAdapter.hpp>
 #include <opm/simulators/linalg/cuistl/CuBlockPreconditioner.hpp>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
+#include <opm/simulators/linalg/cuistl/CuSPAI.hpp>
 
 #endif
 
@@ -205,6 +206,16 @@ struct StandardPreconditioners
             }
             else if (smoother == "DILU") {
               using SeqSmoother = Dune::MultithreadDILU<M, V, V>;
+              using Smoother = Dune::BlockPreconditioner<V, V, C, SeqSmoother>;
+              using SmootherArgs = typename Dune::Amg::SmootherTraits<Smoother>::Arguments;
+              SmootherArgs sargs;
+              auto crit = AMGHelper<O,C,M,V>::criterion(prm);
+              PrecPtr prec = std::make_shared<Dune::Amg::AMGCPR<O, V, Smoother, C>>(op, crit, sargs, comm);
+              return prec;
+            }
+            else if (smoother == "SPAI0") {
+              using CuSPAI = typename Opm::cuistl::CuSPAI<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
+              using SeqSmoother = CuSPAI<M, V, V>;
               using Smoother = Dune::BlockPreconditioner<V, V, C, SeqSmoother>;
               using SmootherArgs = typename Dune::Amg::SmootherTraits<Smoother>::Arguments;
               SmootherArgs sargs;
