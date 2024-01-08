@@ -28,7 +28,7 @@
 
 #include <set>
 #include <algorithm>
-
+#include <dune/common/dynmatrix.hh>
 
 namespace Opm::cuistl
 {
@@ -57,8 +57,10 @@ public:
     //! \brief The field type of the preconditioner.
     using field_type = typename X::field_type;
 
-    using DuneMat = Dune::BCRSMatrix<Dune::FieldMatrix<field_type, matrix_type::block_type::cols, matrix_type::block_type::cols> >;
-    using DuneVec = Dune::BlockVector<Dune::FieldMatrix<field_type, matrix_type::block_type::cols, matrix_type::block_type::cols> >;
+    using FieldMat = Dune::FieldMatrix<field_type, matrix_type::block_type::cols, matrix_type::block_type::cols>;
+    using DuneMat = Dune::BCRSMatrix<FieldMat>;
+    using DuneVec = Dune::BlockVector<FieldMat>;
+    using DuneDynMat = Dune::DynamicMatrix<FieldMat>;
 
     //! \brief Constructor.
     //!
@@ -126,6 +128,9 @@ private:
     std::vector<int> rowPointers, colIndices;
     std::vector<int> spaiColPointers, spaiRowIndices;
     std::vector<double> nnzValues, spaiNnzValues;
+
+    DuneDynMat tmp_mat;
+
 };
 } // end namespace Opm::cuistl
 

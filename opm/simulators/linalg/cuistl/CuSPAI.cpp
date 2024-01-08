@@ -40,6 +40,32 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
+#include <opm/simulators/linalg/bda/BlockedMatrix.hpp>
+#include <opm/simulators/linalg/bda/BdaBridge.hpp>
+#include <vector>
+
+namespace{
+    // Given Dune BCSR matrix, create a bda blocked matrix.
+    template<class DuneMatrixClass>
+    Opm::Accelerator::BlockedMatrix convertToBlockedMatrix(DuneMatrixClass& matrix){
+        int Nb = matrix.N();
+        int nnzb = matrix.nonzeroes();
+        std::vector<int> h_rows;
+        std::vector<int> h_cols;
+        // convert colIndices and rowPointers
+        h_rows.emplace_back(0);
+        for (typename DuneMatrixClass::const_iterator r = matrix.begin(); r != matrix.end(); ++r) {
+            for (auto c = r->begin(); c != r->end(); ++c) {
+                h_cols.emplace_back(c.index());
+            }
+            h_rows.emplace_back(h_cols.size());
+        }
+
+        // Opm::checkMemoryContiguous(matrix);
+        return Opm::Accelerator::BlockedMatrix(Nb, nnzb, (matrix[0][0]).size(), const_cast<typename DuneMatrixClass::field_type*>(&(((matrix)[0][0][0][0]))), h_cols.data(), h_rows.data());
+    }
+}
+
 namespace Opm::cuistl
 {
 
@@ -178,36 +204,43 @@ CuSPAI<M, X, Y, l>::update()
     int count;
 
     // solver.setBlocked(bs > 1);
+    //! new matrix for easing indexing during porting
+    // create a blocked matrix here from the m_cpuMatrix
+    // this is the one that should be read from in the next few lines
+    Opm::Accelerator::BlockedMatrix bda_matrix = convertToBlockedMatrix(m_cpuMatrix);
 
-    // for(int tcol = 0; tcol < Nb; tcol++){
-    //     count = 0;
-    //     for(auto row = submat[tcol].begin(); row != submat[tcol].end(); ++row){
-    //         for(auto col = (*row).begin(); col != (*row).end(); ++col){
-    //             for(auto br = (*col).begin(); br != (*col).end(); ++br){
-    //                 for(auto bc = (*br).begin(); bc != (*br).end(); ++bc){
-    //                     (*bc) = mat->nnzValues[submatValsPositions[tcol][count]];
-    //                     ++count;
-    //                 }
-    //             }
-    //         }
-    //     }
+    for(int tcol = 0; tcol < Nb; tcol++){
+        count = 0;
+        for(auto row = submat[tcol].begin(); row != submat[tcol].end(); ++row){
+            for(auto col = (*row).begin(); col != (*row).end(); ++col){
+                for(auto br = (*col).begin(); br != (*col).end(); ++br){
+                    for(auto bc = (*br).begin(); bc != (*br).end(); ++bc){
+                        // (*bc) = mat->nnzValues[submatValsPositions[tcol][count]];
+                        (*bc) = bda_matrix.nnzValues[submatValsPositions[tcol][count]];
+                        ++count;
+                    }
+                }
+            }
+        }
 
-    //     sol.resize(submat[tcol].M());
-    //     rhs.resize(submat[tcol].N());
-    //     rhs = 0;
-    //     rhs[eyeBlockIndices[tcol]] = Dune::ScaledIdentityMatrix<double, bs>(1);
+        sol.resize(submat[tcol].M());
+        rhs.resize(submat[tcol].N());
+        rhs = 0;
+        rhs[eyeBlockIndices[tcol]] = Dune::ScaledIdentityMatrix<double, bs>(1);
 
-    //     solver.setMatrix(submat[tcol]);
-    //     solver.apply(sol, rhs, res);
+        //! create a dense matrix M_d from the submat[tcol], and call M_d.solve(sol, rhs)
+        tmp_mat = DuneDynMat(submat[tcol].N(), submat[tcol].M());
+        // solver.setMatrix(submat[tcol]);
+        // solver.apply(sol, rhs, res);
 
-    //     for(unsigned int i = 0; i < submat[tcol].M(); i++){
-    //         for(unsigned int j = 0; j < bs; j++){
-    //             for(unsigned int k = 0; k < bs; k++){
-    //                 spaiNnzValues[(spaiColPointers[tcol] + i) * bs * bs + j * bs + k] = sol[i][j][k];
-    //             }
-    //         }
-    //     }
-    // }
+        for(unsigned int i = 0; i < submat[tcol].M(); i++){
+            for(unsigned int j = 0; j < bs; j++){
+                for(unsigned int k = 0; k < bs; k++){
+                    spaiNnzValues[(spaiColPointers[tcol] + i) * bs * bs + j * bs + k] = sol[i][j][k];
+                }
+            }
+        }
+    }
 }
 
 template <class M, class X, class Y, int l>
@@ -260,9 +293,11 @@ INSTANTIATE_CUSPAI_DUNE(double, 4);
 INSTANTIATE_CUSPAI_DUNE(double, 5);
 INSTANTIATE_CUSPAI_DUNE(double, 6);
 
-INSTANTIATE_CUSPAI_DUNE(float, 1);
-INSTANTIATE_CUSPAI_DUNE(float, 2);
-INSTANTIATE_CUSPAI_DUNE(float, 3);
-INSTANTIATE_CUSPAI_DUNE(float, 4);
-INSTANTIATE_CUSPAI_DUNE(float, 5);
-INSTANTIATE_CUSPAI_DUNE(float, 6);
+//! commented out to make sure the conversion from bcsr work with the bda bridge
+//! the bda bridge converter only works for doubles
+// INSTANTIATE_CUSPAI_DUNE(float, 1);
+// INSTANTIATE_CUSPAI_DUNE(float, 2);
+// INSTANTIATE_CUSPAI_DUNE(float, 3);
+// INSTANTIATE_CUSPAI_DUNE(float, 4);
+// INSTANTIATE_CUSPAI_DUNE(float, 5);
+// INSTANTIATE_CUSPAI_DUNE(float, 6);
