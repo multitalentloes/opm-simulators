@@ -70,12 +70,12 @@ public:
     /**
      * We don't want to be able to copy this for now (too much hassle in copying the cusparse resources)
      */
-    CuSparseMatrix(const CuSparseMatrix&) = delete;
+    // CuSparseMatrix(const CuSparseMatrix&) = delete;
 
     /**
      * We don't want to be able to copy this for now (too much hassle in copying the cusparse resources)
      */
-    CuSparseMatrix& operator=(const CuSparseMatrix&) = delete;
+    // CuSparseMatrix& operator=(const CuSparseMatrix&) = delete;
 
     virtual ~CuSparseMatrix();
 

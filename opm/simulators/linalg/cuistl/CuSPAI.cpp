@@ -64,6 +64,70 @@ namespace{
         // Opm::checkMemoryContiguous(matrix);
         return Opm::Accelerator::BlockedMatrix(Nb, nnzb, (matrix[0][0]).size(), const_cast<typename DuneMatrixClass::field_type*>(&(((matrix)[0][0][0][0]))), h_cols.data(), h_rows.data());
     }
+
+    template<class BlockMatrixClass, class BlockVectorClass>
+    BlockVectorClass solveWithScalarAndReturnBlocked(const BlockMatrixClass& blockMatrix, const BlockVectorClass& blockRhs) {
+        using real_type = typename BlockMatrixClass::value_type::field_type;
+
+        const size_t N = blockMatrix.N();
+        static constexpr int blocksize = BlockMatrixClass::value_type::rows;
+        size_t M = N * blocksize;
+
+
+        Dune::DynamicMatrix<real_type> scalarMatrix(M, M, 0.0);
+
+        for (size_t row = 0; row < N; ++row) {
+            for (size_t column = 0; column < N; ++column) {
+                for (int i = 0; i < blocksize; ++i) {
+                    for (int j = 0; j < blocksize; ++j) {
+                        scalarMatrix[row * blocksize + i][column * blocksize + j] = blockMatrix[row][column][i][j];
+                    }
+                }
+            }
+        }
+
+        // Dune::DynamicVector<real_type> scalarRhs(M, 2.0);
+        // for (size_t row = 0; row < N; ++row) {
+        //     for (int i = 0; i < blocksize; ++i) {
+        //         scalarRhs[row * blocksize + i] = blockRhs[row][i];
+        //     }
+        // }
+        // Dune::DynamicVector<real_type> scalarSolution(M, 0);
+
+        // scalarMatrix.solve(scalarSolution, scalarRhs);
+
+        // BlockVectorClass blockSolution(N);
+
+        // for (size_t row = 0; row < N; ++row) {
+        //     for (int i = 0; i < blocksize; ++i) {
+        //         blockSolution[row][i] = scalarSolution[row * blocksize + i];
+        //     }
+        // }
+
+        BlockVectorClass blockSolution(N);
+
+
+        for (int col = 0; col < 3; ++col){
+            Dune::DynamicVector<real_type> scalarRhs(M, 2.0);
+            for (size_t row = 0; row < N; ++row) {
+                for (int i = 0; i < blocksize; ++i) {
+                    scalarRhs[row * blocksize + i] = blockRhs[row][i][col];
+                }
+            }
+
+            Dune::DynamicVector<real_type> scalarSolution(M, 0);
+
+            scalarMatrix.solve(scalarSolution, scalarRhs);
+
+            for (size_t row = 0; row < N; ++row) {
+                for (int i = 0; i < blocksize; ++i) {
+                    blockSolution[row][i][col] = scalarSolution[row * blocksize + i];
+                }
+            }
+        }
+
+        return blockSolution;
+    }
 }
 
 namespace Opm::cuistl
@@ -73,25 +137,8 @@ template <class M, class X, class Y, int l>
 CuSPAI<M, X, Y, l>::CuSPAI(const M& A, field_type w)
     : m_cpuMatrix(A)
     , m_relaxationFactor(w)
-    , m_gpuMatrix(CuSparseMatrix<field_type>::fromMatrix(A))
-    , m_diagInvFlattened(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
+    , m_gpuMatrix(nullptr)
 {
-    // Some sanity check
-    OPM_ERROR_IF(A.N() != m_gpuMatrix.N(),
-                 fmt::format("CuSparse matrix not same size as DUNE matrix. {} vs {}.", m_gpuMatrix.N(), A.N()));
-    OPM_ERROR_IF(A[0][0].N() != m_gpuMatrix.blockSize(),
-                 fmt::format("CuSparse matrix not same blocksize as DUNE matrix. {} vs {}.",
-                             m_gpuMatrix.blockSize(),
-                             A[0][0].N()));
-    OPM_ERROR_IF(A.N() * A[0][0].N() != m_gpuMatrix.dim(),
-                 fmt::format("CuSparse matrix not same dimension as DUNE matrix. {} vs {}.",
-                             m_gpuMatrix.dim(),
-                             A.N() * A[0][0].N()));
-    OPM_ERROR_IF(A.nonzeroes() != m_gpuMatrix.nonzeroes(),
-                 fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
-                             m_gpuMatrix.nonzeroes(),
-                             A.nonzeroes()));
-
     const unsigned int bs = blocksize_;
     this->Nb = m_cpuMatrix.N();
     this->N = Nb * bs;
@@ -159,12 +206,7 @@ CuSPAI<M, X, Y, l>::CuSPAI(const M& A, field_type w)
 
     spaiNnzValues.resize(spaiColPointers.back() * bs * bs);
 
-    /*
-        TODO:
-            move spaiNnzValues to the GPU
-            move spaiColPointers to the GPU
-            move spaiRowIndices to the GPU
-    */
+    update();
 }
 
 template <class M, class X, class Y, int l>
@@ -177,7 +219,7 @@ template <class M, class X, class Y, int l>
 void
 CuSPAI<M, X, Y, l>::apply(X& v, const Y& d)
 {
-    m_gpuMatrix.mv(d, v);
+    m_gpuMatrix->mv(d, v);
 }
 
 template <class M, class X, class Y, int l>
@@ -197,7 +239,7 @@ template <class M, class X, class Y, int l>
 void
 CuSPAI<M, X, Y, l>::update()
 {
-    m_gpuMatrix.updateNonzeroValues(m_cpuMatrix);
+    m_gpuMatrix->updateNonzeroValues(m_cpuMatrix);
 
 
     const unsigned int bs = blocksize_;
@@ -230,6 +272,17 @@ CuSPAI<M, X, Y, l>::update()
 
         //! create a dense matrix M_d from the submat[tcol], and call M_d.solve(sol, rhs)
         tmp_mat = DuneDynMat(submat[tcol].N(), submat[tcol].M());
+        for(auto row = submat[tcol].begin(); row != submat[tcol].end(); ++row){
+            for(auto col = (*row).begin(); col != (*row).end(); ++col){
+                for(auto br = (*col).begin(); br != (*col).end(); ++br){
+                    for(auto bc = (*br).begin(); bc != (*br).end(); ++bc){
+                        tmp_mat[row.index()][col.index()][br.index()][bc.index()];
+                    }
+                }
+            }
+        }
+        // tmp_mat.solve(sol, rhs);
+        sol = solveWithScalarAndReturnBlocked(tmp_mat, rhs);
         // solver.setMatrix(submat[tcol]);
         // solver.apply(sol, rhs, res);
 
@@ -241,6 +294,11 @@ CuSPAI<M, X, Y, l>::update()
             }
         }
     }
+    /*
+    TODO: move spaiNnzValues, spaiColPointers, spaiRowIndices to the GPU
+    TODO: the spainNnzValues must be moved every update, the others can be done in the constructor
+    */
+    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiRowIndices.data(), spaiColPointers.data(), nnzb, bs, Nb));
 }
 
 template <class M, class X, class Y, int l>

@@ -110,9 +110,7 @@ private:
     //! \brief The relaxation factor to use.
     const field_type m_relaxationFactor;
     //! \brief The A matrix stored on the gpu
-    CuSparseMatrix<field_type> m_gpuMatrix;
-    //! \brief the diagonal of cuMatrix inverted, and then flattened to fit in a vector
-    CuVector<field_type> m_diagInvFlattened;
+    std::unique_ptr<CuSparseMatrix<field_type>> m_gpuMatrix;
 
     std::set<int> iset, jset;
     int fill_in = 0;
