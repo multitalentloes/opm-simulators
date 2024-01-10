@@ -53,6 +53,7 @@
 #include <opm/simulators/linalg/cuistl/CuDILU.hpp>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
 #include <opm/simulators/linalg/cuistl/CuSPAI.hpp>
+#include <opm/simulators/linalg/cuistl/CuVector.hpp> //! debug
 
 
 #endif
@@ -527,7 +528,45 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             const double w = prm.get<double>("relaxation", 1.0);
             using field_type = typename V::field_type;
             using CUSPAI = typename Opm::cuistl::CuSPAI<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
-            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
+            // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
+
+            //! DEBUG
+            const int N = 2;
+            constexpr int blocksize = 2;
+            const int nonZeroes = 3;
+            using FM = Dune::FieldMatrix<double, blocksize, blocksize>;
+            using SpMatrix = Dune::BCRSMatrix<FM>;
+            using Vector = Dune::BlockVector<Dune::FieldVector<double, blocksize>>;
+            using CuJac = Opm::cuistl::CuJac<SpMatrix, Opm::cuistl::CuVector<double>, Opm::cuistl::CuVector<double>>;
+            using CUSPAI_FAKE = typename Opm::cuistl::CuSPAI<SpMatrix, Opm::cuistl::CuVector<double>, Opm::cuistl::CuVector<double>>;
+
+            SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
+            for (auto row = B.createbegin(); row != B.createend(); ++row) {
+                row.insert(row.index());
+                if (row.index() == 0) {
+                    row.insert(row.index() + 1);
+                }
+            }
+
+            B[0][0][0][0] = 3.0;
+            B[0][0][0][1] = 1.0;
+            B[0][0][1][0] = 2.0;
+            B[0][0][1][1] = 1.0;
+
+            B[0][1][0][0] = 1.0;
+            B[0][1][1][1] = 1.0;
+
+            B[1][1][0][0] = -1.0;
+            B[1][1][1][1] = -1.0;
+
+            // Vector dVector(2), vVector(2);
+            // dVector[0][0] = 2.0;
+            // dVector[0][1] = 1.0;
+            // dVector[1][0] = 3.0;
+            // dVector[1][1] = 4.0;
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI_FAKE>>(std::make_shared<CUSPAI_FAKE>(B, w));
+            // prec->apply(vVector, dVector);
+            // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
         });
 #endif
     }

@@ -48,7 +48,7 @@ namespace{
     // Given Dune BCSR matrix, create a bda blocked matrix.
     template<class DuneMatrixClass>
     Opm::Accelerator::BlockedMatrix convertToBlockedMatrix(DuneMatrixClass& matrix){
-        int Nb = matrix.N();
+        int Nb = matrix.N(); // number of rows
         int nnzb = matrix.nonzeroes();
         std::vector<int> h_rows;
         std::vector<int> h_cols;
@@ -69,12 +69,14 @@ namespace{
     BlockVectorClass solveWithScalarAndReturnBlocked(const BlockMatrixClass& blockMatrix, const BlockVectorClass& blockRhs) {
         using real_type = typename BlockMatrixClass::value_type::field_type;
 
-        const size_t N = blockMatrix.N();
+        //! set the correct M to be matrix.M(), and change the name of the current M variable to something else
+        const size_t N = blockMatrix.N(); // number of rows
+        const size_t M = blockMatrix.M(); // number of columns
         static constexpr int blocksize = BlockMatrixClass::value_type::rows;
-        size_t M = N * blocksize;
+        size_t N_scalar = N * blocksize;
+        size_t M_scalar = M *blocksize;
 
-
-        Dune::DynamicMatrix<real_type> scalarMatrix(M, M, 0.0);
+        Dune::DynamicMatrix<real_type> scalarMatrix(N_scalar, M_scalar, 0.0);
 
         for (size_t row = 0; row < N; ++row) {
             for (size_t column = 0; column < N; ++column) {
@@ -86,38 +88,34 @@ namespace{
             }
         }
 
-        // Dune::DynamicVector<real_type> scalarRhs(M, 2.0);
-        // for (size_t row = 0; row < N; ++row) {
-        //     for (int i = 0; i < blocksize; ++i) {
-        //         scalarRhs[row * blocksize + i] = blockRhs[row][i];
-        //     }
-        // }
-        // Dune::DynamicVector<real_type> scalarSolution(M, 0);
-
-        // scalarMatrix.solve(scalarSolution, scalarRhs);
-
-        // BlockVectorClass blockSolution(N);
-
-        // for (size_t row = 0; row < N; ++row) {
-        //     for (int i = 0; i < blocksize; ++i) {
-        //         blockSolution[row][i] = scalarSolution[row * blocksize + i];
-        //     }
-        // }
-
         BlockVectorClass blockSolution(N);
 
-
-        for (int col = 0; col < 3; ++col){
-            Dune::DynamicVector<real_type> scalarRhs(M, 2.0);
+        // create the solution column by column to utilize the solve method of scalar matrices
+        for (int col = 0; col < blocksize; ++col){
+            Dune::DynamicVector<real_type> scalarRhsBeforeMTV(N_scalar, 2.0); //TODO CHECK DIMS PLEASE
+            Dune::DynamicVector<real_type> scalarRhsAfterMTV(M_scalar, 2.0); //TODO CHECK DIMS PLEASE
             for (size_t row = 0; row < N; ++row) {
                 for (int i = 0; i < blocksize; ++i) {
-                    scalarRhs[row * blocksize + i] = blockRhs[row][i][col];
+                    scalarRhsBeforeMTV[row * blocksize + i] = blockRhs[row][i][col];
                 }
             }
 
-            Dune::DynamicVector<real_type> scalarSolution(M, 0);
 
-            scalarMatrix.solve(scalarSolution, scalarRhs);
+            Dune::DynamicVector<real_type> scalarSolution(M_scalar, 0); //TODO CHECK DIMS PLEASE
+
+            //! go from Ax=b to A'Ax=A'b to find least squares solution
+            //TODO verify that the vector read from and written to can be the same!
+            scalarMatrix.mtv(scalarRhsBeforeMTV, scalarRhsAfterMTV); // scalarRhs = scalarMatrix'*scalarRhs
+
+            //TODO transpose the matrix properly
+            Dune::DynamicMatrix<real_type> transposedScalarMatrix(M_scalar, N_scalar);
+            for (auto loc_row = scalarMatrix.begin(); loc_row != scalarMatrix.end(); ++loc_row){
+                for (auto loc_col = loc_row->begin(); loc_col != loc_row->end(); ++loc_col){
+                    transposedScalarMatrix[loc_col.index()][loc_row.index()] = *loc_col;
+                }
+            }
+
+            scalarMatrix.leftmultiply(transposedScalarMatrix).solve(scalarSolution, scalarRhsAfterMTV);
 
             for (size_t row = 0; row < N; ++row) {
                 for (int i = 0; i < blocksize; ++i) {
@@ -136,7 +134,7 @@ namespace Opm::cuistl
 template <class M, class X, class Y, int l>
 CuSPAI<M, X, Y, l>::CuSPAI(const M& A, field_type w)
     : m_cpuMatrix(A)
-    , m_relaxationFactor(w)
+    , m_relaxationFactor(w) //TODO remove everything related to this parameter
     , m_gpuMatrix(nullptr)
 {
     const unsigned int bs = blocksize_;
@@ -148,14 +146,14 @@ CuSPAI<M, X, Y, l>::CuSPAI(const M& A, field_type w)
     submat.resize(Nb);
     eyeBlockIndices.resize(Nb);
     submatValsPositions.resize(Nb);
-    rowPointers.resize(Nb + 1);
+    rowPointers.reserve(Nb + 1);
+    colIndices.reserve(nnzb);
     spaiColPointers.resize(Nb + 1);
-    colIndices.resize(nnzb);
 
     // std::copy(m_cpuMatrix.getRowIndices().begin(), m_cpuMatrix.getRowIndices().begin() + Nb + 1, rowPointers.begin());
     // std::copy(m_cpuMatrix.getColumnIndices().begin(), m_cpuMatrix.getColumnIndices().begin() + nnzb, colIndices.begin());
-    colIndices.reserve(nnzb);
-    rowPointers.reserve(Nb + 1);
+    // colIndices.reserve(nnzb);
+    rowPointers.push_back(0); //! I added this to have n+1 items in list
     for (auto& row : m_cpuMatrix) {
         for (auto columnIterator = row.begin(); columnIterator != row.end(); ++columnIterator) {
             colIndices.push_back(columnIterator.index());
@@ -239,9 +237,6 @@ template <class M, class X, class Y, int l>
 void
 CuSPAI<M, X, Y, l>::update()
 {
-    m_gpuMatrix->updateNonzeroValues(m_cpuMatrix);
-
-
     const unsigned int bs = blocksize_;
     int count;
 
@@ -271,12 +266,12 @@ CuSPAI<M, X, Y, l>::update()
         rhs[eyeBlockIndices[tcol]] = Dune::ScaledIdentityMatrix<double, bs>(1);
 
         //! create a dense matrix M_d from the submat[tcol], and call M_d.solve(sol, rhs)
-        tmp_mat = DuneDynMat(submat[tcol].N(), submat[tcol].M());
+        tmp_mat = DuneDynMat(submat[tcol].N(), submat[tcol].M(), 0.0);
         for(auto row = submat[tcol].begin(); row != submat[tcol].end(); ++row){
             for(auto col = (*row).begin(); col != (*row).end(); ++col){
                 for(auto br = (*col).begin(); br != (*col).end(); ++br){
                     for(auto bc = (*br).begin(); bc != (*br).end(); ++bc){
-                        tmp_mat[row.index()][col.index()][br.index()][bc.index()];
+                        tmp_mat[row.index()][col.index()][br.index()][bc.index()] = *bc;
                     }
                 }
             }
