@@ -525,12 +525,13 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
         });
 
         F::addCreator("CUSPAI", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
-            const double w = prm.get<double>("relaxation", 1.0);
+            const int spai_level = prm.get<int>("ilulevel", 1.0);
             using field_type = typename V::field_type;
             using CUSPAI = typename Opm::cuistl::CuSPAI<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
             // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
 
             //! DEBUG
+            /*
             const int N = 2;
             constexpr int blocksize = 2;
             const int nonZeroes = 3;
@@ -558,6 +559,7 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
 
             B[1][1][0][0] = -1.0;
             B[1][1][1][1] = -1.0;
+            */
 
             // Vector dVector(2), vVector(2);
             // dVector[0][0] = 2.0;
@@ -566,7 +568,7 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             // dVector[1][1] = 4.0;
             // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI_FAKE>>(std::make_shared<CUSPAI_FAKE>(B, w));
             // prec->apply(vVector, dVector);
-            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), spai_level));
         });
 #endif
     }

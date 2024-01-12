@@ -68,9 +68,9 @@ public:
     //!
     //!  Constructor gets all parameters to operate the prec.
     //! \param A The matrix to operate on.
-    //! \param w The relaxation factor.
+    //! \param spai_level decides which power of A's sparsity pattern to ues
     //!
-    CuSPAI(const M& A, field_type w);
+    CuSPAI(const M& A, const int spai_level);
 
     //! \brief Prepare the preconditioner.
     //! \note Does nothing at the time being.
@@ -110,12 +110,12 @@ private:
     //! \brief Reference to the underlying matrix
     const M& m_cpuMatrix;
     //! \brief The relaxation factor to use.
-    const field_type m_relaxationFactor;
+    const int m_SPAI_level;
     //! \brief The A matrix stored on the gpu
     std::unique_ptr<CuSparseMatrix<field_type>> m_gpuMatrix;
 
     std::set<int> iset, jset;
-    int fill_in = 1;
+    int fill_in;
 
     int N, Nb, nnz, nnzb;
 

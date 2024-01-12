@@ -35,8 +35,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(CUSPAI_TEST_LEAST_SQUARES, T, NumericTypes)
            | |2 1| |       | |1 2| |
            | |1 2| |       | |1 2| |
        A = |       | rhs = |       |
-           | |0 1| |       | |1 2| |
-           | |2 3| |       | |1 2| |
+           | |0 1| |       | |1 2| | sol = | | 0.1428571428571428 0.2857142857142856 | |
+           | |2 3| |       | |1 2| |       | | 0.3714285714285714 0.7428571428571429 | |
    */
     const int N = 2;
     const int M = 1;

@@ -20,24 +20,14 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 #include <dune/common/fmatrix.hh>
-#include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/bvector.hh>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuSPAI.hpp>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
-#include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
-#include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cublas_wrapper.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
-#include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
+#include <opm/simulators/linalg/cuistl/CuSparseMatrix.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
-#include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
 #include <opm/simulators/linalg/bda/BlockedMatrix.hpp>
@@ -143,11 +133,13 @@ BlockVectorClass solveWithScalarAndReturnBlocked(const BlockMatrixClass& blockMa
 template Dune::BlockVector<Dune::FieldMatrix<double, 2, 2>> solveWithScalarAndReturnBlocked(const Dune::DynamicMatrix<Dune::FieldMatrix<double, 2, 2>>&, const Dune::BlockVector<Dune::FieldMatrix<double, 2, 2>>&);
 
 template <class M, class X, class Y, int l>
-CuSPAI<M, X, Y, l>::CuSPAI(const M& A, field_type w)
+CuSPAI<M, X, Y, l>::CuSPAI(const M& A, int spai_level)
     : m_cpuMatrix(A)
-    , m_relaxationFactor(w) //TODO remove everything related to this parameter
+    , m_SPAI_level(spai_level)
+    , fill_in(spai_level-1)
     , m_gpuMatrix(nullptr)
 {
+    assert(m_SPAI_level>0); // SPAI0 is currently not supported
     const unsigned int bs = blocksize_;
     this->Nb = m_cpuMatrix.N();
     this->N = Nb * bs;
@@ -251,10 +243,7 @@ CuSPAI<M, X, Y, l>::update()
     const unsigned int bs = blocksize_;
     int count;
 
-    // solver.setBlocked(bs > 1);
     //! new matrix for easing indexing during porting
-    // create a blocked matrix here from the m_cpuMatrix
-    // this is the one that should be read from in the next few lines
     Opm::Accelerator::BlockedMatrix bda_matrix = convertToBlockedMatrix(m_cpuMatrix);
 
     for(int tcol = 0; tcol < Nb; tcol++){
@@ -287,10 +276,8 @@ CuSPAI<M, X, Y, l>::update()
                 }
             }
         }
-        // tmp_mat.solve(sol, rhs);
+
         sol = solveWithScalarAndReturnBlocked(tmp_mat, rhs);
-        // solver.setMatrix(submat[tcol]);
-        // solver.apply(sol, rhs, res);
 
         for(unsigned int i = 0; i < submat[tcol].M(); i++){
             for(unsigned int j = 0; j < bs; j++){
@@ -300,13 +287,9 @@ CuSPAI<M, X, Y, l>::update()
             }
         }
     }
-    /*
-    TODO: move spaiNnzValues, spaiColPointers, spaiRowIndices to the GPU
-    TODO: the spainNnzValues must be moved every update, the others can be done in the constructor
-    */
    //TODO: the Bueno code has flipped the naming convention of rows/columns in the csr format spaiColPointers point to the start of the rows, and spaiRowIndices give the column index of the items...
    //TODO: The flipping of the names might be due to some implicit transposition?
-    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiColPointers.data(), spaiRowIndices.data(), nnzb, bs, Nb));
+    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiColPointers.data(), spaiRowIndices.data(), spaiNnzValues.size()/(bs*bs), bs, Nb));
 }
 
 template <class M, class X, class Y, int l>
