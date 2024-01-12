@@ -525,7 +525,7 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
         });
 
         F::addCreator("CUSPAI", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
-            const int spai_level = prm.get<int>("ilulevel", 1.0);
+            const int spai_level = prm.get<int>("ilulevel", 1);
             using field_type = typename V::field_type;
             using CUSPAI = typename Opm::cuistl::CuSPAI<M, Opm::cuistl::CuVector<field_type>, Opm::cuistl::CuVector<field_type>>;
             // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));

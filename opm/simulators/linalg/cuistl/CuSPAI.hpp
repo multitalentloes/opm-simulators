@@ -104,6 +104,10 @@ public:
         return false;
     }
 
+    //! ONLY FOR DEBUGGING
+    std::vector<double> getSpaiNnzValues(){
+        return spaiNnzValues;
+    }
 
 private:
     static constexpr const size_t blocksize_ = matrix_type::block_type::cols;

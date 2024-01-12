@@ -252,7 +252,6 @@ CuSPAI<M, X, Y, l>::update()
             for(auto col = (*row).begin(); col != (*row).end(); ++col){
                 for(auto br = (*col).begin(); br != (*col).end(); ++br){
                     for(auto bc = (*br).begin(); bc != (*br).end(); ++bc){
-                        // (*bc) = mat->nnzValues[submatValsPositions[tcol][count]];
                         (*bc) = bda_matrix.nnzValues[submatValsPositions[tcol][count]];
                         ++count;
                     }
