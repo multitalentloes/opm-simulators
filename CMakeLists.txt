@@ -266,7 +266,7 @@ macro (config_hook)
   endif()
   include_directories(${EXTRA_INCLUDES})
 
-  include(UseDamaris)
+  # include(UseDamaris)
 endmacro (config_hook)
 
 macro (prereqs_hook)

@@ -43,93 +43,104 @@
 #include <opm/simulators/linalg/bda/BlockedMatrix.hpp>
 #include <opm/simulators/linalg/bda/BdaBridge.hpp>
 #include <vector>
-
-namespace{
-    // Given Dune BCSR matrix, create a bda blocked matrix.
-    template<class DuneMatrixClass>
-    Opm::Accelerator::BlockedMatrix convertToBlockedMatrix(DuneMatrixClass& matrix){
-        int Nb = matrix.N(); // number of rows
-        int nnzb = matrix.nonzeroes();
-        std::vector<int> h_rows;
-        std::vector<int> h_cols;
-        // convert colIndices and rowPointers
-        h_rows.emplace_back(0);
-        for (typename DuneMatrixClass::const_iterator r = matrix.begin(); r != matrix.end(); ++r) {
-            for (auto c = r->begin(); c != r->end(); ++c) {
-                h_cols.emplace_back(c.index());
-            }
-            h_rows.emplace_back(h_cols.size());
-        }
-
-        // Opm::checkMemoryContiguous(matrix);
-        return Opm::Accelerator::BlockedMatrix(Nb, nnzb, (matrix[0][0]).size(), const_cast<typename DuneMatrixClass::field_type*>(&(((matrix)[0][0][0][0]))), h_cols.data(), h_rows.data());
-    }
-
-    template<class BlockMatrixClass, class BlockVectorClass>
-    BlockVectorClass solveWithScalarAndReturnBlocked(const BlockMatrixClass& blockMatrix, const BlockVectorClass& blockRhs) {
-        using real_type = typename BlockMatrixClass::value_type::field_type;
-
-        //! set the correct M to be matrix.M(), and change the name of the current M variable to something else
-        const size_t N = blockMatrix.N(); // number of rows
-        const size_t M = blockMatrix.M(); // number of columns
-        static constexpr int blocksize = BlockMatrixClass::value_type::rows;
-        size_t N_scalar = N * blocksize;
-        size_t M_scalar = M *blocksize;
-
-        Dune::DynamicMatrix<real_type> scalarMatrix(N_scalar, M_scalar, 0.0);
-
-        for (size_t row = 0; row < N; ++row) {
-            for (size_t column = 0; column < N; ++column) {
-                for (int i = 0; i < blocksize; ++i) {
-                    for (int j = 0; j < blocksize; ++j) {
-                        scalarMatrix[row * blocksize + i][column * blocksize + j] = blockMatrix[row][column][i][j];
-                    }
-                }
-            }
-        }
-
-        BlockVectorClass blockSolution(N);
-
-        // create the solution column by column to utilize the solve method of scalar matrices
-        for (int col = 0; col < blocksize; ++col){
-            Dune::DynamicVector<real_type> scalarRhsBeforeMTV(N_scalar, 2.0); //TODO CHECK DIMS PLEASE
-            Dune::DynamicVector<real_type> scalarRhsAfterMTV(M_scalar, 2.0); //TODO CHECK DIMS PLEASE
-            for (size_t row = 0; row < N; ++row) {
-                for (int i = 0; i < blocksize; ++i) {
-                    scalarRhsBeforeMTV[row * blocksize + i] = blockRhs[row][i][col];
-                }
-            }
-
-
-            Dune::DynamicVector<real_type> scalarSolution(M_scalar, 0); //TODO CHECK DIMS PLEASE
-
-            //! go from Ax=b to A'Ax=A'b to find least squares solution
-            //TODO verify that the vector read from and written to can be the same!
-            scalarMatrix.mtv(scalarRhsBeforeMTV, scalarRhsAfterMTV); // scalarRhs = scalarMatrix'*scalarRhs
-
-            //TODO transpose the matrix properly
-            Dune::DynamicMatrix<real_type> transposedScalarMatrix(M_scalar, N_scalar);
-            for (auto loc_row = scalarMatrix.begin(); loc_row != scalarMatrix.end(); ++loc_row){
-                for (auto loc_col = loc_row->begin(); loc_col != loc_row->end(); ++loc_col){
-                    transposedScalarMatrix[loc_col.index()][loc_row.index()] = *loc_col;
-                }
-            }
-
-            scalarMatrix.leftmultiply(transposedScalarMatrix).solve(scalarSolution, scalarRhsAfterMTV);
-
-            for (size_t row = 0; row < N; ++row) {
-                for (int i = 0; i < blocksize; ++i) {
-                    blockSolution[row][i][col] = scalarSolution[row * blocksize + i];
-                }
-            }
-        }
-
-        return blockSolution;
-    }
-}
+#include <dune/common/dynvector.hh>
+#include <dune/common/dynmatrix.hh>
 
 namespace Opm::cuistl
 {
+// Given Dune BCSR matrix, create a bda blocked matrix.
+template<class DuneMatrixClass>
+Opm::Accelerator::BlockedMatrix convertToBlockedMatrix(DuneMatrixClass& matrix){
+    const int Nb = matrix.N(); // number of rows
+    const int nnzb = matrix.nonzeroes();
+    std::vector<int> h_rows;
+    std::vector<int> h_cols;
+    // convert colIndices and rowPointers
+    h_rows.emplace_back(0);
+    for (typename DuneMatrixClass::const_iterator r = matrix.begin(); r != matrix.end(); ++r) {
+        for (auto c = r->begin(); c != r->end(); ++c) {
+            h_cols.emplace_back(c.index());
+        }
+        h_rows.emplace_back(h_cols.size());
+    }
+
+    // Opm::checkMemoryContiguous(matrix);
+    return Opm::Accelerator::BlockedMatrix(Nb, nnzb, (matrix[0][0]).size(), const_cast<typename DuneMatrixClass::field_type*>(&(((matrix)[0][0][0][0]))), h_cols.data(), h_rows.data());
+}
+
+template<class BlockMatrixClass, class BlockVectorClass>
+BlockVectorClass solveWithScalarAndReturnBlocked(const BlockMatrixClass& blockMatrix, const BlockVectorClass& blockRhs) {
+    using real_type = typename BlockMatrixClass::value_type::field_type;
+
+    //! set the correct M to be matrix.M(), and change the name of the current M variable to something else
+    const size_t N = blockMatrix.N(); // number of rows
+    const size_t M = blockMatrix.M(); // number of columns
+    static constexpr int blocksize = BlockMatrixClass::value_type::rows;
+    const size_t N_scalar = N * blocksize;
+    const size_t M_scalar = M * blocksize;
+
+    Dune::DynamicMatrix<real_type> scalarMatrix(N_scalar, M_scalar, 0.0);
+
+    for (size_t row = 0; row < N; ++row) {
+        for (size_t column = 0; column < M; ++column) {
+            for (int i = 0; i < blocksize; ++i) {
+                for (int j = 0; j < blocksize; ++j) {
+                    scalarMatrix[row * blocksize + i][column * blocksize + j] = blockMatrix[row][column][i][j];
+                }
+            }
+        }
+    }
+
+    BlockVectorClass blockSolution(M); //TODO CHECK DIMS PLEASE
+
+    // create the solution column by column to utilize the solve method of scalar matrices
+    for (int col = 0; col < blocksize; ++col){
+        Dune::DynamicVector<real_type> scalarRhsBeforeMTV(N_scalar, 0.0); //TODO CHECK DIMS PLEASE
+        Dune::DynamicVector<real_type> scalarRhsAfterMTV(M_scalar, 0.0); //TODO CHECK DIMS PLEASE
+        for (size_t row = 0; row < N; ++row) {
+            for (int i = 0; i < blocksize; ++i) {
+                scalarRhsBeforeMTV[row * blocksize + i] = blockRhs[row][i][col];
+            }
+        }
+
+
+        Dune::DynamicVector<real_type> scalarSolution(M_scalar, 0); //TODO CHECK DIMS PLEASE
+
+        //! go from Ax=b to A'Ax=A'b to find least squares solution
+        //TODO verify that the vector read from and written to can be the same!
+        scalarMatrix.mtv(scalarRhsBeforeMTV, scalarRhsAfterMTV); // scalarRhs = scalarMatrix'*scalarRhs
+
+        //TODO transpose the matrix properly
+        Dune::DynamicMatrix<real_type> transposedScalarMatrix(M_scalar, N_scalar, 0.0);
+        for (auto loc_row = scalarMatrix.begin(); loc_row != scalarMatrix.end(); ++loc_row){
+            for (auto loc_col = loc_row->begin(); loc_col != loc_row->end(); ++loc_col){
+                transposedScalarMatrix[loc_col.index()][loc_row.index()] = *loc_col;
+            }
+        }
+
+        Dune::DynamicMatrix<real_type> aTa(transposedScalarMatrix.N(), scalarMatrix.M(), 0.0);
+        for (size_t i = 0; i < transposedScalarMatrix.N(); ++i){
+            for (size_t j = 0; j < scalarMatrix.M(); ++j){
+                aTa[i][j] = 0;
+                for (size_t k = 0; k < transposedScalarMatrix.M(); ++k){
+                    aTa[i][j] += transposedScalarMatrix[i][k] * scalarMatrix[k][j];
+                }
+            }
+        }
+        aTa.solve(scalarSolution, scalarRhsAfterMTV);
+
+        for (size_t row = 0; row < M; ++row) {
+            for (int i = 0; i < blocksize; ++i) {
+                blockSolution[row][i][col] = scalarSolution[row * blocksize + i];
+            }
+        }
+    }
+
+    return blockSolution;
+}
+
+// added for the test to compile
+template Dune::BlockVector<Dune::FieldMatrix<double, 2, 2>> solveWithScalarAndReturnBlocked(const Dune::DynamicMatrix<Dune::FieldMatrix<double, 2, 2>>&, const Dune::BlockVector<Dune::FieldMatrix<double, 2, 2>>&);
 
 template <class M, class X, class Y, int l>
 CuSPAI<M, X, Y, l>::CuSPAI(const M& A, field_type w)
@@ -293,7 +304,9 @@ CuSPAI<M, X, Y, l>::update()
     TODO: move spaiNnzValues, spaiColPointers, spaiRowIndices to the GPU
     TODO: the spainNnzValues must be moved every update, the others can be done in the constructor
     */
-    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiRowIndices.data(), spaiColPointers.data(), nnzb, bs, Nb));
+   //TODO: the Bueno code has flipped the naming convention of rows/columns in the csr format spaiColPointers point to the start of the rows, and spaiRowIndices give the column index of the items...
+   //TODO: The flipping of the names might be due to some implicit transposition?
+    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiColPointers.data(), spaiRowIndices.data(), nnzb, bs, Nb));
 }
 
 template <class M, class X, class Y, int l>

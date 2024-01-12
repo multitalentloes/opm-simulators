@@ -32,6 +32,8 @@
 
 namespace Opm::cuistl
 {
+
+template<class BlockMatrixClass, class BlockVectorClass> BlockVectorClass solveWithScalarAndReturnBlocked(const BlockMatrixClass&, const BlockVectorClass&);
 //! \brief Jacobi preconditioner on the GPU.
 //!
 //! \note This is a fast but weak preconditioner
@@ -113,7 +115,7 @@ private:
     std::unique_ptr<CuSparseMatrix<field_type>> m_gpuMatrix;
 
     std::set<int> iset, jset;
-    int fill_in = 0;
+    int fill_in = 1;
 
     int N, Nb, nnz, nnzb;
 

@@ -564,9 +564,9 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             // dVector[0][1] = 1.0;
             // dVector[1][0] = 3.0;
             // dVector[1][1] = 4.0;
-            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI_FAKE>>(std::make_shared<CUSPAI_FAKE>(B, w));
+            // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI_FAKE>>(std::make_shared<CUSPAI_FAKE>(B, w));
             // prec->apply(vVector, dVector);
-            // return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
+            return std::make_shared<Opm::cuistl::PreconditionerAdapter<V, V, CUSPAI>>(std::make_shared<CUSPAI>(op.getmat(), w));
         });
 #endif
     }
