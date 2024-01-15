@@ -131,6 +131,7 @@ private:
     std::vector<int> eyeBlockIndices;
     std::vector<int> rowPointers, colIndices;
     std::vector<int> spaiColPointers, spaiRowIndices;
+    std::vector<int> spaiColIndices, spaiRowPointers;
     std::vector<double> nnzValues, spaiNnzValues;
 
     DuneDynMat tmp_mat;

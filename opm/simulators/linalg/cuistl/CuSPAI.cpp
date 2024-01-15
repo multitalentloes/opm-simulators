@@ -286,9 +286,44 @@ CuSPAI<M, X, Y, l>::update()
             }
         }
     }
-   //TODO: the Bueno code has flipped the naming convention of rows/columns in the csr format spaiColPointers point to the start of the rows, and spaiRowIndices give the column index of the items...
-   //TODO: The flipping of the names might be due to some implicit transposition?
-    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiColPointers.data(), spaiRowIndices.data(), spaiNnzValues.size()/(bs*bs), bs, Nb));
+    //TODO: spaiNnzValues, spaiColPointers, spaiRowIndices store the data in CSC format, convert it to CSR!
+    std::vector<double> tmp_spaiNnzValues(spaiNnzValues.size());
+    spaiRowPointers.assign(spaiColPointers.size(), 0);
+    spaiColIndices.assign(spaiRowIndices.size(), 0);
+
+    //TODO: do it less stupidly
+
+    int nnz_count = 0;
+    for (int i = 0; i < Nb; i++){ // find every element belonging to row i
+ //       /*
+        for (int j = 0; j < Nb; j++){
+            for (int k = spaiColPointers[j]; k < spaiColPointers[j+1]; k++){
+                if (spaiRowIndices[k] == i){// this element is on row i
+                    // move the element to the right place in the new NnzValues
+
+                    // while the indices are dealing with blocks the Nnz is dealing with scalars, so therefore we have to move all the values at once
+                    for (int m = 0; m < blocksize_; m++){
+                        for (int n = 0; n < blocksize_; n++){
+                            int offset = m*blocksize_ + n;
+                            int blocksize_square = blocksize_*blocksize_;
+                            tmp_spaiNnzValues[nnz_count*blocksize_square + offset] = spaiNnzValues[k*blocksize_square+offset];
+                        }
+                    }
+                    spaiColIndices[nnz_count] = j;
+                    nnz_count++;
+                    break; // cannot match the same row while moving down a column
+                }
+            }
+        }
+//*/
+        spaiRowPointers[i+1] = nnz_count;
+    }
+
+
+
+    m_gpuMatrix.reset(new CuSparseMatrix<field_type>(tmp_spaiNnzValues.data(), spaiRowPointers.data(), spaiColIndices.data(), tmp_spaiNnzValues.size()/(bs*bs), bs, Nb));
+
+    //m_gpuMatrix.reset(new CuSparseMatrix<field_type>(spaiNnzValues.data(), spaiColPointers.data(), spaiRowIndices.data(), spaiNnzValues.size()/(bs*bs), bs, Nb));
 }
 
 template <class M, class X, class Y, int l>

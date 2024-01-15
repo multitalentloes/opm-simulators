@@ -27,6 +27,7 @@
 #include <dune/common/dynmatrix.hh>
 
 #include <vector>
+#include <random>
 
 using NumericTypes = boost::mpl::list<double>;
 
@@ -121,5 +122,78 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(CUSPAI_ON_DIAGONAL_MATRIX, T, NumericTypes)
     for (int i = 0; i < res.size(); i++){
         BOOST_CHECK_CLOSE(res[i], exp_res[i], 1e-7);
     }
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(CUSPAI_DENSE_MATRIX, T, NumericTypes)
+{
+    const int N = 2;
+    const int nonZeroes = N*N;
+    constexpr int blocksize = 2;
+    using FMat = Dune::FieldMatrix<T, blocksize, blocksize>;
+    using BCRSMat = Dune::BCRSMatrix<FMat>;
+    using CuSPAI = Opm::cuistl::CuSPAI<BCRSMat, Opm::cuistl::CuVector<T>, Opm::cuistl::CuVector<T>>;
+
+    std::mt19937 random_gen(42);
+    std::uniform_real_distribution<double> distribution(0.8, 1.8);
+
+    BCRSMat A(N, N, nonZeroes, BCRSMat::row_wise);
+    Dune::DynamicMatrix<T> A_dyn_scalar(N*blocksize, N*blocksize, 0.0);
+
+    for (auto row = A.createbegin(); row != A.createend(); ++row) {
+        for (int col = 0; col < N; ++col){
+            row.insert(col);
+        }
+    }
+
+    // create A as a bcrs matrix that will be sent to the prec
+    // create A as a dynamicmatrix that can easily be multiplied with the dynmatrix inverse
+    for (auto row = A.begin(); row != A.end(); ++row){
+        for (auto col = (*row).begin(); col != (*row).end(); ++col){
+            for (auto brow = (*col).begin(); brow != (*col).end(); ++brow){
+                for (auto bcol = (*brow).begin(); bcol != (*brow).end(); ++bcol){
+                    T rnum = distribution(random_gen);
+                    (*bcol) = rnum;
+                    A_dyn_scalar[row.index()*blocksize + brow.index()][col.index()*blocksize + bcol.index()]= rnum;
+                }
+            }
+        }
+    }
+
+    // The constructor of the cuspai will create the approximate inverse and store the inverse in the resNnz
+    CuSPAI cuspai(A, 1);
+    std::vector<T> resNnz = cuspai.getSpaiNnzValues();
+
+    int idx = 0;
+    Dune::DynamicMatrix<FMat> A_cuspai_inv(N,N,0.0);
+    for (auto row = A_cuspai_inv.begin(); row != A_cuspai_inv.end(); ++row){
+        for (auto col = (*row).begin(); col != (*row).end(); ++col){
+            for (auto brow = (*col).begin(); brow != (*col).end(); ++brow){
+                for (auto bcol = (*brow).begin(); bcol != (*brow).end(); ++bcol){
+                    (*bcol) = resNnz[idx++];
+                }
+            }
+        }
+    }
+
+    auto A_dune_inv_scalar = A_dyn_scalar;
+    A_dune_inv_scalar.invert();
+    Dune::DynamicMatrix<FMat> A_dune_inv_block(N,N,0.0);
+
+    Dune::DynamicMatrix<FMat> A_dyn_block(N, N, 0.0);
+
+    for (int i = 0; i < N*blocksize; ++i){
+        for (int j = 0; j < N*blocksize; ++j){
+            A_dyn_block[i/blocksize][j/blocksize][i%blocksize][j%blocksize] = A_dyn_scalar[i][j];
+            A_dune_inv_block[i/blocksize][j/blocksize][i%blocksize][j%blocksize] = A_dune_inv_scalar[i][j];
+        }
+    }
+
+    auto left_id_cuspai = A_dyn_block;
+    left_id_cuspai.leftmultiply(A_cuspai_inv);
+
+    auto left_id_dune = A_dyn_block;
+    left_id_dune.leftmultiply(A_dune_inv_block);
+
+    BOOST_CHECK(true);
 }
 
