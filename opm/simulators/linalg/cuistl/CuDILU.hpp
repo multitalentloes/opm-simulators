@@ -62,24 +62,24 @@ public:
     //! \param A The matrix to operate on.
     //! \param w The relaxation factor.
     //!
-    CuDILU(const M& A);
+    explicit CuDILU(const M& A);
 
     //! \brief Prepare the preconditioner.
     //! \note Does nothing at the time being.
-    virtual void pre(X& x, Y& b) override;
+    void pre(X& x, Y& b) override;
 
     //! \brief Apply the preconditoner.
-    virtual void apply(X& v, const Y& d) override;
+    void apply(X& v, const Y& d) override;
 
     //! \brief Post processing
     //! \note Does nothing at the moment
-    virtual void post(X& x) override;
+    void post(X& x) override;
 
     //! Category of the preconditioner (see SolverCategory::Category)
-    virtual Dune::SolverCategory::Category category() const override;
+    Dune::SolverCategory::Category category() const override;
 
     //! \brief Updates the matrix data.
-    virtual void update() override;
+    void update() final;
 
 
     //! \returns false
