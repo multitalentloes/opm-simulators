@@ -39,20 +39,17 @@
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
+#include <vector>
 
 namespace {
-
-std::vector<int> createReorderedToNatural(Opm::SparseTable<size_t>);
-std::vector<int> createNaturalToReordered(Opm::SparseTable<size_t>);
-
 std::vector<int>
 createReorderedToNatural(Opm::SparseTable<size_t> levelSets)
 {
-    auto res = std::vector<int>(levelSets.dataSize());
+    auto res = std::vector<int>(Opm::cuistl::detail::to_size_t(levelSets.dataSize()));
     int globCnt = 0;
     for (int i = 0; i < levelSets.size(); ++i) {
         for (size_t j = 0; j < levelSets[i].size(); ++j) {
-            res[globCnt++] = (int)levelSets[i][j];
+            res[globCnt++] = static_cast<int>(levelSets[i][j]);
         }
     }
     return res;
@@ -75,7 +72,7 @@ createNaturalToReordered(Opm::SparseTable<size_t> levelSets)
 // TODO: could it be possible to create the reordered one in a kernel to speed up the constructor?
 template <class M, class field_type>
 Opm::cuistl::CuSparseMatrix<field_type>
-createReorderedMatrix(M naturalMatrix, std::vector<int> reorderedToNatural)
+createReorderedMatrix(const M& naturalMatrix, std::vector<int> reorderedToNatural)
 {
     M reorderedMatrix(naturalMatrix.N(), naturalMatrix.N(), naturalMatrix.nonzeroes(), M::row_wise);
     for (auto dstRowIt = reorderedMatrix.createbegin(); dstRowIt != reorderedMatrix.createend(); ++dstRowIt) {
