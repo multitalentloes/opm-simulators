@@ -35,6 +35,9 @@
 #include <vector>
 #include <dune/common/dynvector.hh>
 #include <dune/common/dynmatrix.hh>
+#include <opm/common/TimingMacros.hpp>
+#include <chrono>
+#include <iostream>
 
 namespace Opm::cuistl
 {
@@ -240,12 +243,14 @@ template <class M, class X, class Y, int l>
 void
 CuSPAI<M, X, Y, l>::update()
 {
+    OPM_TIMEBLOCK(cuspai_update);
     const unsigned int bs = blocksize_;
     int count;
 
     //! new matrix for easing indexing during porting
     Opm::Accelerator::BlockedMatrix bda_matrix = convertToBlockedMatrix(m_cpuMatrix);
 
+    auto before_all_cols = std::chrono::high_resolution_clock::now();
     for(int tcol = 0; tcol < Nb; tcol++){
         count = 0;
         for(auto row = submat[tcol].begin(); row != submat[tcol].end(); ++row){
@@ -279,33 +284,38 @@ CuSPAI<M, X, Y, l>::update()
         sol = solveWithScalarAndReturnBlocked(tmp_mat, rhs);
 
         for(unsigned int i = 0; i < submat[tcol].M(); i++){
+
+            //std::copy(sol[i].begin(), sol[i].begin() + bs*bs, spaiNnzValues.begin() + (spaiColPointers[tcol] + i) * bs * bs);
+
             for(unsigned int j = 0; j < bs; j++){
                 for(unsigned int k = 0; k < bs; k++){
                     spaiNnzValues[(spaiColPointers[tcol] + i) * bs * bs + j * bs + k] = sol[i][j][k];
                 }
             }
+
         }
     }
+    auto after_all_cols = std::chrono::high_resolution_clock::now();
+    std::cout << "all cols: " << std::chrono::duration_cast<std::chrono::microseconds>(after_all_cols - before_all_cols).count() << std::endl;
+
     //TODO: spaiNnzValues, spaiColPointers, spaiRowIndices store the data in CSC format, convert it to CSR!
     std::vector<double> tmp_spaiNnzValues(spaiNnzValues.size());
     spaiRowPointers.assign(spaiColPointers.size(), 0);
     spaiColIndices.assign(spaiRowIndices.size(), 0);
 
     //TODO: do it less stupidly
-
+    {
+        auto before_csc_csr_conv = std::chrono::high_resolution_clock::now();
     int nnz_count = 0;
     for (int i = 0; i < Nb; i++){ // find every element belonging to row i
- //       /*
         for (int j = 0; j < Nb; j++){
             for (int k = spaiColPointers[j]; k < spaiColPointers[j+1]; k++){
                 if (spaiRowIndices[k] == i){// this element is on row i
-                    // move the element to the right place in the new NnzValues
-
                     // while the indices are dealing with blocks the Nnz is dealing with scalars, so therefore we have to move all the values at once
-                    for (int m = 0; m < blocksize_; m++){
-                        for (int n = 0; n < blocksize_; n++){
-                            int offset = m*blocksize_ + n;
-                            int blocksize_square = blocksize_*blocksize_;
+                    for (size_t m = 0; m < blocksize_; m++){
+                        for (size_t n = 0; n < blocksize_; n++){
+                            const size_t offset = m*blocksize_ + n;
+                            const size_t blocksize_square = blocksize_*blocksize_;
                             tmp_spaiNnzValues[nnz_count*blocksize_square + offset] = spaiNnzValues[k*blocksize_square+offset];
                         }
                     }
@@ -315,8 +325,11 @@ CuSPAI<M, X, Y, l>::update()
                 }
             }
         }
-//*/
         spaiRowPointers[i+1] = nnz_count;
+    }
+
+    auto after_csc_csr_conv = std::chrono::high_resolution_clock::now();
+    std::cout << "csc to csr converstion: " << std::chrono::duration_cast<std::chrono::microseconds>(after_csc_csr_conv - before_csc_csr_conv).count() << std::endl;
     }
 
 
