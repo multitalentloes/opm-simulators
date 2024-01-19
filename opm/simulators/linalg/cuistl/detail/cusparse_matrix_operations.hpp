@@ -55,9 +55,9 @@ void computeLowerSolveLevelSet(T* reorderedMat,
                                int* rowIndices,
                                int* colIndices,
                                int* indexConversion,
-                               const int startIdx,
+                               int startIdx,
                                int rowsInLevelSet,
-                               T* dInv,
+                               const T* dInv,
                                const T* d,
                                T* v);
 
@@ -81,9 +81,9 @@ void computeUpperSolveLevelSet(T* reorderedMat,
                                int* rowIndices,
                                int* colIndices,
                                int* indexConversion,
-                               const int startIdx,
+                               int startIdx,
                                int rowsInLevelSet,
-                               T* dInv,
+                               const T* dInv,
                                T* v);
 
 /**
@@ -108,7 +108,7 @@ void computeDiluDiagonal(T* reorderedMat,
                          int* colIndices,
                          int* reorderedToNatural,
                          int* naturalToReordered,
-                         const int startIdx,
+                         int startIdx,
                          int rowsInLevelSet,
                          T* dInv);
 

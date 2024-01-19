@@ -18,38 +18,30 @@
 */
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <cusparse.h>
 #include <dune/common/fmatrix.hh>
-#include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
-#include <dune/istl/bvector.hh>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuDILU.hpp>
+#include <opm/simulators/linalg/cuistl/CuSparseMatrix.hpp>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
-#include <opm/simulators/linalg/cuistl/PreconditionerAdapter.hpp>
-#include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cublas_wrapper.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_constants.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cusparse_wrapper.hpp>
-#include <opm/simulators/linalg/cuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
-#include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 #include <vector>
 
-namespace {
+namespace
+{
 std::vector<int>
 createReorderedToNatural(Opm::SparseTable<size_t> levelSets)
 {
     auto res = std::vector<int>(Opm::cuistl::detail::to_size_t(levelSets.dataSize()));
     int globCnt = 0;
-    for (int i = 0; i < levelSets.size(); ++i) {
-        for (size_t j = 0; j < levelSets[i].size(); ++j) {
-            res[globCnt++] = static_cast<int>(levelSets[i][j]);
+    for (auto row : levelSets) {
+        for (auto col : row) {
+            OPM_ERROR_IF(Opm::cuistl::detail::to_size_t(globCnt) >= res.size(),
+                         fmt::format("Internal error. globCnt = {}, res.size() = {}", globCnt, res.size()));
+            res[globCnt++] = static_cast<int>(col);
         }
     }
     return res;
@@ -58,11 +50,13 @@ createReorderedToNatural(Opm::SparseTable<size_t> levelSets)
 std::vector<int>
 createNaturalToReordered(Opm::SparseTable<size_t> levelSets)
 {
-    auto res = std::vector<int>(levelSets.dataSize());
+    auto res = std::vector<int>(Opm::cuistl::detail::to_size_t(levelSets.dataSize()));
     int globCnt = 0;
-    for (int i = 0; i < levelSets.size(); ++i) {
-        for (size_t j = 0; j < levelSets[i].size(); ++j) {
-            res[levelSets[i][j]] = globCnt++;
+    for (auto row : levelSets) {
+        for (auto col : row) {
+            OPM_ERROR_IF(Opm::cuistl::detail::to_size_t(globCnt) >= res.size(),
+                         fmt::format("Internal error. globCnt = {}, res.size() = {}", globCnt, res.size()));
+            res[col] = globCnt++;
         }
     }
     return res;
@@ -146,14 +140,14 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
         detail::computeLowerSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                            m_gpuMatrixReordered.getRowIndices().data(),
-                                            m_gpuMatrixReordered.getColumnIndices().data(),
-                                            m_gpuReorderToNatural.data(),
-                                            levelStartIdx,
-                                            numOfRowsInLevel,
-                                            m_gpuDInv.data(),
-                                            d.data(),
-                                            v.data());
+                                                                  m_gpuMatrixReordered.getRowIndices().data(),
+                                                                  m_gpuMatrixReordered.getColumnIndices().data(),
+                                                                  m_gpuReorderToNatural.data(),
+                                                                  levelStartIdx,
+                                                                  numOfRowsInLevel,
+                                                                  m_gpuDInv.data(),
+                                                                  d.data(),
+                                                                  v.data());
         levelStartIdx += numOfRowsInLevel;
     }
 
@@ -163,13 +157,13 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
         const int numOfRowsInLevel = m_levelSets[level].size();
         levelStartIdx -= numOfRowsInLevel;
         detail::computeUpperSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                            m_gpuMatrixReordered.getRowIndices().data(),
-                                            m_gpuMatrixReordered.getColumnIndices().data(),
-                                            m_gpuReorderToNatural.data(),
-                                            levelStartIdx,
-                                            numOfRowsInLevel,
-                                            m_gpuDInv.data(),
-                                            v.data());
+                                                                  m_gpuMatrixReordered.getRowIndices().data(),
+                                                                  m_gpuMatrixReordered.getColumnIndices().data(),
+                                                                  m_gpuReorderToNatural.data(),
+                                                                  levelStartIdx,
+                                                                  numOfRowsInLevel,
+                                                                  m_gpuDInv.data(),
+                                                                  v.data());
     }
 }
 
@@ -195,24 +189,24 @@ CuDILU<M, X, Y, l>::update()
     m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
 
     detail::copyMatDataToReordered<field_type, blocksize_>(m_gpuMatrix.getNonZeroValues().data(),
-                                    m_gpuMatrix.getRowIndices().data(),
-                                    m_gpuMatrixReordered.getNonZeroValues().data(),
-                                    m_gpuMatrixReordered.getRowIndices().data(),
-                                    m_gpuNaturalToReorder.data(),
-                                    m_gpuMatrixReordered.N());
+                                                           m_gpuMatrix.getRowIndices().data(),
+                                                           m_gpuMatrixReordered.getNonZeroValues().data(),
+                                                           m_gpuMatrixReordered.getRowIndices().data(),
+                                                           m_gpuNaturalToReorder.data(),
+                                                           m_gpuMatrixReordered.N());
 
     int levelStartIdx = 0;
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
 
         detail::computeDiluDiagonal<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                    m_gpuMatrixReordered.getRowIndices().data(),
-                                    m_gpuMatrixReordered.getColumnIndices().data(),
-                                    m_gpuReorderToNatural.data(),
-                                    m_gpuNaturalToReorder.data(),
-                                    levelStartIdx,
-                                    numOfRowsInLevel,
-                                    m_gpuDInv.data());
+                                                            m_gpuMatrixReordered.getRowIndices().data(),
+                                                            m_gpuMatrixReordered.getColumnIndices().data(),
+                                                            m_gpuReorderToNatural.data(),
+                                                            m_gpuNaturalToReorder.data(),
+                                                            levelStartIdx,
+                                                            numOfRowsInLevel,
+                                                            m_gpuDInv.data());
         levelStartIdx += numOfRowsInLevel;
     }
 }

@@ -109,7 +109,7 @@ namespace
     // PLS:   c += A*b
     // MINUS: c -= A*b
     template <class T, int blocksize, MVType OP>
-    __device__ __forceinline__ void mv(T* A, T* b, T* c)
+    __device__ __forceinline__ void matrixVectorProductWithAction(const T* A, const T* b, T* c)
     {
         for (int i = 0; i < blocksize; ++i) {
             if (OP == MVType::SET) {
@@ -124,6 +124,24 @@ namespace
                 }
             }
         }
+    }
+
+    template <class T, int blocksize>
+    __device__ __forceinline__ void mv(const T* a, const T* b, T* c)
+    {
+        matrixVectorProductWithAction<T, blocksize, MVType::SET>(a, b, c);
+    }
+
+    template <class T, int blocksize>
+    __device__ __forceinline__ void umv(const T* a, const T* b, T* c)
+    {
+        matrixVectorProductWithAction<T, blocksize, MVType::PLUS>(a, b, c);
+    }
+
+    template <class T, int blocksize>
+    __device__ __forceinline__ void mmv(const T* a, const T* b, T* c)
+    {
+        matrixVectorProductWithAction<T, blocksize, MVType::MINUS>(a, b, c);
     }
 
     // dst -= A*B*C
@@ -182,29 +200,29 @@ namespace
                                                 int* rowIndices,
                                                 int* colIndices,
                                                 int* indexConversion,
-                                                const int startIdx,
+                                                int startIdx,
                                                 int rowsInLevelSet,
-                                                T* dInv,
+                                                const T* dInv,
                                                 const T* d,
                                                 T* v)
     {
         const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (reorderedRowIdx < rowsInLevelSet + startIdx) {
 
-            size_t nnzIdx = rowIndices[reorderedRowIdx];
-            int naturalRowIdx = indexConversion[reorderedRowIdx];
+            const size_t nnzIdx = rowIndices[reorderedRowIdx];
+            const int naturalRowIdx = indexConversion[reorderedRowIdx];
 
             T rhs[blocksize];
-            for (int i = 0; i < blocksize; i++)
+            for (int i = 0; i < blocksize; i++) {
                 rhs[i] = d[naturalRowIdx * blocksize + i];
+            }
 
             for (int block = nnzIdx; colIndices[block] < naturalRowIdx; ++block) {
                 const int col = colIndices[block];
-                mv<T, blocksize, MVType::MINUS>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+                mmv<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
             }
 
-            mv<T, blocksize, MVType::SET>(
-                &dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+            mv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
         }
     }
 
@@ -213,25 +231,24 @@ namespace
                                                 int* rowIndices,
                                                 int* colIndices,
                                                 int* indexConversion,
-                                                const int startIdx,
+                                                int startIdx,
                                                 int rowsInLevelSet,
-                                                T* dInv,
+                                                const T* dInv,
                                                 T* v)
     {
         const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (reorderedRowIdx < rowsInLevelSet + startIdx) {
-            size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
-            int naturalRowIdx = indexConversion[reorderedRowIdx];
+            const size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
+            const int naturalRowIdx = indexConversion[reorderedRowIdx];
 
             T rhs[blocksize] = {0};
 
             for (int block = nnzIdxLim - 1; colIndices[block] > naturalRowIdx; --block) {
                 const int col = colIndices[block];
-                mv<T, blocksize, MVType::PLUS>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+                umv<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
             }
 
-            mv<T, blocksize, MVType::MINUS>(
-                &dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+            mmv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
         }
     }
 
@@ -247,12 +264,13 @@ namespace
     {
         const auto reorderedRowIdx = startIdx + blockDim.x * blockIdx.x + threadIdx.x;
         if (reorderedRowIdx < rowsInLevelSet + startIdx) {
-            int naturalRowIdx = reorderedToNatural[reorderedRowIdx];
-            size_t nnzIdx = rowIndices[reorderedRowIdx];
+            const int naturalRowIdx = reorderedToNatural[reorderedRowIdx];
+            const size_t nnzIdx = rowIndices[reorderedRowIdx];
 
             int diagIdx = nnzIdx;
-            while (colIndices[diagIdx] != naturalRowIdx)
+            while (colIndices[diagIdx] != naturalRowIdx) {
                 ++diagIdx;
+            }
 
             T dInvTmp[blocksize * blocksize];
             for (int i = 0; i < blocksize; ++i) {
@@ -283,7 +301,7 @@ namespace
                     }
                 }
 
-                int symOpposite = mid;
+                const int symOpposite = mid;
 
                 mmx2Subtraction<T, blocksize>(&mat[block * blocksize * blocksize],
                                               &dInv[col * blocksize * blocksize],
@@ -354,9 +372,9 @@ computeLowerSolveLevelSet(T* reorderedMat,
                           int* rowIndices,
                           int* colIndices,
                           int* indexConversion,
-                          const int startIdx,
+                          int startIdx,
                           int rowsInLevelSet,
-                          T* dInv,
+                          const T* dInv,
                           const T* d,
                           T* v)
 {
@@ -371,9 +389,9 @@ computeUpperSolveLevelSet(T* reorderedMat,
                           int* rowIndices,
                           int* colIndices,
                           int* indexConversion,
-                          const int startIdx,
+                          int startIdx,
                           int rowsInLevelSet,
-                          T* dInv,
+                          const T* dInv,
                           T* v)
 {
     cuComputeUpperSolveLevelSet<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
@@ -419,8 +437,8 @@ copyMatDataToReordered(
     template void invertDiagonalAndFlatten<T, blocksize>(T*, int*, int*, size_t, T*);                                  \
     template void copyMatDataToReordered<T, blocksize>(T*, int*, T*, int*, int*, size_t);                              \
     template void computeDiluDiagonal<T, blocksize>(T*, int*, int*, int*, int*, const int, int, T*);                   \
-    template void computeUpperSolveLevelSet<T, blocksize>(T*, int*, int*, int*, const int, int, T*, T*);               \
-    template void computeLowerSolveLevelSet<T, blocksize>(T*, int*, int*, int*, const int, int, T*, const T*, T*);
+    template void computeUpperSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);               \
+    template void computeLowerSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);
 
 INSTANTIATE_KERNEL_WRAPPERS(float, 1);
 INSTANTIATE_KERNEL_WRAPPERS(float, 2);
