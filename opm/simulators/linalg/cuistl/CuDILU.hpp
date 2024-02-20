@@ -115,6 +115,8 @@ private:
     CuVector<int> m_gpuReorderToNatural;
     //! \brief Stores the inverted diagonal that we use in DILU
     CuVector<field_type> m_gpuDInv;
+
+    std::unique_ptr<CuSparseMatrix<field_type>> m_ELLGpuMatrix;
 };
 } // end namespace Opm::cuistl
 

@@ -16,6 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <algorithm>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <dune/common/fmatrix.hh>
@@ -29,6 +30,8 @@
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 #include <vector>
+#include <memory>
+#include <iostream>
 
 namespace
 {
@@ -86,6 +89,69 @@ createReorderedMatrix(const M& naturalMatrix, std::vector<int> reorderedToNatura
     }
 
     return Opm::cuistl::CuSparseMatrix<field_type>::fromMatrix(reorderedMatrix, true);
+}
+
+/// @brief Naive conversion from bcrs on CPU to ELL on GPU to test apply performance
+/// @tparam M 
+/// @tparam field_type 
+/// @param mat 
+/// @return 
+template <class M, class field_type>
+void
+BCSRtoELL(std::unique_ptr<Opm::cuistl::CuSparseMatrix<field_type>> &ptr, M mat)
+{
+
+    /*
+    given this blockmatrix on the CPU:
+    +---+---+---+-+
+    | 0  1 | 0  0 |
+    | 2  3 | 0  0 |
+    +---+---+---+-+
+    | 8  9 |12 13 |
+    |10 11 |14 15 |
+    +---+---+---+-+
+
+    create a matrix on the GPU stored in this way:
+    [0, 8, 1, 9, 2, 10, 3, 11, NAN, 12, NAN, 13, NAN, 14, NAN, 15]
+    This way, when a warp processes 32 consecutive rows, they will read consecutive
+    values from memory when its reading out the matrix
+    */
+    int ELLWidth = 0;
+    size_t bs = M::block_type::cols;
+    size_t n_rows = mat.N();
+    for (auto row = mat.begin(); row != mat.end(); ++row) {
+        int rowLength = 0;
+        for (auto col = row->begin(); col != row->end(); ++col) {
+            ++rowLength;
+        }
+        ELLWidth = std::max(ELLWidth, rowLength);
+    }
+
+    // allocate memory for the required datastructures of a cusparse matrix
+    size_t n_ELLblocks = n_rows * ELLWidth;
+    size_t n_ELLscalars = n_ELLblocks * bs * bs; // a dense ELLWidth * N matrix with blocks
+    std::vector<field_type> nonZeroElements(n_ELLscalars);
+    std::vector<int> rowIndices(n_rows+1); // is not actually used because ELLWidth is sufficient
+    rowIndices[n_rows] = n_ELLblocks;
+    std::vector<int> colIndices(n_ELLscalars, -1); // -1 represents invalid pointers
+
+    // populate the allocated memory with the correct data
+    for (auto row = mat.begin(); row != mat.end(); ++row) {
+        size_t nrow = row.index();
+        for (auto col = row->begin(); col != row->end(); ++col) {
+            size_t ncol = col.index();
+            for (size_t brow = 0; brow < bs; ++brow){
+                for (size_t bcol = 0; bcol < bs; ++bcol){
+
+                    size_t idx = ncol*n_rows*bs*bs + (bcol + bs*brow)*n_rows + nrow;
+                    nonZeroElements[idx] = (*col)[brow][bcol];
+                }
+            }
+        }
+    }
+
+    // create the object
+    ptr.reset(new Opm::cuistl::CuSparseMatrix<field_type>(nonZeroElements.data(), rowIndices.data(), colIndices.data(), n_ELLblocks, bs, n_rows));
 }
 
 } // NAMESPACE
@@ -185,6 +251,54 @@ void
 CuDILU<M, X, Y, l>::update()
 {
     OPM_TIMEBLOCK(prec_update);
+
+    // DEBUGGING TO TEST ELLPACK
+    // m_ELLGpuMatrix.reset(BCSRtoELL<M, field_type>(m_cpuMatrix));
+    {
+        if constexpr (std::is_same<field_type, double>::value && blocksize_ == 2) {
+        const int N = 2;
+        constexpr int blocksize = 2;
+        const int nonZeroes = 3;
+        using MM = Dune::FieldMatrix<double, blocksize, blocksize>;
+        using SpMatrix = Dune::BCRSMatrix<MM>;
+
+        SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
+        for (auto row = B.createbegin(); row != B.createend(); ++row) {
+            if (row.index() == 0) {
+                row.insert(row.index());
+            }
+            else{
+                row.insert(row.index());
+                row.insert(row.index()-1);
+            }
+        }
+
+        B[0][0][0][0] = 0.0;
+        B[0][0][0][1] = 1.0;
+        B[0][0][1][0] = 2.0;
+        B[0][0][1][1] = 3.0;
+
+        B[1][0][0][0] = 8.0;
+        B[1][0][0][1] = 9.0;
+        B[1][0][1][0] = 10.0;
+        B[1][0][1][1] = 11.0;
+
+        B[1][1][0][0] = 12.0;
+        B[1][1][0][1] = 13.0;
+        B[1][1][1][0] = 14.0;
+        B[1][1][1][1] = 15.0;
+        BCSRtoELL(m_ELLGpuMatrix, B);
+
+        std::vector<field_type> values(16);
+        m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
+
+        std::cout<<std::endl;
+        for (auto v : values){
+            std::cout << v << " ";
+        }
+        std::cout<<std::endl;
+        }
+    }
 
     m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
 
