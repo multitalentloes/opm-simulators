@@ -110,9 +110,12 @@ BCSRtoELL(std::unique_ptr<Opm::cuistl::CuSparseMatrix<field_type>> &ptr, M mat)
     | 8  9 |12 13 |
     |10 11 |14 15 |
     +---+---+---+-+
+    |16 17 |20 21 |
+    |18 19 |22 23 |
+    +---+---+---+-+
 
     create a matrix on the GPU stored in this way:
-    [0, 8, 1, 9, 2, 10, 3, 11, NAN, 12, NAN, 13, NAN, 14, NAN, 15]
+    [0, 8, 16, 1, 9, 17, 2, 10, 18, 3, 11, 19, NAN, 12, 20, NAN, 13, 21, NAN, 14, 22, NAN, 15, 23]
     This way, when a warp processes 32 consecutive rows, they will read consecutive
     values from memory when its reading out the matrix
     */
@@ -256,47 +259,61 @@ CuDILU<M, X, Y, l>::update()
     // m_ELLGpuMatrix.reset(BCSRtoELL<M, field_type>(m_cpuMatrix));
     {
         if constexpr (std::is_same<field_type, double>::value && blocksize_ == 2) {
-        const int N = 2;
-        constexpr int blocksize = 2;
-        const int nonZeroes = 3;
-        using MM = Dune::FieldMatrix<double, blocksize, blocksize>;
-        using SpMatrix = Dune::BCRSMatrix<MM>;
+            const int N = 2, M_ = 3;
+            constexpr int blocksize = 2;
+            const int nonZeroes = 5;
+            using MM = Dune::FieldMatrix<double, blocksize, blocksize>;
+            using SpMatrix = Dune::BCRSMatrix<MM>;
 
-        SpMatrix B(N, N, nonZeroes, SpMatrix::row_wise);
-        for (auto row = B.createbegin(); row != B.createend(); ++row) {
-            if (row.index() == 0) {
-                row.insert(row.index());
+            SpMatrix B(M_, N, nonZeroes, SpMatrix::row_wise);
+            for (auto row = B.createbegin(); row != B.createend(); ++row) {
+                if (row.index() == 0) {
+                    row.insert(0);
+                }
+                else if (row.index() == 1){
+                    row.insert(0);
+                    row.insert(1);
+                }
+                else if (row.index() == 2){
+                    row.insert(0);
+                    row.insert(1);
+                }
             }
-            else{
-                row.insert(row.index());
-                row.insert(row.index()-1);
+
+            B[0][0][0][0] = 0.0;
+            B[0][0][0][1] = 1.0;
+            B[0][0][1][0] = 2.0;
+            B[0][0][1][1] = 3.0;
+
+            B[1][0][0][0] = 8.0;
+            B[1][0][0][1] = 9.0;
+            B[1][0][1][0] = 10.0;
+            B[1][0][1][1] = 11.0;
+
+            B[1][1][0][0] = 12.0;
+            B[1][1][0][1] = 13.0;
+            B[1][1][1][0] = 14.0;
+            B[1][1][1][1] = 15.0;
+
+            B[2][0][0][0] = 16.0;
+            B[2][0][0][1] = 17.0;
+            B[2][0][1][0] = 18.0;
+            B[2][0][1][1] = 19.0;
+
+            B[2][1][0][0] = 20.0;
+            B[2][1][0][1] = 21.0;
+            B[2][1][1][0] = 22.0;
+            B[2][1][1][1] = 23.0;
+            BCSRtoELL(m_ELLGpuMatrix, B);
+
+            std::vector<field_type> values(24);
+            m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
+
+            std::cout<<std::endl;
+            for (auto v : values){
+                std::cout << v << " ";
             }
-        }
-
-        B[0][0][0][0] = 0.0;
-        B[0][0][0][1] = 1.0;
-        B[0][0][1][0] = 2.0;
-        B[0][0][1][1] = 3.0;
-
-        B[1][0][0][0] = 8.0;
-        B[1][0][0][1] = 9.0;
-        B[1][0][1][0] = 10.0;
-        B[1][0][1][1] = 11.0;
-
-        B[1][1][0][0] = 12.0;
-        B[1][1][0][1] = 13.0;
-        B[1][1][1][0] = 14.0;
-        B[1][1][1][1] = 15.0;
-        BCSRtoELL(m_ELLGpuMatrix, B);
-
-        std::vector<field_type> values(16);
-        m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
-
-        std::cout<<std::endl;
-        for (auto v : values){
-            std::cout << v << " ";
-        }
-        std::cout<<std::endl;
+            std::cout<<std::endl;
         }
     }
 
