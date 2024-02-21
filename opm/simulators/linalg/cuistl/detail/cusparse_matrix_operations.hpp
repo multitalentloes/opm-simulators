@@ -61,6 +61,18 @@ void computeLowerSolveLevelSet(T* reorderedMat,
                                const T* d,
                                T* v);
 
+template <class T, int blocksize>
+void computeELLLowerSolveLevelSet(T* reorderedMat,
+                               int ELLWidth,
+                               int matRows,
+                               int* colIndices,
+                               int* indexConversion,
+                               int startIdx,
+                               int rowsInLevelSet,
+                               const T* dInv,
+                               const T* d,
+                               T* v);
+
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel
  * @param reorderedMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered such

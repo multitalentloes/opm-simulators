@@ -98,7 +98,7 @@ createReorderedMatrix(const M& naturalMatrix, std::vector<int> reorderedToNatura
 /// @return 
 template <class M, class field_type>
 void
-BCSRtoELL(std::unique_ptr<Opm::cuistl::CuSparseMatrix<field_type>> &ptr, M mat)
+BCSRtoELL(std::unique_ptr<Opm::cuistl::CuSparseMatrix<field_type>> &ptr, M mat, std::vector<int> naturalToReordered)
 {
 
     /*
@@ -118,6 +118,24 @@ BCSRtoELL(std::unique_ptr<Opm::cuistl::CuSparseMatrix<field_type>> &ptr, M mat)
     [0, 8, 16, 1, 9, 17, 2, 10, 18, 3, 11, 19, NAN, 12, 20, NAN, 13, 21, NAN, 14, 22, NAN, 15, 23]
     This way, when a warp processes 32 consecutive rows, they will read consecutive
     values from memory when its reading out the matrix
+
+
+        given this blockmatrix on the CPU:
+    +---+---+---+-+
+    | 0  1 | 0  0 |
+    | 2  3 | 0  0 |
+    +---+---+---+-+
+    | 0  0 |12 13 |
+    | 0  0 |14 15 |
+    +---+---+---+-+
+    |16 17 |20 21 |
+    |18 19 |22 23 |
+    +---+---+---+-+
+
+    create a matrix on the GPU stored in this way:
+    [0, 12, 16, 1, 13, 17, 2, 14, 18, 3, 15, 19, 0, 0, 20, 0, 0, 21, 0, 0, 22, 0, 0, 23]
+    column pointers:
+    [0, -1, 1, -1, 0, 1]
     */
     int ELLWidth = 0;
     size_t bs = M::block_type::cols;
@@ -141,12 +159,14 @@ BCSRtoELL(std::unique_ptr<Opm::cuistl::CuSparseMatrix<field_type>> &ptr, M mat)
     // populate the allocated memory with the correct data
     for (auto row = mat.begin(); row != mat.end(); ++row) {
         size_t nrow = row.index();
-        for (auto col = row->begin(); col != row->end(); ++col) {
+        size_t column_filler = 0;
+        for (auto col = row->begin(); col != row->end(); ++col, ++column_filler) {
             size_t ncol = col.index();
+            colIndices[ELLWidth*nrow + column_filler] = ncol;
             for (size_t brow = 0; brow < bs; ++brow){
                 for (size_t bcol = 0; bcol < bs; ++bcol){
-
-                    size_t idx = ncol*n_rows*bs*bs + (bcol + bs*brow)*n_rows + nrow;
+                    // size_t idx = ncol*n_rows*bs*bs + (bcol + bs*brow)*n_rows + nrow;
+                    size_t idx = column_filler*n_rows*bs*bs + (bcol + bs*brow)*n_rows + naturalToReordered[nrow];
                     nonZeroElements[idx] = (*col)[brow][bcol];
                 }
             }
@@ -208,9 +228,20 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     int levelStartIdx = 0;
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
-        detail::computeLowerSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                                                  m_gpuMatrixReordered.getRowIndices().data(),
-                                                                  m_gpuMatrixReordered.getColumnIndices().data(),
+        // detail::computeLowerSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
+        //                                                           m_gpuMatrixReordered.getRowIndices().data(),
+        //                                                           m_gpuMatrixReordered.getColumnIndices().data(),
+        //                                                           m_gpuReorderToNatural.data(),
+        //                                                           levelStartIdx,
+        //                                                           numOfRowsInLevel,
+        //                                                           m_gpuDInv.data(),
+        //                                                           d.data(),
+        //                                                           v.data());
+
+        detail::computeELLLowerSolveLevelSet<field_type, blocksize_>(m_ELLGpuMatrix->getNonZeroValues().data(),
+                                                                  m_ELLGpuMatrix->nonzeroes()/m_ELLGpuMatrix->N(),
+                                                                  m_ELLGpuMatrix->N(),
+                                                                  m_ELLGpuMatrix->getColumnIndices().data(),
                                                                   m_gpuReorderToNatural.data(),
                                                                   levelStartIdx,
                                                                   numOfRowsInLevel,
@@ -256,66 +287,72 @@ CuDILU<M, X, Y, l>::update()
     OPM_TIMEBLOCK(prec_update);
 
     // DEBUGGING TO TEST ELLPACK
-    // m_ELLGpuMatrix.reset(BCSRtoELL<M, field_type>(m_cpuMatrix));
-    {
-        if constexpr (std::is_same<field_type, double>::value && blocksize_ == 2) {
-            const int N = 2, M_ = 3;
-            constexpr int blocksize = 2;
-            const int nonZeroes = 5;
-            using MM = Dune::FieldMatrix<double, blocksize, blocksize>;
-            using SpMatrix = Dune::BCRSMatrix<MM>;
+    BCSRtoELL<M, field_type>(m_ELLGpuMatrix, m_cpuMatrix, m_naturalToReordered);
+    // {
+    //     if constexpr (std::is_same<field_type, double>::value && blocksize_ == 2) {
+    //         const int N = 2, M_ = 3;
+    //         constexpr int blocksize = 2;
+    //         const int nonZeroes = 4;
+    //         using MM = Dune::FieldMatrix<double, blocksize, blocksize>;
+    //         using SpMatrix = Dune::BCRSMatrix<MM>;
 
-            SpMatrix B(M_, N, nonZeroes, SpMatrix::row_wise);
-            for (auto row = B.createbegin(); row != B.createend(); ++row) {
-                if (row.index() == 0) {
-                    row.insert(0);
-                }
-                else if (row.index() == 1){
-                    row.insert(0);
-                    row.insert(1);
-                }
-                else if (row.index() == 2){
-                    row.insert(0);
-                    row.insert(1);
-                }
-            }
+    //         SpMatrix B(M_, N, nonZeroes, SpMatrix::row_wise);
+    //         for (auto row = B.createbegin(); row != B.createend(); ++row) {
+    //             if (row.index() == 0) {
+    //                 row.insert(0);
+    //             }
+    //             else if (row.index() == 1){
+    //                 // row.insert(0);
+    //                 row.insert(1);
+    //             }
+    //             else if (row.index() == 2){
+    //                 row.insert(0);
+    //                 row.insert(1);
+    //             }
+    //         }
 
-            B[0][0][0][0] = 0.0;
-            B[0][0][0][1] = 1.0;
-            B[0][0][1][0] = 2.0;
-            B[0][0][1][1] = 3.0;
+    //         B[0][0][0][0] = 0.0;
+    //         B[0][0][0][1] = 1.0;
+    //         B[0][0][1][0] = 2.0;
+    //         B[0][0][1][1] = 3.0;
 
-            B[1][0][0][0] = 8.0;
-            B[1][0][0][1] = 9.0;
-            B[1][0][1][0] = 10.0;
-            B[1][0][1][1] = 11.0;
+    //         // B[1][0][0][0] = 8.0;
+    //         // B[1][0][0][1] = 9.0;
+    //         // B[1][0][1][0] = 10.0;
+    //         // B[1][0][1][1] = 11.0;
 
-            B[1][1][0][0] = 12.0;
-            B[1][1][0][1] = 13.0;
-            B[1][1][1][0] = 14.0;
-            B[1][1][1][1] = 15.0;
+    //         B[1][1][0][0] = 12.0;
+    //         B[1][1][0][1] = 13.0;
+    //         B[1][1][1][0] = 14.0;
+    //         B[1][1][1][1] = 15.0;
 
-            B[2][0][0][0] = 16.0;
-            B[2][0][0][1] = 17.0;
-            B[2][0][1][0] = 18.0;
-            B[2][0][1][1] = 19.0;
+    //         B[2][0][0][0] = 16.0;
+    //         B[2][0][0][1] = 17.0;
+    //         B[2][0][1][0] = 18.0;
+    //         B[2][0][1][1] = 19.0;
 
-            B[2][1][0][0] = 20.0;
-            B[2][1][0][1] = 21.0;
-            B[2][1][1][0] = 22.0;
-            B[2][1][1][1] = 23.0;
-            BCSRtoELL(m_ELLGpuMatrix, B);
+    //         B[2][1][0][0] = 20.0;
+    //         B[2][1][0][1] = 21.0;
+    //         B[2][1][1][0] = 22.0;
+    //         B[2][1][1][1] = 23.0;
+    //         BCSRtoELL(m_ELLGpuMatrix, B, {0, 1, 2});
 
-            std::vector<field_type> values(24);
-            m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
+    //         std::vector<field_type> values(24);
+    //         std::vector<int> cols(6);
+    //         m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
+    //         m_ELLGpuMatrix->getColumnIndices().copyToHost(cols);
 
-            std::cout<<std::endl;
-            for (auto v : values){
-                std::cout << v << " ";
-            }
-            std::cout<<std::endl;
-        }
-    }
+    //         std::cout<<std::endl;
+    //         for (auto v : values){
+    //             std::cout << v << " ";
+    //         }
+    //         std::cout<<std::endl;
+    //         for (auto v : cols){
+    //             std::cout << v << " ";
+    //         }
+    //         std::cout<<std::endl;
+    //     }
+    // }
 
     m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
 
