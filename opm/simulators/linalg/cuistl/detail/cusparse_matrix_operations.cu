@@ -248,31 +248,20 @@ namespace
             }
 
             for (int ellCol = 0; colIndices[naturalRowIdx*ELLWidth+ellCol] < naturalRowIdx; ++ellCol) {
-                // const int col = colIndices[block];
                 // mmv<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
                 // usually would need a if col != -1 here, but since we never cross the diagonal it should
                 // not be needed
                 const int col = colIndices[naturalRowIdx*ELLWidth + ellCol];
                 for (int i = 0; i < blocksize; ++i) {
                     for (int j = 0; j < blocksize; ++j) {
-
                         // we must read in the value at normal matrix M[reorderedRowIdx][ellCol][i][j]
-                        // rhs[i] -= mat[block * blocksize * blocksize + i * blocksize + j] * v[col * blocksize + j];
-                        // size_t idx = column_filler*n_rows*bs*bs + (bcol + bs*brow)*n_rows + naturalToReordered[nrow]
                         size_t matidx = ellCol*blocksize*blocksize*matRows + (j + blocksize*i)*matRows + reorderedRowIdx;
                         rhs[i] -= mat[matidx] * v[col * blocksize + j];
                     }
                 }
             }
 
-            // mv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
-            for (int i = 0; i < blocksize; ++i) {
-                v[naturalRowIdx * blocksize + i] = 0;
-
-                for (int j = 0; j < blocksize; ++j) {
-                    v[naturalRowIdx * blocksize + i] += dInv[reorderedRowIdx * blocksize * blocksize + i * blocksize + j] * rhs[j];
-                }
-            }
+            mv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
         }
     }
 
