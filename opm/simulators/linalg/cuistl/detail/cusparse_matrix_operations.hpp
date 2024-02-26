@@ -73,6 +73,21 @@ void computeELLLowerSolveLevelSet(T* reorderedMat,
                                const T* d,
                                T* v);
 
+template <class T, int blocksize>
+void ELLMV(T* mat,
+          int ELLWidth,
+          int matRows,
+          int* colIndices,
+          const T* d,
+          T* v);
+template <class T, int blocksize>
+void bsrMV(T* mat,
+          int* rowIndices,
+          int* colIndices,
+          int matRows,
+          const T* d,
+          T* v);
+
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel
  * @param reorderedMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered such

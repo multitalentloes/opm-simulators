@@ -248,7 +248,6 @@ namespace
             }
 
             for (int ellCol = 0; colIndices[naturalRowIdx*ELLWidth+ellCol] < naturalRowIdx; ++ellCol) {
-                // mmv<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
                 // usually would need a if col != -1 here, but since we never cross the diagonal it should
                 // not be needed
                 const int col = colIndices[naturalRowIdx*ELLWidth + ellCol];
@@ -262,6 +261,62 @@ namespace
             }
 
             mv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+        }
+    }
+
+    template <class T, int blocksize>
+    __global__ void cuELLMV(T* mat,
+                                                int ELLWidth,
+                                                int matRows,
+                                                int* colIndices,
+                                                const T* d,
+                                                T* v)
+    {
+        const auto row = blockDim.x * blockIdx.x + threadIdx.x;
+        if (row < matRows) {
+            T rhs[blocksize] = {0.0};
+
+            for (int ellCol = 0; ellCol < ELLWidth; ++ellCol) {
+
+                const int col = colIndices[row*ELLWidth + ellCol];
+                if (col != -1){
+                    for (int i = 0; i < blocksize; ++i) {
+                        for (int j = 0; j < blocksize; ++j) {
+                            // we must read in the value at normal matrix M[reorderedRowIdx][ellCol][i][j]
+                            size_t matidx = ellCol*blocksize*blocksize*matRows + (j + blocksize*i)*matRows + row;
+                            rhs[i] += mat[matidx] * d[col * blocksize + j];
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < blocksize; ++i){
+                v[row*blocksize + i] = rhs[i];
+            }
+        }
+    }
+
+        template <class T, int blocksize>
+    __global__ void cuBsrMV(T* mat,
+                            int* rowIndices,
+                            int* colIndices,
+                            int matRows,
+                            const T* d,
+                            T* v)
+    {
+        const auto row = blockDim.x * blockIdx.x + threadIdx.x;
+        if (row < matRows) {
+            T rhs[blocksize] = {0.0};
+            const int startIdx = rowIndices[row];
+            const int endIdx = rowIndices[row+1];
+
+            for (int elem = startIdx; elem < endIdx; ++elem) {
+                umv<T, blocksize>(&mat[elem*blocksize*blocksize], &v[colIndices[elem]*blocksize], rhs);
+            }
+
+            for (int i = 0; i < blocksize; ++i){
+                v[row*blocksize + i] = rhs[i];
+            }
         }
     }
 
@@ -438,6 +493,32 @@ computeELLLowerSolveLevelSet(T* reorderedMat,
         reorderedMat, ELLWidth, matRows, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
 }
 
+template <class T, int blocksize>
+void
+ELLMV(T* mat,
+    int ELLWidth,
+    int matRows,
+    int* colIndices,
+    const T* d,
+    T* v)
+{
+    cuELLMV<T, blocksize><<<getBlocks(matRows), getThreads(matRows)>>>(
+        mat, ELLWidth, matRows, colIndices, d, v);
+}
+
+template <class T, int blocksize>
+void
+bsrMV(T* mat,
+    int* rowIndices,
+    int* colIndices,
+    int matRows,
+    const T* d,
+    T* v)
+{
+    cuBsrMV<T, blocksize><<<getBlocks(matRows), getThreads(matRows)>>>(
+        mat, rowIndices, colIndices, matRows, d, v);
+}
+
 // perform the upper solve for all rows in the same level set
 template <class T, int blocksize>
 void
@@ -495,7 +576,9 @@ copyMatDataToReordered(
     template void computeDiluDiagonal<T, blocksize>(T*, int*, int*, int*, int*, const int, int, T*);                   \
     template void computeUpperSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);               \
     template void computeLowerSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);     \
-    template void computeELLLowerSolveLevelSet<T, blocksize>(T*, int, int, int*, int*, int, int, const T*, const T*, T*);
+    template void computeELLLowerSolveLevelSet<T, blocksize>(T*, int, int, int*, int*, int, int, const T*, const T*, T*); \
+    template void ELLMV<T, blocksize>(T*, int, int, int*, const T*, T*); \
+    template void bsrMV<T, blocksize>(T*, int*, int*, int, const T*, T*);
 
 INSTANTIATE_KERNEL_WRAPPERS(float, 1);
 INSTANTIATE_KERNEL_WRAPPERS(float, 2);

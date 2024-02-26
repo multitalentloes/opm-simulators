@@ -33,6 +33,26 @@
 #include <memory>
 #include <iostream>
 
+#include <cmath>
+#include <cassert>
+#include <chrono>
+#include <string>
+#define MEASURE_TIME_START(var_name) auto var_name##_start_time = std::chrono::high_resolution_clock::now();
+#define MEASURE_TIME_END(var_name) auto var_name##_end_time = std::chrono::high_resolution_clock::now(); \
+    auto var_name##_duration = std::chrono::duration_cast<std::chrono::milliseconds>(var_name##_end_time - var_name##_start_time); \
+    std::cout << "Execution Time (" #var_name "): " << var_name##_duration.count() << " milliseconds" << std::endl;
+
+template<class T>
+void areVectorsEqual(const std::vector<T>& v1, const std::vector<T>& v2, T tolerance, std::string desc) {
+    assert(v1.size() == v2.size());
+
+    for (size_t i = 0; i < v1.size(); ++i) {
+        if(std::abs(v1[i] - v2[i]) > tolerance){
+            printf("%s: v[%ld / %ld] = (%lf != %lf)\n", desc, i, v1.size(), v1[i], v2[i]);
+        }
+    }
+}
+
 namespace
 {
 std::vector<int>
@@ -224,47 +244,101 @@ template <class M, class X, class Y, int l>
 void
 CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
-    OPM_TIMEBLOCK(prec_apply);
-    int levelStartIdx = 0;
-    for (int level = 0; level < m_levelSets.size(); ++level) {
-        const int numOfRowsInLevel = m_levelSets[level].size();
-        // detail::computeLowerSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
-        //                                                           m_gpuMatrixReordered.getRowIndices().data(),
-        //                                                           m_gpuMatrixReordered.getColumnIndices().data(),
-        //                                                           m_gpuReorderToNatural.data(),
-        //                                                           levelStartIdx,
-        //                                                           numOfRowsInLevel,
-        //                                                           m_gpuDInv.data(),
-        //                                                           d.data(),
-        //                                                           v.data());
+    const int its = 10000;
 
-        detail::computeELLLowerSolveLevelSet<field_type, blocksize_>(m_ELLGpuMatrix->getNonZeroValues().data(),
-                                                                  m_ELLGpuMatrix->nonzeroes()/m_ELLGpuMatrix->N(),
-                                                                  m_ELLGpuMatrix->N(),
-                                                                  m_ELLGpuMatrix->getColumnIndices().data(),
-                                                                  m_gpuReorderToNatural.data(),
-                                                                  levelStartIdx,
-                                                                  numOfRowsInLevel,
-                                                                  m_gpuDInv.data(),
-                                                                  d.data(),
-                                                                  v.data());
-        levelStartIdx += numOfRowsInLevel;
+    m_gpuMatrix.mv(d, v);
+    MEASURE_TIME_START(cuda)
+    for (int i = 0; i < its; ++i){
+        m_gpuMatrix.mv(d, v);
     }
+    X gpuCuRes(v);
+    MEASURE_TIME_END(cuda)
 
-    levelStartIdx = m_cpuMatrix.N();
-    //  upper triangular solve: (D + U_A) v = Dy
-    for (int level = m_levelSets.size() - 1; level >= 0; --level) {
-        const int numOfRowsInLevel = m_levelSets[level].size();
-        levelStartIdx -= numOfRowsInLevel;
-        detail::computeUpperSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
-                                                                  m_gpuMatrixReordered.getRowIndices().data(),
-                                                                  m_gpuMatrixReordered.getColumnIndices().data(),
-                                                                  m_gpuReorderToNatural.data(),
-                                                                  levelStartIdx,
-                                                                  numOfRowsInLevel,
-                                                                  m_gpuDInv.data(),
-                                                                  v.data());
+    detail::ELLMV<field_type, blocksize_>(m_ELLGpuMatrix->getNonZeroValues().data(),
+            m_ELLGpuMatrix->nonzeroes()/m_ELLGpuMatrix->N(),
+            m_ELLGpuMatrix->N(),
+            m_ELLGpuMatrix->getColumnIndices().data(),
+            d.data(),
+            v.data());
+    MEASURE_TIME_START(ell)
+    for (int i = 0; i < its; ++i){
+        detail::ELLMV<field_type, blocksize_>(m_ELLGpuMatrix->getNonZeroValues().data(),
+            m_ELLGpuMatrix->nonzeroes()/m_ELLGpuMatrix->N(),
+            m_ELLGpuMatrix->N(),
+            m_ELLGpuMatrix->getColumnIndices().data(),
+            d.data(),
+            v.data());
     }
+    X gpuELLRes(v);
+    MEASURE_TIME_END(ell)
+
+    detail::bsrMV<field_type, blocksize_>(m_gpuMatrix.getNonZeroValues().data(),
+                                    m_gpuMatrix.getRowIndices().data(),
+                                    m_gpuMatrix.getColumnIndices().data(),
+                                    m_gpuMatrix.N(),
+                                    d.data(),
+                                    v.data());
+    MEASURE_TIME_START(bsr)
+    for (int i = 0; i < its; ++i){
+        detail::bsrMV<field_type, blocksize_>(m_gpuMatrix.getNonZeroValues().data(),
+                                            m_gpuMatrix.getRowIndices().data(),
+                                            m_gpuMatrix.getColumnIndices().data(),
+                                            m_gpuMatrix.N(),
+                                            d.data(),
+                                            v.data());
+    }
+    X gpuBsrRes(v);
+    MEASURE_TIME_END(bsr)
+
+    std::vector<field_type> cpuCuRes(gpuCuRes.asStdVector());
+    std::vector<field_type> cpuELLRes(gpuELLRes.asStdVector());
+    std::vector<field_type> cpuBsrRes(gpuBsrRes.asStdVector());
+
+    areVectorsEqual(cpuCuRes, cpuELLRes, (field_type)1e-4, "cuda vs ell");
+    areVectorsEqual(cpuCuRes, cpuBsrRes, (field_type)1e-4, "cuda vs bsr");
+
+    printf("BENCHMARK SUCCESSFULLY COMPLETED");
+    // OPM_TIMEBLOCK(prec_apply);
+    // int levelStartIdx = 0;
+    // for (int level = 0; level < m_levelSets.size(); ++level) {
+    //     const int numOfRowsInLevel = m_levelSets[level].size();
+    //     detail::computeLowerSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
+    //                                                               m_gpuMatrixReordered.getRowIndices().data(),
+    //                                                               m_gpuMatrixReordered.getColumnIndices().data(),
+    //                                                               m_gpuReorderToNatural.data(),
+    //                                                               levelStartIdx,
+    //                                                               numOfRowsInLevel,
+    //                                                               m_gpuDInv.data(),
+    //                                                               d.data(),
+    //                                                               v.data());
+
+    //     // detail::computeELLLowerSolveLevelSet<field_type, blocksize_>(m_ELLGpuMatrix->getNonZeroValues().data(),
+    //     //                                                           m_ELLGpuMatrix->nonzeroes()/m_ELLGpuMatrix->N(),
+    //     //                                                           m_ELLGpuMatrix->N(),
+    //     //                                                           m_ELLGpuMatrix->getColumnIndices().data(),
+    //     //                                                           m_gpuReorderToNatural.data(),
+    //     //                                                           levelStartIdx,
+    //     //                                                           numOfRowsInLevel,
+    //     //                                                           m_gpuDInv.data(),
+    //     //                                                           d.data(),
+    //     //                                                           v.data());
+    //     levelStartIdx += numOfRowsInLevel;
+    // }
+
+    // levelStartIdx = m_cpuMatrix.N();
+    // //  upper triangular solve: (D + U_A) v = Dy
+    // for (int level = m_levelSets.size() - 1; level >= 0; --level) {
+    //     const int numOfRowsInLevel = m_levelSets[level].size();
+    //     levelStartIdx -= numOfRowsInLevel;
+    //     detail::computeUpperSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered.getNonZeroValues().data(),
+    //                                                               m_gpuMatrixReordered.getRowIndices().data(),
+    //                                                               m_gpuMatrixReordered.getColumnIndices().data(),
+    //                                                               m_gpuReorderToNatural.data(),
+    //                                                               levelStartIdx,
+    //                                                               numOfRowsInLevel,
+    //                                                               m_gpuDInv.data(),
+    //                                                               v.data());
+    // }
 }
 
 template <class M, class X, class Y, int l>
@@ -287,13 +361,17 @@ CuDILU<M, X, Y, l>::update()
     OPM_TIMEBLOCK(prec_update);
 
     // DEBUGGING TO TEST ELLPACK
-    BCSRtoELL<M, field_type>(m_ELLGpuMatrix, m_cpuMatrix, m_naturalToReordered);
+    std::vector<int> noReorder(m_cpuMatrix.N());
+    std::iota(noReorder.begin(), noReorder.end(), 0);
+    BCSRtoELL<M, field_type>(m_ELLGpuMatrix, m_cpuMatrix, noReorder);
+    // BCSRtoELL<M, field_type>(m_ELLGpuMatrix, m_cpuMatrix, m_naturalToReordered);
     // {
     //     if constexpr (std::is_same<field_type, double>::value && blocksize_ == 2) {
     //         const int N = 2, M_ = 3;
     //         constexpr int blocksize = 2;
     //         const int nonZeroes = 4;
     //         using MM = Dune::FieldMatrix<double, blocksize, blocksize>;
+    //         using Vector = Dune::BlockVector<Dune::FieldVector<double, blocksize>>;
     //         using SpMatrix = Dune::BCRSMatrix<MM>;
 
     //         SpMatrix B(M_, N, nonZeroes, SpMatrix::row_wise);
@@ -316,11 +394,6 @@ CuDILU<M, X, Y, l>::update()
     //         B[0][0][1][0] = 2.0;
     //         B[0][0][1][1] = 3.0;
 
-    //         // B[1][0][0][0] = 8.0;
-    //         // B[1][0][0][1] = 9.0;
-    //         // B[1][0][1][0] = 10.0;
-    //         // B[1][0][1][1] = 11.0;
-
     //         B[1][1][0][0] = 12.0;
     //         B[1][1][0][1] = 13.0;
     //         B[1][1][1][0] = 14.0;
@@ -337,20 +410,30 @@ CuDILU<M, X, Y, l>::update()
     //         B[2][1][1][1] = 23.0;
     //         BCSRtoELL(m_ELLGpuMatrix, B, {0, 1, 2});
 
-    //         std::vector<field_type> values(24);
-    //         std::vector<int> cols(6);
-    //         m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
-    //         m_ELLGpuMatrix->getColumnIndices().copyToHost(cols);
+    //         CuVector<double> v(6), d(std::vector<double>{1.0, 2.0, 3.0, 4.0});
 
+    //         // std::vector<field_type> values(24);
+    //         // std::vector<int> cols(6);
+    //         // m_ELLGpuMatrix->getNonZeroValues().copyToHost(values);
+    //         // m_ELLGpuMatrix->getColumnIndices().copyToHost(cols);
+
+    //         // std::cout<<std::endl;
+    //         // for (auto v : values){
+    //         //     std::cout << v << " ";
+    //         // }
+    //         // std::cout<<std::endl;
+    //         // for (auto v : cols){
+    //         //     std::cout << v << " ";
+    //         // }
+    //         // std::cout<<std::endl;
+    //         detail::ELLMV<double, 2>(m_ELLGpuMatrix->getNonZeroValues().data(), 2, 3, m_ELLGpuMatrix->getColumnIndices().data(), d.data(), v.data());
+    //         Vector hv(3);
+    //         v.copyToHost(hv);
     //         std::cout<<std::endl;
-    //         for (auto v : values){
-    //             std::cout << v << " ";
+    //         for (auto val : hv){
+    //             std::cout << val << " ";
     //         }
-    //         std::cout<<std::endl;
-    //         for (auto v : cols){
-    //             std::cout << v << " ";
-    //         }
-    //         std::cout<<std::endl;
+    //         exit(1);
     //     }
     // }
 
