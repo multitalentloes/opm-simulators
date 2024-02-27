@@ -282,7 +282,6 @@ namespace
                 if (col != -1){
                     for (int i = 0; i < blocksize; ++i) {
                         for (int j = 0; j < blocksize; ++j) {
-                            // we must read in the value at normal matrix M[reorderedRowIdx][ellCol][i][j]
                             size_t matidx = ellCol*blocksize*blocksize*matRows + (j + blocksize*i)*matRows + row;
                             rhs[i] += mat[matidx] * d[col * blocksize + j];
                         }
@@ -502,7 +501,9 @@ ELLMV(T* mat,
     const T* d,
     T* v)
 {
-    cuELLMV<T, blocksize><<<getBlocks(matRows), getThreads(matRows)>>>(
+    // cuELLMV<T, blocksize><<<getBlocks(matRows), getThreads(matRows)>>>(
+    //     mat, ELLWidth, matRows, colIndices, d, v);
+    cuELLMV<T, blocksize><<<(matRows + 511)/512, 512>>>(
         mat, ELLWidth, matRows, colIndices, d, v);
 }
 

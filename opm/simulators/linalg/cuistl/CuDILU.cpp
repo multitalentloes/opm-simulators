@@ -251,8 +251,8 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     for (int i = 0; i < its; ++i){
         m_gpuMatrix.mv(d, v);
     }
-    X gpuCuRes(v);
     MEASURE_TIME_END(cuda)
+    X gpuCuRes(v);
 
     detail::ELLMV<field_type, blocksize_>(m_ELLGpuMatrix->getNonZeroValues().data(),
             m_ELLGpuMatrix->nonzeroes()/m_ELLGpuMatrix->N(),
@@ -269,8 +269,8 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
             d.data(),
             v.data());
     }
-    X gpuELLRes(v);
     MEASURE_TIME_END(ell)
+    X gpuELLRes(v);
 
     detail::bsrMV<field_type, blocksize_>(m_gpuMatrix.getNonZeroValues().data(),
                                     m_gpuMatrix.getRowIndices().data(),
@@ -287,8 +287,8 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
                                             d.data(),
                                             v.data());
     }
-    X gpuBsrRes(v);
     MEASURE_TIME_END(bsr)
+    X gpuBsrRes(v);
 
     std::vector<field_type> cpuCuRes(gpuCuRes.asStdVector());
     std::vector<field_type> cpuELLRes(gpuELLRes.asStdVector());
