@@ -53,6 +53,13 @@
 #include <opm/simulators/linalg/cuistl/CuDILU.hpp>
 #include <opm/simulators/linalg/cuistl/CuJac.hpp>
 
+#include <opm/simulators/linalg/hipistl/CuSeqILU0.hpp>
+#include <opm/simulators/linalg/hipistl/PreconditionerAdapter.hpp>
+#include <opm/simulators/linalg/hipistl/PreconditionerConvertFieldTypeAdapter.hpp>
+#include <opm/simulators/linalg/hipistl/CuBlockPreconditioner.hpp>
+#include <opm/simulators/linalg/hipistl/CuDILU.hpp>
+#include <opm/simulators/linalg/hipistl/CuJac.hpp>
+
 #endif
 
 
@@ -532,6 +539,12 @@ struct StandardPreconditioners<Operator,Dune::Amg::SequentialInformation>
             auto adapted = std::make_shared<Adapter>(std::make_shared<CuDILU>(converted->getConvertedMatrix()));
             converted->setUnderlyingPreconditioner(adapted);
             return converted;
+        });
+
+        F::addCreator("HIPDILU", [](const O& op, [[maybe_unused]] const P& prm, const std::function<V()>&, std::size_t) {
+            using field_type = typename V::field_type;
+            using CUDILU = typename Opm::hipistl::CuDILU<M, Opm::hipistl::CuVector<field_type>, Opm::hipistl::CuVector<field_type>>;
+            return std::make_shared<Opm::hipistl::PreconditionerAdapter<V, V, CUDILU>>(std::make_shared<CUDILU>(op.getmat()));
         });
 #endif
     }

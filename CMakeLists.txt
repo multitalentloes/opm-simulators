@@ -126,6 +126,13 @@ include(Findopm-tests)
 # with the find module
 include ("${project}-prereqs")
 
+
+include_directories(/opt/rocm-6.0.2/include/hip)
+include_directories(/opt/rocm-6.0.2/include/hipblas)
+include_directories(/opt/rocm-6.0.2/include/hipsparse)
+link_libraries(/home/tobias/Downloads/hipBLAS-rocm-6.0.2/build/library/src/libhipblas.so)
+link_libraries(/home/tobias/Downloads/hipSPARSE-rocm-6.0.2/library/libhipsparse.so)
+
 # Make sure we are using the same compiler underneath
 # NVCC as for the rest. In the case that NVCC does not support
 # that compiler it will error out. Unfortunately this will only
@@ -350,17 +357,6 @@ opm_add_test(test_tuning_tsinit_nextstep
 if (HAVE_OPM_TESTS)
     include (${CMAKE_CURRENT_SOURCE_DIR}/compareECLFiles.cmake)
 endif()
-
-#add hip test executable
-# add_executable(hello_hip opm/simulators/linalg/hipistl/test/hello_hip.hip)
-#add hipblas test executable
-# add_executable(hipblastest opm/simulators/linalg/hipistl/test/hipblas.hip)
-include_directories(/opt/rocm-6.0.2/include/hipblas)
-link_libraries(/home/tobias/Downloads/hipBLAS-rocm-6.0.2/build/library/src/libhipblas.so)
-# add executable for hipsparse test and link to shared library and include headrs
-# add_executable(hipsparsetest opm/simulators/linalg/hipistl/test/hipsparse.hip)
-include_directories(/opt/rocm-6.0.2/include/hipsparse)
-link_libraries(/home/tobias/Downloads/hipSPARSE-rocm-6.0.2/library/libhipsparse.so)
 
 target_sources(test_outputdir PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_equil PRIVATE $<TARGET_OBJECTS:moduleVersion>)

@@ -39,6 +39,7 @@
 
 #if HAVE_CUDA
 #include <opm/simulators/linalg/cuistl/SolverAdapter.hpp>
+#include <opm/simulators/linalg/hipistl/SolverAdapter.hpp>
 #endif
 
 namespace Dune
