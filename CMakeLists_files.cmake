@@ -172,6 +172,9 @@ if(CUDA_FOUND)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuJac.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/CuSeqILU0.cpp)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/cuistl/set_device.cpp)
+  list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/hipistl/hello_hip.hip)
+  list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/hipistl/hipblas.hip)
+  list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/hipistl/hipsparse.hip)
 
   # CUISTL HEADERS
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp)
@@ -204,8 +207,9 @@ if(CUDA_FOUND)
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/CuBlockPreconditioner.hpp)
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/PreconditionerHolder.hpp)
   list (APPEND PUBLIC_HEADER_FILES opm/simulators/linalg/cuistl/set_device.hpp)
-
 endif()
+
+
 
 if(USE_BDA_BRIDGE)
   list (APPEND MAIN_SOURCE_FILES opm/simulators/linalg/bda/BdaBridge.cpp

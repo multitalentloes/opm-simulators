@@ -13,9 +13,9 @@
 
 # Mandatory call to project
 
-project(opm-simulators C CXX)
+project(opm-simulators C CXX HIP)
 
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.29)
 
 
 option(SIBLING_SEARCH "Search for other modules in sibling directories?" ON)
@@ -166,17 +166,19 @@ if(NOT CMAKE_DISABLE_FIND_PACKAGE_CUDA AND
     # Hence we call it unconditionally
     # The WellContributions kernel uses __shfl_down_sync, which was introduced in CUDA 9.0
     find_package(CUDA)
+    set(CUDA_FOUND ON)
   endif()
-  if(CUDA_FOUND AND CUDA_VERSION VERSION_LESS "9.0")
-    set(CUDA_FOUND OFF)
-    message(WARNING "Deactivating CUDA as we require version 9.0 or newer."
-      " Found only CUDA version ${CUDA_VERSION}.")
-  endif()
+  # if(CUDA_FOUND AND CUDA_VERSION VERSION_LESS "9.0")
+  #   set(CUDA_FOUND OFF)
+  #   message(WARNING "Deactivating CUDA as we require version 9.0 or newer."
+  #     " Found only CUDA version ${CUDA_VERSION}.")
+  # endif()
 endif()
-
+find_package(CUDAToolkit)
 if(CUDA_FOUND)
   set(HAVE_CUDA 1)
   include_directories(${CUDA_INCLUDE_DIRS})
+  include_directories(${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 find_package(OpenCL)
@@ -348,6 +350,17 @@ opm_add_test(test_tuning_tsinit_nextstep
 if (HAVE_OPM_TESTS)
     include (${CMAKE_CURRENT_SOURCE_DIR}/compareECLFiles.cmake)
 endif()
+
+#add hip test executable
+add_executable(hello_hip opm/simulators/linalg/hipistl/hello_hip.hip)
+#add hipblas test executable
+add_executable(hipblastest opm/simulators/linalg/hipistl/hipblas.hip)
+include_directories(/opt/rocm-6.0.2/include/hipblas)
+target_link_libraries(hipblastest PRIVATE /home/tobias/Downloads/hipBLAS-rocm-6.0.2/build/library/src/libhipblas.so)
+# add executable for hipsparse test and link to shared library and include headrs
+add_executable(hipsparsetest opm/simulators/linalg/hipistl/hipsparse.hip)
+include_directories(/opt/rocm-6.0.2/include/hipsparse)
+target_link_libraries(hipsparsetest PRIVATE /home/tobias/Downloads/hipSPARSE-rocm-6.0.2/library/libhipsparse.so)
 
 target_sources(test_outputdir PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_equil PRIVATE $<TARGET_OBJECTS:moduleVersion>)
@@ -598,10 +611,12 @@ endif()
 
 add_library(moduleVersion OBJECT opm/simulators/utils/moduleVersion.cpp)
 set_property(TARGET moduleVersion PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET moduleVersion PROPERTY PUBLIC CUDA_ARCHITECTURES 52)
 
 # Strictly we only depend on the update-version target,
 # but this is not exposed in a super-build.
 add_dependencies(moduleVersion opmsimulators)
+set_property(TARGET opmsimulators PROPERTY PUBLIC CUDA_ARCHITECTURES 52)
 
 set(FLOW_MODELS blackoil brine energy extbo foam gasoil gaswater
                 oilwater oilwater_brine gaswater_brine oilwater_polymer
