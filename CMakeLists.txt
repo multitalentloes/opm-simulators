@@ -13,9 +13,9 @@
 
 # Mandatory call to project
 
-project(opm-simulators C CXX)
+project(opm-simulators C CXX HIP CUDA)
 
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.29)
 
 
 option(SIBLING_SEARCH "Search for other modules in sibling directories?" ON)
@@ -166,17 +166,21 @@ if(NOT CMAKE_DISABLE_FIND_PACKAGE_CUDA AND
     # Hence we call it unconditionally
     # The WellContributions kernel uses __shfl_down_sync, which was introduced in CUDA 9.0
     find_package(CUDA)
-  endif()
-  if(CUDA_FOUND AND CUDA_VERSION VERSION_LESS "9.0")
-    set(CUDA_FOUND OFF)
-    message(WARNING "Deactivating CUDA as we require version 9.0 or newer."
-      " Found only CUDA version ${CUDA_VERSION}.")
-  endif()
-endif()
 
+    # DELETEME
+    set(CUDA_FOUND ON)
+  endif()
+  # if(CUDA_FOUND AND CUDA_VERSION VERSION_LESS "9.0")
+  #   set(CUDA_FOUND OFF)
+  #   message(WARNING "Deactivating CUDA as we require version 9.0 or newer."
+  #     " Found only CUDA version ${CUDA_VERSION}.")
+  # endif()
+endif()
+find_package(CUDAToolkit)
 if(CUDA_FOUND)
   set(HAVE_CUDA 1)
   include_directories(${CUDA_INCLUDE_DIRS})
+  include_directories(${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
 find_package(OpenCL)
@@ -283,7 +287,9 @@ macro (fortran_hook)
 endmacro (fortran_hook)
 
 macro (files_hook)
+  find_package(hip)
   if(hip_FOUND)
+    message("\n\n\n HIP WAS FOUND \n\n\n")
     get_filename_component(CXX_COMPILER ${CMAKE_CXX_COMPILER} NAME)
     if(hip_VERSION VERSION_LESS "5.3")
       if(ROCALUTION_FOUND AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -300,6 +306,8 @@ macro (files_hook)
     if(ROCALUTION_FOUND)
       set(HAVE_ROCALUTION 1)
     endif()
+  else()
+    message("\n\n\n HIP WAS NOT FOUND \n\n\n")
   endif()
   if(MPI_FOUND AND HDF5_FOUND AND NOT HDF5_IS_PARALLEL)
     message(WARNING "When building parallel OPM flow we need a "
@@ -599,9 +607,13 @@ endif()
 add_library(moduleVersion OBJECT opm/simulators/utils/moduleVersion.cpp)
 set_property(TARGET moduleVersion PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+set_property(TARGET moduleVersion PROPERTY PUBLIC CUDA_ARCHITECTURES 52)
+
 # Strictly we only depend on the update-version target,
 # but this is not exposed in a super-build.
 add_dependencies(moduleVersion opmsimulators)
+set_property(TARGET opmsimulators PROPERTY PUBLIC CUDA_ARCHITECTURES 52)
+
 
 set(FLOW_MODELS blackoil brine energy extbo foam gasoil gaswater
                 oilwater oilwater_brine gaswater_brine oilwater_polymer
