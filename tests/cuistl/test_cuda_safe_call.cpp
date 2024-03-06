@@ -20,20 +20,20 @@
 
 #define BOOST_TEST_MODULE TestCudaSafeCall
 #include <boost/test/unit_test.hpp>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 
 BOOST_AUTO_TEST_CASE(TestCudaMalloc)
 {
     void* pointer;
-    BOOST_CHECK_NO_THROW(OPM_CUDA_SAFE_CALL(cudaMalloc(&pointer, 1)););
+    BOOST_CHECK_NO_THROW(OPM_CUDA_SAFE_CALL(hipMalloc(&pointer, 1)););
 }
 
 
 BOOST_AUTO_TEST_CASE(TestThrows)
 {
     // Just testing a subset here.
-    std::vector<cudaError_t> errorCodes {{cudaErrorAddressOfConstant, cudaErrorAlreadyAcquired}};
+    std::vector<hipError_t> errorCodes {{cudaErrorAddressOfConstant, hipErrorAlreadyAcquired}};
     for (auto code : errorCodes) {
         BOOST_CHECK_THROW(OPM_CUDA_SAFE_CALL(code), std::exception);
     }

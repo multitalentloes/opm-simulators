@@ -27,12 +27,12 @@ namespace Opm::cuistl::detail
 /**
  * CuSparseMatrixDescription holder. This is internal information needed for most calls to the CuSparse API.
  */
-using CuSparseMatrixDescription = CuSparseResource<cusparseMatDescr_t>;
+using CuSparseMatrixDescription = CuSparseResource<hipsparseMatDescr_t>;
 
 /**
  * Pointer to CuSparseMatrixDescription holder. This is internal information needed for most calls to the CuSparse API.
  */
-using CuSparseMatrixDescriptionPtr = std::shared_ptr<CuSparseResource<cusparseMatDescr_t>>;
+using CuSparseMatrixDescriptionPtr = std::shared_ptr<CuSparseResource<hipsparseMatDescr_t>>;
 
 /**
  * @brief createMatrixDescription creates a default matrix description
@@ -44,8 +44,8 @@ createMatrixDescription()
     auto description = std::make_shared<CuSparseMatrixDescription>();
 
     // Note: We always want to use zero base indexing.
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatType(description->get(), CUSPARSE_MATRIX_TYPE_GENERAL));
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatIndexBase(description->get(), CUSPARSE_INDEX_BASE_ZERO));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatType(description->get(), HIPSPARSE_MATRIX_TYPE_GENERAL));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatIndexBase(description->get(), HIPSPARSE_INDEX_BASE_ZERO));
 
     return description;
 }
@@ -60,8 +60,8 @@ inline CuSparseMatrixDescriptionPtr
 createLowerDiagonalDescription()
 {
     auto description = createMatrixDescription();
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatFillMode(description->get(), CUSPARSE_FILL_MODE_LOWER));
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatDiagType(description->get(), CUSPARSE_DIAG_TYPE_UNIT));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(description->get(), HIPSPARSE_FILL_MODE_LOWER));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(description->get(), HIPSPARSE_DIAG_TYPE_UNIT));
     return description;
 }
 
@@ -75,8 +75,8 @@ inline CuSparseMatrixDescriptionPtr
 createUpperDiagonalDescription()
 {
     auto description = createMatrixDescription();
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatFillMode(description->get(), CUSPARSE_FILL_MODE_UPPER));
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatDiagType(description->get(), CUSPARSE_DIAG_TYPE_NON_UNIT));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(description->get(), HIPSPARSE_FILL_MODE_UPPER));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(description->get(), HIPSPARSE_DIAG_TYPE_NON_UNIT));
 
     return description;
 }

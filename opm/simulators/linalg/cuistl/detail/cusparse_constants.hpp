@@ -18,10 +18,10 @@
 */
 #ifndef CUSPARSE_CONSTANTS_HPP
 #define CUSPARSE_CONSTANTS_HPP
-#include <cusparse.h>
+#include <hipsparse.h>
 namespace Opm::cuistl::detail
 {
-const constexpr auto CUSPARSE_MATRIX_ORDER = CUSPARSE_DIRECTION_ROW;
+const constexpr auto CUSPARSE_MATRIX_ORDER = HIPSPARSE_DIRECTION_ROW;
 }
 
 #endif

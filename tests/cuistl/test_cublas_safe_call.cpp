@@ -21,26 +21,26 @@
 #define BOOST_TEST_MODULE TestCublasSafeCall
 
 #include <boost/test/unit_test.hpp>
-#include <cublas_v2.h>
+#include <hipblas.h>
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
 
 BOOST_AUTO_TEST_CASE(TestCreateHandle)
 {
-    cublasHandle_t cublasHandle;
-    BOOST_CHECK_NO_THROW(OPM_CUBLAS_SAFE_CALL(cublasCreate(&cublasHandle)););
+    hipblasHandle_t cublasHandle;
+    BOOST_CHECK_NO_THROW(OPM_CUBLAS_SAFE_CALL(hipblasCreate(&cublasHandle)););
 }
 
 BOOST_AUTO_TEST_CASE(TestThrows)
 {
-    std::vector<cublasStatus_t> errorCodes {{CUBLAS_STATUS_NOT_INITIALIZED,
-                                             CUBLAS_STATUS_ALLOC_FAILED,
-                                             CUBLAS_STATUS_INVALID_VALUE,
-                                             CUBLAS_STATUS_ARCH_MISMATCH,
-                                             CUBLAS_STATUS_MAPPING_ERROR,
-                                             CUBLAS_STATUS_EXECUTION_FAILED,
-                                             CUBLAS_STATUS_INTERNAL_ERROR,
-                                             CUBLAS_STATUS_NOT_SUPPORTED,
-                                             CUBLAS_STATUS_LICENSE_ERROR}};
+    std::vector<hipblasStatus_t> errorCodes {{HIPBLAS_STATUS_NOT_INITIALIZED,
+                                             HIPBLAS_STATUS_ALLOC_FAILED,
+                                             HIPBLAS_STATUS_INVALID_VALUE,
+                                             HIPBLAS_STATUS_ARCH_MISMATCH,
+                                             HIPBLAS_STATUS_MAPPING_ERROR,
+                                             HIPBLAS_STATUS_EXECUTION_FAILED,
+                                             HIPBLAS_STATUS_INTERNAL_ERROR,
+                                             HIPBLAS_STATUS_NOT_SUPPORTED,
+                                             HIPBLAS_STATUS_UNKNOWN}};
     for (auto code : errorCodes) {
         BOOST_CHECK_THROW(OPM_CUBLAS_SAFE_CALL(code), std::exception);
     }

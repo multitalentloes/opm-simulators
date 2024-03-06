@@ -135,7 +135,7 @@ public:
     CuVector(const T* dataOnHost, const size_t numberOfElements);
 
     /**
-     * @brief ~CuVector calls cudaFree
+     * @brief ~CuVector calls hipFree
      */
     virtual ~CuVector();
 

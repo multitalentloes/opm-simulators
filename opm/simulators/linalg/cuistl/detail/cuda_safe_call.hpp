@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUDA_SAFE_CALL_HPP
 #define OPM_CUDA_SAFE_CALL_HPP
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/common/OpmLog/OpmLog.hpp>
@@ -30,7 +30,7 @@ namespace Opm::cuistl::detail
  * @brief getCudaErrorMessage generates the error message to display for a given error.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cudaMalloc(&pointer, 1)")
+ * @param expression the expresison (say "hipMalloc(&pointer, 1)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -42,7 +42,7 @@ namespace Opm::cuistl::detail
  * @note This function is mostly for internal use.
  */
 inline std::string
-getCudaErrorMessage(cudaError_t error,
+getCudaErrorMessage(hipError_t error,
                     const std::string_view& expression,
                     const std::string_view& filename,
                     const std::string_view& functionName,
@@ -53,7 +53,7 @@ getCudaErrorMessage(cudaError_t error,
                        "CUDA error was {}\n"
                        "in function {}, in {}, at line {}\n",
                        expression,
-                       cudaGetErrorString(error),
+                       hipGetErrorString(error),
                        functionName,
                        filename,
                        lineNumber);
@@ -61,16 +61,16 @@ getCudaErrorMessage(cudaError_t error,
 
 /**
  * @brief cudaSafeCall checks the return type of the CUDA expression (function call) and throws an exception if it
- * does not equal cudaSuccess.
+ * does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
- * #include <cuda_runtime.h>
+ * #include <hip/hip_runtime.h>
  *
  * void some_function() {
  *     void* somePointer;
- *     cudaSafeCall(cudaMalloc(&somePointer, 1), "cudaMalloc(&somePointer, 1)", __FILE__, __func__, __LINE__);
+ *     cudaSafeCall(hipMalloc(&somePointer, 1), "hipMalloc(&somePointer, 1)", __FILE__, __func__, __LINE__);
  * }
  * @endcode
  *
@@ -79,23 +79,23 @@ getCudaErrorMessage(cudaError_t error,
  * @todo Refactor to use std::source_location once we shift to C++20
  */
 inline void
-cudaSafeCall(cudaError_t error,
+cudaSafeCall(hipError_t error,
              const std::string_view& expression,
              const std::string_view& filename,
              const std::string_view& functionName,
              size_t lineNumber)
 {
-    if (error != cudaSuccess) {
+    if (error != hipSuccess) {
         OPM_THROW(std::runtime_error, getCudaErrorMessage(error, expression, filename, functionName, lineNumber));
     }
 }
 
 /**
  * @brief cudaWarnIfError checks the return type of the CUDA expression (function call) and issues a warning if it
- * does not equal cudaSuccess.
+ * does not equal hipSuccess.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cudaMalloc(&pointer, 1)")
+ * @param expression the expresison (say "hipMalloc(&pointer, 1)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -105,11 +105,11 @@ cudaSafeCall(cudaError_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
- * #include <cuda_runtime.h>
+ * #include <hip/hip_runtime.h>
  *
  * void some_function() {
  *     void* somePointer;
- *     cudaWarnIfError(cudaMalloc(&somePointer, 1), "cudaMalloc(&somePointer, 1)", __FILE__, __func__, __LINE__);
+ *     cudaWarnIfError(hipMalloc(&somePointer, 1), "hipMalloc(&somePointer, 1)", __FILE__, __func__, __LINE__);
  * }
  * @endcode
  *
@@ -119,14 +119,14 @@ cudaSafeCall(cudaError_t error,
  *
  * @todo Refactor to use std::source_location once we shift to C++20
  */
-inline cudaError_t
-cudaWarnIfError(cudaError_t error,
+inline hipError_t
+cudaWarnIfError(hipError_t error,
                 const std::string_view& expression,
                 const std::string_view& filename,
                 const std::string_view& functionName,
                 size_t lineNumber)
 {
-    if (error != cudaSuccess) {
+    if (error != hipSuccess) {
         OpmLog::warning(getCudaErrorMessage(error, expression, filename, functionName, lineNumber));
     }
 
@@ -136,16 +136,16 @@ cudaWarnIfError(cudaError_t error,
 
 /**
  * @brief OPM_CUDA_SAFE_CALL checks the return type of the CUDA expression (function call) and throws an exception if it
- * does not equal cudaSuccess.
+ * does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
- * #include <cuda_runtime.h>
+ * #include <hip/hip_runtime.h>
  *
  * void some_function() {
  *     void* somePointer;
- *     OPM_CUDA_SAFE_CALL(cudaMalloc(&somePointer, 1));
+ *     OPM_CUDA_SAFE_CALL(hipMalloc(&somePointer, 1));
  * }
  * @endcode
  *
@@ -157,16 +157,16 @@ cudaWarnIfError(cudaError_t error,
 
 /**
  * @brief OPM_CUDA_WARN_IF_ERROR checks the return type of the CUDA expression (function call) and issues a warning if
- * it does not equal cudaSuccess.
+ * it does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
- * #include <cuda_runtime.h>
+ * #include <hip/hip_runtime.h>
  *
  * void some_function() {
  *     void* somePointer;
- *     OPM_CUDA_WARN_IF_ERROR(cudaMalloc(&somePointer, 1));
+ *     OPM_CUDA_WARN_IF_ERROR(hipMalloc(&somePointer, 1));
  * }
  * @endcode
  *

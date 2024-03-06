@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUBLAS_SAFE_CALL_HPP
 #define OPM_CUBLAS_SAFE_CALL_HPP
-#include <cublas_v2.h>
+#include <hipblas.h>
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
@@ -45,16 +45,16 @@ namespace
      */
     inline std::string getCublasErrorCodeToString(int code)
     {
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_SUCCESS);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_NOT_INITIALIZED);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_ALLOC_FAILED);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_INVALID_VALUE);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_ARCH_MISMATCH);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_MAPPING_ERROR);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_EXECUTION_FAILED);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_INTERNAL_ERROR);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_NOT_SUPPORTED);
-        CHECK_CUBLAS_ERROR_TYPE(code, CUBLAS_STATUS_LICENSE_ERROR);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_SUCCESS);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_NOT_INITIALIZED);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_ALLOC_FAILED);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_INVALID_VALUE);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_ARCH_MISMATCH);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_MAPPING_ERROR);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_EXECUTION_FAILED);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_INTERNAL_ERROR);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_NOT_SUPPORTED);
+        CHECK_CUBLAS_ERROR_TYPE(code, HIPBLAS_STATUS_UNKNOWN);
 
         return fmt::format("UNKNOWN CUBLAS ERROR {}.", code);
     }
@@ -67,7 +67,7 @@ namespace
  * @brief getCublasErrorMessage generates the error message to display for a given error.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cublasCreate(&handle)")
+ * @param expression the expresison (say "hipblasCreate(&handle)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -79,7 +79,7 @@ namespace
  * @note This function is mostly for internal use.
  */
 inline std::string
-getCublasErrorMessage(cublasStatus_t error,
+getCublasErrorMessage(hipblasStatus_t error,
                       const std::string_view& expression,
                       const std::string_view& filename,
                       const std::string_view& functionName,
@@ -98,10 +98,10 @@ getCublasErrorMessage(cublasStatus_t error,
 
 /**
  * @brief cublasSafeCall checks the return type of the CUBLAS expression (function call) and throws an exception if it
- * does not equal CUBLAS_STATUS_SUCCESS.
+ * does not equal HIPBLAS_STATUS_SUCCESS.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cublasCreate(&handle)")
+ * @param expression the expresison (say "hipblasCreate(&handle)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -109,11 +109,11 @@ getCublasErrorMessage(cublasStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
- * #include <cublas_v2.h>
+ * #include <hipblas.h>
  *
  * void some_function() {
- *     cublasHandle_t cublasHandle;
- *     cudaSafeCall(cublasCreate(&cublasHandle), "cublasCreate(&cublasHandle)", __FILE__, __func__, __LINE__);
+ *     hipblasHandle_t cublasHandle;
+ *     cudaSafeCall(hipblasCreate(&cublasHandle), "hipblasCreate(&cublasHandle)", __FILE__, __func__, __LINE__);
  * }
  * @endcode
  *
@@ -122,23 +122,23 @@ getCublasErrorMessage(cublasStatus_t error,
  * @todo Refactor to use std::source_location once we shift to C++20
  */
 inline void
-cublasSafeCall(cublasStatus_t error,
+cublasSafeCall(hipblasStatus_t error,
                const std::string_view& expression,
                const std::string_view& filename,
                const std::string_view& functionName,
                size_t lineNumber)
 {
-    if (error != CUBLAS_STATUS_SUCCESS) {
+    if (error != HIPBLAS_STATUS_SUCCESS) {
         OPM_THROW(std::runtime_error, getCublasErrorMessage(error, expression, filename, functionName, lineNumber));
     }
 }
 
 /**
  * @brief cublasWarnIfError checks the return type of the CUBLAS expression (function call) and issues a warning if it
- * does not equal CUBLAS_STATUS_SUCCESS.
+ * does not equal HIPBLAS_STATUS_SUCCESS.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cublasCreate(&handle)")
+ * @param expression the expresison (say "hipblasCreate(&handle)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -148,11 +148,11 @@ cublasSafeCall(cublasStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
- * #include <cublas_v2.h>
+ * #include <hipblas.h>
  *
  * void some_function() {
- *     cublasHandle_t cublasHandle;
- *     cublasWarnIfError(cublasCreate(&cublasHandle), "cublasCreate(&cublasHandle)", __FILE__, __func__, __LINE__);
+ *     hipblasHandle_t cublasHandle;
+ *     cublasWarnIfError(hipblasCreate(&cublasHandle), "hipblasCreate(&cublasHandle)", __FILE__, __func__, __LINE__);
  * }
  * @endcode
  *
@@ -161,14 +161,14 @@ cublasSafeCall(cublasStatus_t error,
  *
  * @todo Refactor to use std::source_location once we shift to C++20
  */
-inline cublasStatus_t
-cublasWarnIfError(cublasStatus_t error,
+inline hipblasStatus_t
+cublasWarnIfError(hipblasStatus_t error,
                   const std::string_view& expression,
                   const std::string_view& filename,
                   const std::string_view& functionName,
                   size_t lineNumber)
 {
-    if (error != CUBLAS_STATUS_SUCCESS) {
+    if (error != HIPBLAS_STATUS_SUCCESS) {
         OpmLog::warning(getCublasErrorMessage(error, expression, filename, functionName, lineNumber));
     }
 
@@ -178,16 +178,16 @@ cublasWarnIfError(cublasStatus_t error,
 
 /**
  * @brief OPM_CUBLAS_SAFE_CALL checks the return type of the cublas expression (function call) and throws an exception
- * if it does not equal CUBLAS_STATUS_SUCCESS.
+ * if it does not equal HIPBLAS_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
- * #include <cublas_v2.h>
+ * #include <hipblas.h>
  * #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
  *
  * void some_function() {
- *     cublasHandle_t cublasHandle;
- *     OPM_CUBLAS_SAFE_CALL(cublasCreate(&cublasHandle));
+ *     hipblasHandle_t cublasHandle;
+ *     OPM_CUBLAS_SAFE_CALL(hipblasCreate(&cublasHandle));
  * }
  * @endcode
  *
@@ -198,16 +198,16 @@ cublasWarnIfError(cublasStatus_t error,
 
 /**
  * @brief OPM_CUBLAS_WARN_IF_ERROR checks the return type of the cublas expression (function call) and issues a warning
- * if it does not equal CUBLAS_STATUS_SUCCESS.
+ * if it does not equal HIPBLAS_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
- * #include <cublas_v2.h>
+ * #include <hipblas.h>
  * #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
  *
  * void some_function() {
- *     cublasHandle_t cublasHandle;
- *     OPM_CUBLAS_WARN_IF_ERROR(cublasCreate(&cublasHandle));
+ *     hipblasHandle_t cublasHandle;
+ *     OPM_CUBLAS_WARN_IF_ERROR(hipblasCreate(&cublasHandle));
  * }
  * @endcode
  *

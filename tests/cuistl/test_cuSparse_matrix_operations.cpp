@@ -21,7 +21,7 @@
 #define BOOST_TEST_MODULE TestCuSparseMatrixOperations
 #include <boost/mpl/list.hpp>
 #include <boost/test/unit_test.hpp>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <dune/istl/bcrsmatrix.hh>
 #include <opm/simulators/linalg/cuistl/CuSparseMatrix.hpp>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>

@@ -21,28 +21,28 @@
 #define BOOST_TEST_MODULE TestCusparseSafeCall
 
 #include <boost/test/unit_test.hpp>
-#include <cusparse.h>
+#include <hipsparse.h>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
 
 BOOST_AUTO_TEST_CASE(TestCreateHandle)
 {
-    cusparseHandle_t cusparseHandle;
-    BOOST_CHECK_NO_THROW(OPM_CUSPARSE_SAFE_CALL(cusparseCreate(&cusparseHandle)););
+    hipsparseHandle_t cusparseHandle;
+    BOOST_CHECK_NO_THROW(OPM_CUSPARSE_SAFE_CALL(hipsparseCreate(&cusparseHandle)););
 }
 
 BOOST_AUTO_TEST_CASE(TestThrows)
 {
-    std::vector<cusparseStatus_t> errorCodes {{CUSPARSE_STATUS_NOT_INITIALIZED,
-                                               CUSPARSE_STATUS_ALLOC_FAILED,
-                                               CUSPARSE_STATUS_INVALID_VALUE,
-                                               CUSPARSE_STATUS_ARCH_MISMATCH,
-                                               CUSPARSE_STATUS_MAPPING_ERROR,
-                                               CUSPARSE_STATUS_EXECUTION_FAILED,
-                                               CUSPARSE_STATUS_INTERNAL_ERROR,
-                                               CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED,
-                                               CUSPARSE_STATUS_ZERO_PIVOT,
-                                               CUSPARSE_STATUS_NOT_SUPPORTED,
-                                               CUSPARSE_STATUS_INSUFFICIENT_RESOURCES}};
+    std::vector<hipsparseStatus_t> errorCodes {{HIPSPARSE_STATUS_NOT_INITIALIZED,
+                                               HIPSPARSE_STATUS_ALLOC_FAILED,
+                                               HIPSPARSE_STATUS_INVALID_VALUE,
+                                               HIPSPARSE_STATUS_ARCH_MISMATCH,
+                                               HIPSPARSE_STATUS_MAPPING_ERROR,
+                                               HIPSPARSE_STATUS_EXECUTION_FAILED,
+                                               HIPSPARSE_STATUS_INTERNAL_ERROR,
+                                               HIPSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED,
+                                               HIPSPARSE_STATUS_ZERO_PIVOT,
+                                               HIPSPARSE_STATUS_NOT_SUPPORTED,
+                                               HIPSPARSE_STATUS_INSUFFICIENT_RESOURCES}};
     for (auto code : errorCodes) {
         BOOST_CHECK_THROW(OPM_CUSPARSE_SAFE_CALL(code), std::exception);
     }

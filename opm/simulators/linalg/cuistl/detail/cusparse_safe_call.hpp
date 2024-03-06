@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUSPARSE_SAFE_CALL_HPP
 #define OPM_CUSPARSE_SAFE_CALL_HPP
-#include <cusparse.h>
+#include <hipsparse.h>
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
@@ -39,18 +39,18 @@ namespace Opm::cuistl::detail
 inline std::string
 getCusparseErrorCodeToString(int code)
 {
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_SUCCESS);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_NOT_INITIALIZED);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_ALLOC_FAILED);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_INVALID_VALUE);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_ARCH_MISMATCH);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_MAPPING_ERROR);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_EXECUTION_FAILED);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_INTERNAL_ERROR);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_ZERO_PIVOT);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_NOT_SUPPORTED);
-    CHECK_CUSPARSE_ERROR_TYPE(code, CUSPARSE_STATUS_INSUFFICIENT_RESOURCES);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_SUCCESS);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_NOT_INITIALIZED);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_ALLOC_FAILED);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_INVALID_VALUE);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_ARCH_MISMATCH);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_MAPPING_ERROR);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_EXECUTION_FAILED);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_INTERNAL_ERROR);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_MATRIX_TYPE_NOT_SUPPORTED);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_ZERO_PIVOT);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_NOT_SUPPORTED);
+    CHECK_CUSPARSE_ERROR_TYPE(code, HIPSPARSE_STATUS_INSUFFICIENT_RESOURCES);
     return fmt::format("UNKNOWN CUSPARSE ERROR {}.", code);
 }
 
@@ -59,7 +59,7 @@ getCusparseErrorCodeToString(int code)
  * @brief getCusparseErrorMessage generates the error message to display for a given error.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cusparseCreate(&handle)")
+ * @param expression the expresison (say "hipsparseCreate(&handle)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -71,7 +71,7 @@ getCusparseErrorCodeToString(int code)
  * @note This function is mostly for internal use.
  */
 inline std::string
-getCusparseErrorMessage(cusparseStatus_t error,
+getCusparseErrorMessage(hipsparseStatus_t error,
                         const std::string_view& expression,
                         const std::string_view& filename,
                         const std::string_view& functionName,
@@ -89,16 +89,16 @@ getCusparseErrorMessage(cusparseStatus_t error,
 
 /**
  * @brief cusparseSafeCall checks the return type of the CUSPARSE expression (function call) and throws an exception if
- * it does not equal CUSPARSE_STATUS_SUCCESS.
+ * it does not equal HIPSPARSE_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
- * #include <cublas_v2.h>
+ * #include <hipblas.h>
  *
  * void some_function() {
- *     cusparseHandle_t cusparseHandle;
- *     cusparseSafeCall(cusparseCreate(&cusparseHandle), "cusparseCreate(&cusparseHandle)", __FILE__, __func__,
+ *     hipsparseHandle_t cusparseHandle;
+ *     cusparseSafeCall(hipsparseCreate(&cusparseHandle), "hipsparseCreate(&cusparseHandle)", __FILE__, __func__,
  * __LINE__);
  * }
  * @endcode
@@ -108,23 +108,23 @@ getCusparseErrorMessage(cusparseStatus_t error,
  * @todo Refactor to use std::source_location once we shift to C++20
  */
 inline void
-cusparseSafeCall(cusparseStatus_t error,
+cusparseSafeCall(hipsparseStatus_t error,
                  const std::string_view& expression,
                  const std::string_view& filename,
                  const std::string_view& functionName,
                  size_t lineNumber)
 {
-    if (error != CUSPARSE_STATUS_SUCCESS) {
+    if (error != HIPSPARSE_STATUS_SUCCESS) {
         OPM_THROW(std::runtime_error, getCusparseErrorMessage(error, expression, filename, functionName, lineNumber));
     }
 }
 
 /**
  * @brief cusparseWarnIfError checks the return type of the CUSPARSE expression (function call) and issues a warning if
- * it does not equal CUSPARSE_STATUS_SUCCESS.
+ * it does not equal HIPSPARSE_STATUS_SUCCESS.
  *
  * @param error the error code from cublas
- * @param expression the expresison (say "cublasCreate(&handle)")
+ * @param expression the expresison (say "hipblasCreate(&handle)")
  * @param filename the code file the error occured in (typically __FILE__)
  * @param functionName name of the function the error occured in (typically __func__)
  * @param lineNumber the line number the error occured in (typically __LINE__)
@@ -134,11 +134,11 @@ cusparseSafeCall(cusparseStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
- * #include <cublas_v2.h>
+ * #include <hipblas.h>
  *
  * void some_function() {
- *     cusparseHandle_t cusparseHandle;
- *     cusparseWarnIfError(cusparseCreate(&cusparseHandle), "cusparseCreate(&cusparseHandle)", __FILE__, __func__,
+ *     hipsparseHandle_t cusparseHandle;
+ *     cusparseWarnIfError(hipsparseCreate(&cusparseHandle), "hipsparseCreate(&cusparseHandle)", __FILE__, __func__,
  * __LINE__);
  * }
  * @endcode
@@ -148,14 +148,14 @@ cusparseSafeCall(cusparseStatus_t error,
  * exception.
  * @todo Refactor to use std::source_location once we shift to C++20
  */
-inline cusparseStatus_t
-cusparseWarnIfError(cusparseStatus_t error,
+inline hipsparseStatus_t
+cusparseWarnIfError(hipsparseStatus_t error,
                     const std::string_view& expression,
                     const std::string_view& filename,
                     const std::string_view& functionName,
                     size_t lineNumber)
 {
-    if (error != CUSPARSE_STATUS_SUCCESS) {
+    if (error != HIPSPARSE_STATUS_SUCCESS) {
         OpmLog::warning(getCusparseErrorMessage(error, expression, filename, functionName, lineNumber));
     }
 
@@ -167,16 +167,16 @@ cusparseWarnIfError(cusparseStatus_t error,
 
 /**
  * @brief OPM_CUSPARSE_SAFE_CALL checks the return type of the cusparse expression (function call) and throws an
- * exception if it does not equal CUSPARSE_STATUS_SUCCESS.
+ * exception if it does not equal HIPSPARSE_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
- * #include <cusparse.h>
+ * #include <hipsparse.h>
  *
  * void some_function() {
- *     cusparseHandle_t cusparseHandle;
- *     OPM_CUSPARSE_SAFE_CALL(cusparseCreate(&cusparseHandle));
+ *     hipsparseHandle_t cusparseHandle;
+ *     OPM_CUSPARSE_SAFE_CALL(hipsparseCreate(&cusparseHandle));
  * }
  * @endcode
  *
@@ -187,16 +187,16 @@ cusparseWarnIfError(cusparseStatus_t error,
 
 /**
  * @brief OPM_CUSPARSE_WARN_IF_ERROR checks the return type of the cusparse expression (function call) and issues a
- * warning if it does not equal CUSPARSE_STATUS_SUCCESS.
+ * warning if it does not equal HIPSPARSE_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/cuistl/detail/cusparse_safe_call.hpp>
- * #include <cusparse.h>
+ * #include <hipsparse.h>
  *
  * void some_function() {
- *     cusparseHandle_t cusparseHandle;
- *     OPM_CUSPARSE_WARN_IF_ERROR(cusparseCreate(&cusparseHandle));
+ *     hipsparseHandle_t cusparseHandle;
+ *     OPM_CUSPARSE_WARN_IF_ERROR(hipsparseCreate(&cusparseHandle));
  * }
  * @endcode
  *
