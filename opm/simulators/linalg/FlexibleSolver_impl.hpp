@@ -38,7 +38,8 @@
 #include <dune/istl/paamg/pinfo.hh>
 
 #if HAVE_CUDA
-#include <opm/simulators/linalg/cuistl/SolverAdapter.hpp>
+// TOB: tmp change
+// #include <opm/simulators/linalg/cuistl/SolverAdapter.hpp>
 #include <opm/simulators/linalg/hipistl/SolverAdapter.hpp>
 #endif
 

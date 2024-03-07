@@ -720,28 +720,29 @@ add_custom_target(extra_test ${CMAKE_CTEST_COMMAND} -C ExtraTests)
 # must link libraries after target 'opmsimulators' has been defined
 
 if(CUDA_FOUND)
+  # TOB: might have to do something here with hip...
   target_link_libraries( opmsimulators PUBLIC ${CUDA_cusparse_LIBRARY} )
   target_link_libraries( opmsimulators PUBLIC ${CUDA_cublas_LIBRARY} )
-  if(USE_BDA_BRIDGE)
-    set_tests_properties(cusparseSolver PROPERTIES LABELS gpu_cuda)
-  endif()
+  # if(USE_BDA_BRIDGE)
+  #   set_tests_properties(cusparseSolver PROPERTIES LABELS gpu_cuda)
+  # endif()
 
   # CUISTL
-  set_tests_properties(cusparse_safe_call
-                       cublas_safe_call
-                       cuda_safe_call
-                       cuda_check_last_error
-                       cublas_handle
-                       cujac
-                       cusparse_handle
-                       cuSparse_matrix_operations
-                       cuVector_operations
-                       cuvector
-                       cusparsematrix
-                       cuseqilu0
-                       cuowneroverlapcopy
-                       solver_adapter
-                       PROPERTIES LABELS gpu_cuda)
+  # set_tests_properties(cusparse_safe_call
+  #                      cublas_safe_call
+  #                      cuda_safe_call
+  #                      cuda_check_last_error
+  #                      cublas_handle
+  #                      cujac
+  #                      cusparse_handle
+  #                      cuSparse_matrix_operations
+  #                      cuVector_operations
+  #                      cuvector
+  #                      cusparsematrix
+  #                      cuseqilu0
+  #                      cuowneroverlapcopy
+  #                      solver_adapter
+  #                      PROPERTIES LABELS gpu_cuda)
 endif()
 
 if(USE_BDA_BRIDGE)

@@ -24,8 +24,8 @@
  * instead of calling hipblasDscal and hipblasSscal respectively.
  */
 
-#ifndef OPM_CUBLASWRAPPER_HEADER_INCLUDED
-#define OPM_CUBLASWRAPPER_HEADER_INCLUDED
+#ifndef OPM_CUBLASWRAPPER_HEADER_INCLUDED_HIP
+#define OPM_CUBLASWRAPPER_HEADER_INCLUDED_HIP
 #include <hipblas.h>
 #include <opm/common/ErrorMacros.hpp>
 
