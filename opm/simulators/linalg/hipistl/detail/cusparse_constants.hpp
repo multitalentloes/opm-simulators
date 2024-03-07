@@ -18,7 +18,7 @@
 */
 #ifndef CUSPARSE_CONSTANTS_HPP_HIP
 #define CUSPARSE_CONSTANTS_HPP_HIP
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 namespace Opm::hipistl::detail
 {
 const constexpr auto CUSPARSE_MATRIX_ORDER = HIPSPARSE_DIRECTION_ROW;

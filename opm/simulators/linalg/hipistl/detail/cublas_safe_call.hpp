@@ -16,9 +16,9 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef OPM_CUBLAS_SAFE_CALL_HPP_HIP
-#define OPM_CUBLAS_SAFE_CALL_HPP_HIP
-#include <hipblas.h>
+#ifndef OPM_HIPBLAS_SAFE_CALL_HPP_HIP
+#define OPM_HIPBLAS_SAFE_CALL_HPP_HIP
+#include <hipblas/hipblas.h>
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
@@ -109,7 +109,7 @@ getCublasErrorMessage(hipblasStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/hipistl/detail/cublas_safe_call.hpp>
- * #include <hipblas.h>
+ * #include <hipblas/hipblas.h>
  *
  * void some_function() {
  *     hipblasHandle_t cublasHandle;
@@ -117,7 +117,7 @@ getCublasErrorMessage(hipblasStatus_t error,
  * }
  * @endcode
  *
- * @note It is probably easier to use the macro OPM_CUBLAS_SAFE_CALL
+ * @note It is probably easier to use the macro OPM_HIPBLAS_SAFE_CALL
  *
  * @todo Refactor to use std::source_location once we shift to C++20
  */
@@ -148,7 +148,7 @@ cublasSafeCall(hipblasStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/hipistl/detail/cublas_safe_call.hpp>
- * #include <hipblas.h>
+ * #include <hipblas/hipblas.h>
  *
  * void some_function() {
  *     hipblasHandle_t cublasHandle;
@@ -157,7 +157,7 @@ cublasSafeCall(hipblasStatus_t error,
  * @endcode
  *
  * @note It is probably easier to use the macro OPM_CUBLAS_WARN_IF_ERROR
- * @note Prefer the cublasSafeCall/OPM_CUBLAS_SAFE_CALL counterpart unless you really don't want to throw an exception.
+ * @note Prefer the cublasSafeCall/OPM_HIPBLAS_SAFE_CALL counterpart unless you really don't want to throw an exception.
  *
  * @todo Refactor to use std::source_location once we shift to C++20
  */
@@ -177,23 +177,23 @@ cublasWarnIfError(hipblasStatus_t error,
 } // namespace Opm::hipistl::detail
 
 /**
- * @brief OPM_CUBLAS_SAFE_CALL checks the return type of the cublas expression (function call) and throws an exception
+ * @brief OPM_HIPBLAS_SAFE_CALL checks the return type of the cublas expression (function call) and throws an exception
  * if it does not equal HIPBLAS_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
- * #include <hipblas.h>
+ * #include <hipblas/hipblas.h>
  * #include <opm/simulators/linalg/hipistl/detail/cublas_safe_call.hpp>
  *
  * void some_function() {
  *     hipblasHandle_t cublasHandle;
- *     OPM_CUBLAS_SAFE_CALL(hipblasCreate(&cublasHandle));
+ *     OPM_HIPBLAS_SAFE_CALL(hipblasCreate(&cublasHandle));
  * }
  * @endcode
  *
  * @note This should be used for any call to cuBlas unless you have a good reason not to.
  */
-#define OPM_CUBLAS_SAFE_CALL(expression)                                                                               \
+#define OPM_HIPBLAS_SAFE_CALL(expression)                                                                               \
     ::Opm::hipistl::detail::cublasSafeCall(expression, #expression, __FILE__, __func__, __LINE__)
 
 /**
@@ -202,7 +202,7 @@ cublasWarnIfError(hipblasStatus_t error,
  *
  * Example usage:
  * @code{.cpp}
- * #include <hipblas.h>
+ * #include <hipblas/hipblas.h>
  * #include <opm/simulators/linalg/hipistl/detail/cublas_safe_call.hpp>
  *
  * void some_function() {
@@ -211,9 +211,9 @@ cublasWarnIfError(hipblasStatus_t error,
  * }
  * @endcode
  *
- * @note Prefer the cublasSafeCall/OPM_CUBLAS_SAFE_CALL counterpart unless you really don't want to throw an exception.
+ * @note Prefer the cublasSafeCall/OPM_HIPBLAS_SAFE_CALL counterpart unless you really don't want to throw an exception.
  */
-#define OPM_CUBLAS_WARN_IF_ERROR(expression)                                                                           \
+#define OPM_HIPBLAS_WARN_IF_ERROR(expression)                                                                           \
     ::Opm::hipistl::detail::cublasWarnIfError(expression, #expression, __FILE__, __func__, __LINE__)
 
-#endif // OPM_CUBLAS_SAFE_CALL_HPP
+#endif // OPM_HIPBLAS_SAFE_CALL_HPP

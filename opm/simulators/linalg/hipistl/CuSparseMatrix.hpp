@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUSPARSEMATRIX_HPP_HIP
 #define OPM_CUSPARSEMATRIX_HPP_HIP
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <iostream>
 #include <memory>
 #include <opm/common/ErrorMacros.hpp>

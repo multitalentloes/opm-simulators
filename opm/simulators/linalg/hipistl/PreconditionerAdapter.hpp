@@ -18,7 +18,7 @@
 */
 #ifndef OPM_PRECONDITIONERADAPTER_HPP_HIP
 #define OPM_PRECONDITIONERADAPTER_HPP_HIP
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <dune/istl/preconditioner.hh>
 #include <opm/simulators/linalg/PreconditionerWithUpdate.hpp>
 #include <opm/simulators/linalg/hipistl/CuVector.hpp>

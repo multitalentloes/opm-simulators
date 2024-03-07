@@ -16,9 +16,9 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef OPM_CUSPARSEHANDLE_HPP
-#define OPM_CUSPARSEHANDLE_HPP
-#include <hipsparse.h>
+#ifndef OPM_CUSPARSEHANDLE_HPP_HIP
+#define OPM_CUSPARSEHANDLE_HPP_HIP
+#include <hipsparse/hipsparse.h>
 #include <memory>
 
 namespace Opm::hipistl::detail

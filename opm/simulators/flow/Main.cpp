@@ -36,7 +36,8 @@
 #endif
 
 #if HAVE_CUDA
-#include <opm/simulators/linalg/cuistl/set_device.hpp>
+// #include <opm/simulators/linalg/cuistl/set_device.hpp>
+#include <opm/simulators/linalg/hipistl/set_device.hpp>
 #endif
 
 namespace Opm {
@@ -151,7 +152,7 @@ void Main::initMPI()
     }
 
 #if HAVE_CUDA
-    Opm::cuistl::setDevice(EclGenericVanguard::comm().rank(), EclGenericVanguard::comm().size());
+    Opm::hipistl::setDevice(EclGenericVanguard::comm().rank(), EclGenericVanguard::comm().size());
 #endif
 
 #endif // HAVE_MPI

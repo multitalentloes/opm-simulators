@@ -23,7 +23,7 @@
  * In simple terms, this allows one to call say cusparseBsrilu02_analysis on both double and single precisision,
  * instead of calling hipsparseDbsrilu02_analysis and hipsparseDbsrilu02_analysis respectively.
  */
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <type_traits>
 #ifndef OPM_CUSPARSE_WRAPPER_HPP_HIP
 #define OPM_CUSPARSE_WRAPPER_HPP_HIP

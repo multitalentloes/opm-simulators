@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUSPARSE_SAFE_CALL_HPP_HIP
 #define OPM_CUSPARSE_SAFE_CALL_HPP_HIP
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
@@ -94,7 +94,7 @@ getCusparseErrorMessage(hipsparseStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/hipistl/detail/cusparse_safe_call.hpp>
- * #include <hipblas.h>
+ * #include <hipblas/hipblas.h>
  *
  * void some_function() {
  *     hipsparseHandle_t cusparseHandle;
@@ -134,7 +134,7 @@ cusparseSafeCall(hipsparseStatus_t error,
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/hipistl/detail/cusparse_safe_call.hpp>
- * #include <hipblas.h>
+ * #include <hipblas/hipblas.h>
  *
  * void some_function() {
  *     hipsparseHandle_t cusparseHandle;
@@ -166,43 +166,43 @@ cusparseWarnIfError(hipsparseStatus_t error,
 
 
 /**
- * @brief OPM_CUSPARSE_SAFE_CALL checks the return type of the cusparse expression (function call) and throws an
+ * @brief OPM_HIPSPARSE_SAFE_CALL checks the return type of the cusparse expression (function call) and throws an
  * exception if it does not equal HIPSPARSE_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/hipistl/detail/cusparse_safe_call.hpp>
- * #include <hipsparse.h>
+ * #include <hipsparse/hipsparse.h>
  *
  * void some_function() {
  *     hipsparseHandle_t cusparseHandle;
- *     OPM_CUSPARSE_SAFE_CALL(hipsparseCreate(&cusparseHandle));
+ *     OPM_HIPSPARSE_SAFE_CALL(hipsparseCreate(&cusparseHandle));
  * }
  * @endcode
  *
  * @note This should be used for any call to cuSparse unless you have a good reason not to.
  */
-#define OPM_CUSPARSE_SAFE_CALL(expression)                                                                             \
+#define OPM_HIPSPARSE_SAFE_CALL(expression)                                                                             \
     ::Opm::hipistl::detail::cusparseSafeCall(expression, #expression, __FILE__, __func__, __LINE__)
 
 /**
- * @brief OPM_CUSPARSE_WARN_IF_ERROR checks the return type of the cusparse expression (function call) and issues a
+ * @brief OPM_HIPSPARSE_WARN_IF_ERROR checks the return type of the cusparse expression (function call) and issues a
  * warning if it does not equal HIPSPARSE_STATUS_SUCCESS.
  *
  * Example usage:
  * @code{.cpp}
  * #include <opm/simulators/linalg/hipistl/detail/cusparse_safe_call.hpp>
- * #include <hipsparse.h>
+ * #include <hipsparse/hipsparse.h>
  *
  * void some_function() {
  *     hipsparseHandle_t cusparseHandle;
- *     OPM_CUSPARSE_WARN_IF_ERROR(hipsparseCreate(&cusparseHandle));
+ *     OPM_HIPSPARSE_WARN_IF_ERROR(hipsparseCreate(&cusparseHandle));
  * }
  * @endcode
  *
  * @note Prefer the cusparseSafeCall/OPM_CUBLAS_SAFE_CALL counterpart unless you really don't want to throw an
  * exception.
  */
-#define OPM_CUSPARSE_WARN_IF_ERROR(expression)                                                                         \
+#define OPM_HIPSPARSE_WARN_IF_ERROR(expression)                                                                         \
     ::Opm::hipistl::detail::cusparseWarnIfError(expression, #expression, __FILE__, __func__, __LINE__)
-#endif // OPM_CUSPARSE_SAFE_CALL_HPP
+#endif // OPM_HIPSPARSE_SAFE_CALL_HPP

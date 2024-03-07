@@ -18,7 +18,7 @@
 */
 #ifndef CUSPARSERESOURCE_HPP_HIP
 #define CUSPARSERESOURCE_HPP_HIP
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <functional>
 #include <memory>
 #include <type_traits>

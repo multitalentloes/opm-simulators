@@ -156,28 +156,28 @@ template <typename T>
 void
 CuSparseMatrix<T>::setUpperTriangular()
 {
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(m_matrixDescription->get(), HIPSPARSE_FILL_MODE_UPPER));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatFillMode(m_matrixDescription->get(), HIPSPARSE_FILL_MODE_UPPER));
 }
 
 template <typename T>
 void
 CuSparseMatrix<T>::setLowerTriangular()
 {
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(m_matrixDescription->get(), HIPSPARSE_FILL_MODE_LOWER));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatFillMode(m_matrixDescription->get(), HIPSPARSE_FILL_MODE_LOWER));
 }
 
 template <typename T>
 void
 CuSparseMatrix<T>::setUnitDiagonal()
 {
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(m_matrixDescription->get(), HIPSPARSE_DIAG_TYPE_UNIT));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatDiagType(m_matrixDescription->get(), HIPSPARSE_DIAG_TYPE_UNIT));
 }
 
 template <typename T>
 void
 CuSparseMatrix<T>::setNonUnitDiagonal()
 {
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(m_matrixDescription->get(), HIPSPARSE_DIAG_TYPE_NON_UNIT));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatDiagType(m_matrixDescription->get(), HIPSPARSE_DIAG_TYPE_NON_UNIT));
 }
 
 template <typename T>
@@ -197,7 +197,7 @@ CuSparseMatrix<T>::mv(const CuVector<T>& x, CuVector<T>& y) const
     auto columnIndices = getColumnIndices().data();
     T alpha = 1.0;
     T beta = 0.0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
+    OPM_HIPSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                  m_numberOfRows,
@@ -232,7 +232,7 @@ CuSparseMatrix<T>::umv(const CuVector<T>& x, CuVector<T>& y) const
     auto columnIndices = getColumnIndices().data();
     T alpha = 1.0;
     T beta = 1.0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
+    OPM_HIPSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                  m_numberOfRows,
@@ -268,7 +268,7 @@ CuSparseMatrix<T>::usmv(T alpha, const CuVector<T>& x, CuVector<T>& y) const
     auto columnIndices = getColumnIndices().data();
 
     T beta = 1.0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
+    OPM_HIPSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
                                                  HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                  numberOfRows,

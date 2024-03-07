@@ -26,7 +26,7 @@
 
 #ifndef OPM_CUBLASWRAPPER_HEADER_INCLUDED_HIP
 #define OPM_CUBLASWRAPPER_HEADER_INCLUDED_HIP
-#include <hipblas.h>
+#include <hipblas/hipblas.h>
 #include <opm/common/ErrorMacros.hpp>
 
 namespace Opm::hipistl::detail

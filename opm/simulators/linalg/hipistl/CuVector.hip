@@ -16,7 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <hipblas.h>
+#include <hipblas/hipblas.h>
 #include <hip/hip_runtime.h>
 #include <hip/hip_runtime.h>
 #include <fmt/core.h>
@@ -166,7 +166,7 @@ CuVector<T>&
 CuVector<T>::operator*=(const T& scalar)
 {
     assertHasElements();
-    OPM_CUBLAS_SAFE_CALL(detail::cublasScal(m_cuBlasHandle.get(), m_numberOfElements, &scalar, data(), 1));
+    OPM_HIPBLAS_SAFE_CALL(detail::cublasScal(m_cuBlasHandle.get(), m_numberOfElements, &scalar, data(), 1));
     return *this;
 }
 
@@ -176,7 +176,7 @@ CuVector<T>::axpy(T alpha, const CuVector<T>& y)
 {
     assertHasElements();
     assertSameSize(y);
-    OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(), m_numberOfElements, &alpha, y.data(), 1, data(), 1));
+    OPM_HIPBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(), m_numberOfElements, &alpha, y.data(), 1, data(), 1));
     return *this;
 }
 
@@ -187,7 +187,7 @@ CuVector<T>::dot(const CuVector<T>& other) const
     assertHasElements();
     assertSameSize(other);
     T result = T(0);
-    OPM_CUBLAS_SAFE_CALL(
+    OPM_HIPBLAS_SAFE_CALL(
         detail::cublasDot(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, other.data(), 1, &result));
     return result;
 }
@@ -197,7 +197,7 @@ CuVector<T>::two_norm() const
 {
     assertHasElements();
     T result = T(0);
-    OPM_CUBLAS_SAFE_CALL(detail::cublasNrm2(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, &result));
+    OPM_HIPBLAS_SAFE_CALL(detail::cublasNrm2(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, &result));
     return result;
 }
 

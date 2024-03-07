@@ -18,7 +18,7 @@
 */
 #include <hip/hip_runtime.h>
 #include <hip/hip_runtime.h>
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>

@@ -44,8 +44,8 @@ createMatrixDescription()
     auto description = std::make_shared<CuSparseMatrixDescription>();
 
     // Note: We always want to use zero base indexing.
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatType(description->get(), HIPSPARSE_MATRIX_TYPE_GENERAL));
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatIndexBase(description->get(), HIPSPARSE_INDEX_BASE_ZERO));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatType(description->get(), HIPSPARSE_MATRIX_TYPE_GENERAL));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatIndexBase(description->get(), HIPSPARSE_INDEX_BASE_ZERO));
 
     return description;
 }
@@ -60,8 +60,8 @@ inline CuSparseMatrixDescriptionPtr
 createLowerDiagonalDescription()
 {
     auto description = createMatrixDescription();
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(description->get(), HIPSPARSE_FILL_MODE_LOWER));
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(description->get(), HIPSPARSE_DIAG_TYPE_UNIT));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatFillMode(description->get(), HIPSPARSE_FILL_MODE_LOWER));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatDiagType(description->get(), HIPSPARSE_DIAG_TYPE_UNIT));
     return description;
 }
 
@@ -75,8 +75,8 @@ inline CuSparseMatrixDescriptionPtr
 createUpperDiagonalDescription()
 {
     auto description = createMatrixDescription();
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(description->get(), HIPSPARSE_FILL_MODE_UPPER));
-    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(description->get(), HIPSPARSE_DIAG_TYPE_NON_UNIT));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatFillMode(description->get(), HIPSPARSE_FILL_MODE_UPPER));
+    OPM_HIPSPARSE_SAFE_CALL(hipsparseSetMatDiagType(description->get(), HIPSPARSE_DIAG_TYPE_NON_UNIT));
 
     return description;
 }

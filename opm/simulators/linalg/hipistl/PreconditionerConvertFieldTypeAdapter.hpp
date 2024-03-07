@@ -18,7 +18,7 @@
 */
 #ifndef OPM_PRECONDITIONERCONVERTOFLOATADAPTER_HPP_HIP
 #define OPM_PRECONDITIONERCONVERTOFLOATADAPTER_HPP_HIP
-#include <hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/preconditioner.hh>
 #include <opm/simulators/linalg/PreconditionerWithUpdate.hpp>

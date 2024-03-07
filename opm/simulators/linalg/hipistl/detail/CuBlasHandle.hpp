@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUBLASHANDLE_HPP_HIP
 #define OPM_CUBLASHANDLE_HPP_HIP
-#include <hipblas.h>
+#include <hipblas/hipblas.h>
 #include <memory>
 
 namespace Opm::hipistl::detail

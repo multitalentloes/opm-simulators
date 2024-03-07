@@ -104,9 +104,9 @@ if(USE_MPI)
   set(HDF5_PREFER_PARALLEL TRUE)
 endif()
 
-if(USE_BDA_BRIDGE)
-  set(COMPILE_BDA_BRIDGE 1)
-endif()
+# if(USE_BDA_BRIDGE)
+#   set(COMPILE_BDA_BRIDGE 1)
+# endif()
 
 # not the same location as most of the other projects? this hook overrides
 macro (dir_hook)
@@ -126,10 +126,10 @@ include(Findopm-tests)
 # with the find module
 include ("${project}-prereqs")
 
-
-include_directories(/opt/rocm-6.0.2/include/hip)
-include_directories(/opt/rocm-6.0.2/include/hipblas)
-include_directories(/opt/rocm-6.0.2/include/hipsparse)
+include_directories(/opt/rocm-6.0.2/include)
+# include_directories(/opt/rocm-6.0.2/include/hip)
+# include_directories(/opt/rocm-6.0.2/include/hipblas)
+# include_directories(/opt/rocm-6.0.2/include/hipsparse)
 link_libraries(/home/tobias/Downloads/hipBLAS-rocm-6.0.2/build/library/src/libhipblas.so)
 link_libraries(/home/tobias/Downloads/hipSPARSE-rocm-6.0.2/library/libhipsparse.so)
 
