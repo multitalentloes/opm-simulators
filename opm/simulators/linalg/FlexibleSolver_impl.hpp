@@ -38,8 +38,7 @@
 #include <dune/istl/paamg/pinfo.hh>
 
 #if HAVE_CUDA
-// TOB: tmp change
-// #include <opm/simulators/linalg/cuistl/SolverAdapter.hpp>
+#include <opm/simulators/linalg/cuistl/SolverAdapter.hpp>
 #include <opm/simulators/linalg/hipistl/SolverAdapter.hpp>
 #endif
 
@@ -199,6 +198,14 @@ namespace Dune
 #endif
 #if HAVE_CUDA
         } else if (solver_type == "cubicgstab") {
+            linsolver_.reset(new Opm::cuistl::SolverAdapter<Operator, Dune::BiCGSTABSolver, VectorType>(
+                *linearoperator_for_solver_,
+                *scalarproduct_,
+                preconditioner_,
+                tol, // desired residual reduction factor
+                maxiter, // maximum number of iterations
+                verbosity));
+        } else if (solver_type == "hipbicgstab") {
             linsolver_.reset(new Opm::hipistl::SolverAdapter<Operator, Dune::BiCGSTABSolver, VectorType>(
                 *linearoperator_for_solver_,
                 *scalarproduct_,
