@@ -18,13 +18,13 @@
 */
 #ifndef OPM_CUDA_CHECK_LAST_ERROR_HPP
 #define OPM_CUDA_CHECK_LAST_ERROR_HPP
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <fmt/core.h>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 
 /**
- * @brief OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE checks the return type of cudaDeviceSynchronize(),
- * and throws an exception if cudaDeviceSynchronize() does not equal cudaSuccess.
+ * @brief OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE checks the return type of hipDeviceSynchronize(),
+ * and throws an exception if hipDeviceSynchronize() does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}
@@ -38,15 +38,15 @@
  * @note This can be used to debug the code, or simply make sure that no error has occured.
  * @note This is a rather heavy operation, so prefer to use only in Debug mode (see OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE_IF_DEBUG)
  */
-#define OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE OPM_CUDA_SAFE_CALL(cudaDeviceSynchronize())
+#define OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE OPM_CUDA_SAFE_CALL(hipDeviceSynchronize())
 
 #ifdef NDEBUG
 #define OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE_IF_DEBUG
 #else
 
 /**
- * @brief OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE_IF_DEBUG checks the return type of cudaDeviceSynchronize only if NDEBUG is not defined,
- * and throws an exception if cudaDeviceSynchronize() does not equal cudaSuccess.
+ * @brief OPM_CUDA_CHECK_DEVICE_SYNCHRONIZE_IF_DEBUG checks the return type of hipDeviceSynchronize only if NDEBUG is not defined,
+ * and throws an exception if hipDeviceSynchronize() does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}
@@ -64,8 +64,8 @@
 
 
 /**
- * @brief OPM_CUDA_CHECK_LAST_ERROR checks the return type of cudaGetLastError(),
- * and throws an exception if cudaGetLastError() does not equal cudaSuccess.
+ * @brief OPM_CUDA_CHECK_LAST_ERROR checks the return type of hipGetLastError(),
+ * and throws an exception if hipGetLastError() does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}
@@ -78,15 +78,15 @@
  *
  * @note This can be used to debug the code, or simply make sure that no error has occured.
  */
-#define OPM_CUDA_CHECK_LAST_ERROR OPM_CUDA_SAFE_CALL(cudaGetLastError())
+#define OPM_CUDA_CHECK_LAST_ERROR OPM_CUDA_SAFE_CALL(hipGetLastError())
 
 #ifdef NDEBUG
 #define OPM_CUDA_CHECK_LAST_ERROR_IF_DEBUG
 #else
 
 /**
- * @brief OPM_CUDA_CHECK_LAST_ERROR_IF_DEBUG checks the return type of cudaGetLastError() only if NDEBUG is not defined,
- * and throws an exception if cudaGetLastError() does not equal cudaSuccess.
+ * @brief OPM_CUDA_CHECK_LAST_ERROR_IF_DEBUG checks the return type of hipGetLastError() only if NDEBUG is not defined,
+ * and throws an exception if hipGetLastError() does not equal hipSuccess.
  *
  * Example usage:
  * @code{.cpp}

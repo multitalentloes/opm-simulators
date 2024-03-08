@@ -21,30 +21,30 @@
  * Contains wrappers to make the CuSPARSE library behave as a modern C++ library with function overlading.
  *
  * In simple terms, this allows one to call say cusparseBsrilu02_analysis on both double and single precisision,
- * instead of calling cusparseDbsrilu02_analysis and cusparseDbsrilu02_analysis respectively.
+ * instead of calling hipsparseDbsrilu02_analysis and hipsparseDbsrilu02_analysis respectively.
  */
-#include <cusparse.h>
+#include <hipsparse/hipsparse.h>
 #include <type_traits>
 #ifndef OPM_CUSPARSE_WRAPPER_HPP
 #define OPM_CUSPARSE_WRAPPER_HPP
 namespace Opm::cuistl::detail
 {
 
-inline cusparseStatus_t
-cusparseBsrilu02_analysis(cusparseHandle_t handle,
-                          cusparseDirection_t dirA,
+inline hipsparseStatus_t
+cusparseBsrilu02_analysis(hipsparseHandle_t handle,
+                          hipsparseDirection_t dirA,
                           int mb,
                           int nnzb,
-                          const cusparseMatDescr_t descrA,
+                          const hipsparseMatDescr_t descrA,
                           double* bsrSortedVal,
                           const int* bsrSortedRowPtr,
                           const int* bsrSortedColInd,
                           int blockDim,
                           bsrilu02Info_t info,
-                          cusparseSolvePolicy_t policy,
+                          hipsparseSolvePolicy_t policy,
                           void* pBuffer)
 {
-    return cusparseDbsrilu02_analysis(handle,
+    return hipsparseDbsrilu02_analysis(handle,
                                       dirA,
                                       mb,
                                       nnzb,
@@ -58,22 +58,22 @@ cusparseBsrilu02_analysis(cusparseHandle_t handle,
                                       pBuffer);
 }
 
-inline cusparseStatus_t
-cusparseBsrsv2_analysis(cusparseHandle_t handle,
-                        cusparseDirection_t dirA,
-                        cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrsv2_analysis(hipsparseHandle_t handle,
+                        hipsparseDirection_t dirA,
+                        hipsparseOperation_t transA,
                         int mb,
                         int nnzb,
-                        const cusparseMatDescr_t descrA,
+                        const hipsparseMatDescr_t descrA,
                         const double* bsrSortedValA,
                         const int* bsrSortedRowPtrA,
                         const int* bsrSortedColIndA,
                         int blockDim,
                         bsrsv2Info_t info,
-                        cusparseSolvePolicy_t policy,
+                        hipsparseSolvePolicy_t policy,
                         void* pBuffer)
 {
-    return cusparseDbsrsv2_analysis(handle,
+    return hipsparseDbsrsv2_analysis(handle,
                                     dirA,
                                     transA,
                                     mb,
@@ -88,22 +88,22 @@ cusparseBsrsv2_analysis(cusparseHandle_t handle,
                                     pBuffer);
 }
 
-inline cusparseStatus_t
-cusparseBsrsv2_analysis(cusparseHandle_t handle,
-                        cusparseDirection_t dirA,
-                        cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrsv2_analysis(hipsparseHandle_t handle,
+                        hipsparseDirection_t dirA,
+                        hipsparseOperation_t transA,
                         int mb,
                         int nnzb,
-                        const cusparseMatDescr_t descrA,
+                        const hipsparseMatDescr_t descrA,
                         const float* bsrSortedValA,
                         const int* bsrSortedRowPtrA,
                         const int* bsrSortedColIndA,
                         int blockDim,
                         bsrsv2Info_t info,
-                        cusparseSolvePolicy_t policy,
+                        hipsparseSolvePolicy_t policy,
                         void* pBuffer)
 {
-    return cusparseSbsrsv2_analysis(handle,
+    return hipsparseSbsrsv2_analysis(handle,
                                     dirA,
                                     transA,
                                     mb,
@@ -118,21 +118,21 @@ cusparseBsrsv2_analysis(cusparseHandle_t handle,
                                     pBuffer);
 }
 
-inline cusparseStatus_t
-cusparseBsrilu02_analysis(cusparseHandle_t handle,
-                          cusparseDirection_t dirA,
+inline hipsparseStatus_t
+cusparseBsrilu02_analysis(hipsparseHandle_t handle,
+                          hipsparseDirection_t dirA,
                           int mb,
                           int nnzb,
-                          const cusparseMatDescr_t descrA,
+                          const hipsparseMatDescr_t descrA,
                           float* bsrSortedVal,
                           const int* bsrSortedRowPtr,
                           const int* bsrSortedColInd,
                           int blockDim,
                           bsrilu02Info_t info,
-                          cusparseSolvePolicy_t policy,
+                          hipsparseSolvePolicy_t policy,
                           void* pBuffer)
 {
-    return cusparseSbsrilu02_analysis(handle,
+    return hipsparseSbsrilu02_analysis(handle,
                                       dirA,
                                       mb,
                                       nnzb,
@@ -146,14 +146,14 @@ cusparseBsrilu02_analysis(cusparseHandle_t handle,
                                       pBuffer);
 }
 
-inline cusparseStatus_t
-cusparseBsrsv2_solve(cusparseHandle_t handle,
-                     cusparseDirection_t dirA,
-                     cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrsv2_solve(hipsparseHandle_t handle,
+                     hipsparseDirection_t dirA,
+                     hipsparseOperation_t transA,
                      int mb,
                      int nnzb,
                      const double* alpha,
-                     const cusparseMatDescr_t descrA,
+                     const hipsparseMatDescr_t descrA,
                      const double* bsrSortedValA,
                      const int* bsrSortedRowPtrA,
                      const int* bsrSortedColIndA,
@@ -161,10 +161,10 @@ cusparseBsrsv2_solve(cusparseHandle_t handle,
                      bsrsv2Info_t info,
                      const double* f,
                      double* x,
-                     cusparseSolvePolicy_t policy,
+                     hipsparseSolvePolicy_t policy,
                      void* pBuffer)
 {
-    return cusparseDbsrsv2_solve(handle,
+    return hipsparseDbsrsv2_solve(handle,
                                  dirA,
                                  transA,
                                  mb,
@@ -183,14 +183,14 @@ cusparseBsrsv2_solve(cusparseHandle_t handle,
 }
 
 
-inline cusparseStatus_t
-cusparseBsrsv2_solve(cusparseHandle_t handle,
-                     cusparseDirection_t dirA,
-                     cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrsv2_solve(hipsparseHandle_t handle,
+                     hipsparseDirection_t dirA,
+                     hipsparseOperation_t transA,
                      int mb,
                      int nnzb,
                      const float* alpha,
-                     const cusparseMatDescr_t descrA,
+                     const hipsparseMatDescr_t descrA,
                      const float* bsrSortedValA,
                      const int* bsrSortedRowPtrA,
                      const int* bsrSortedColIndA,
@@ -198,10 +198,10 @@ cusparseBsrsv2_solve(cusparseHandle_t handle,
                      bsrsv2Info_t info,
                      const float* f,
                      float* x,
-                     cusparseSolvePolicy_t policy,
+                     hipsparseSolvePolicy_t policy,
                      void* pBuffer)
 {
-    return cusparseSbsrsv2_solve(handle,
+    return hipsparseSbsrsv2_solve(handle,
                                  dirA,
                                  transA,
                                  mb,
@@ -220,12 +220,12 @@ cusparseBsrsv2_solve(cusparseHandle_t handle,
 }
 
 
-inline cusparseStatus_t
-cusparseBsrilu02_bufferSize(cusparseHandle_t handle,
-                            cusparseDirection_t dirA,
+inline hipsparseStatus_t
+cusparseBsrilu02_bufferSize(hipsparseHandle_t handle,
+                            hipsparseDirection_t dirA,
                             int mb,
                             int nnzb,
-                            const cusparseMatDescr_t descrA,
+                            const hipsparseMatDescr_t descrA,
                             double* bsrSortedVal,
                             const int* bsrSortedRowPtr,
                             const int* bsrSortedColInd,
@@ -233,7 +233,7 @@ cusparseBsrilu02_bufferSize(cusparseHandle_t handle,
                             bsrilu02Info_t info,
                             int* pBufferSizeInBytes)
 {
-    return cusparseDbsrilu02_bufferSize(handle,
+    return hipsparseDbsrilu02_bufferSize(handle,
                                         dirA,
                                         mb,
                                         nnzb,
@@ -247,12 +247,12 @@ cusparseBsrilu02_bufferSize(cusparseHandle_t handle,
 }
 
 
-inline cusparseStatus_t
-cusparseBsrilu02_bufferSize(cusparseHandle_t handle,
-                            cusparseDirection_t dirA,
+inline hipsparseStatus_t
+cusparseBsrilu02_bufferSize(hipsparseHandle_t handle,
+                            hipsparseDirection_t dirA,
                             int mb,
                             int nnzb,
-                            const cusparseMatDescr_t descrA,
+                            const hipsparseMatDescr_t descrA,
                             float* bsrSortedVal,
                             const int* bsrSortedRowPtr,
                             const int* bsrSortedColInd,
@@ -260,7 +260,7 @@ cusparseBsrilu02_bufferSize(cusparseHandle_t handle,
                             bsrilu02Info_t info,
                             int* pBufferSizeInBytes)
 {
-    return cusparseSbsrilu02_bufferSize(handle,
+    return hipsparseSbsrilu02_bufferSize(handle,
                                         dirA,
                                         mb,
                                         nnzb,
@@ -273,13 +273,13 @@ cusparseBsrilu02_bufferSize(cusparseHandle_t handle,
                                         pBufferSizeInBytes);
 }
 
-inline cusparseStatus_t
-cusparseBsrsv2_bufferSize(cusparseHandle_t handle,
-                          cusparseDirection_t dirA,
-                          cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrsv2_bufferSize(hipsparseHandle_t handle,
+                          hipsparseDirection_t dirA,
+                          hipsparseOperation_t transA,
                           int mb,
                           int nnzb,
-                          const cusparseMatDescr_t descrA,
+                          const hipsparseMatDescr_t descrA,
                           double* bsrSortedValA,
                           const int* bsrSortedRowPtrA,
                           const int* bsrSortedColIndA,
@@ -287,7 +287,7 @@ cusparseBsrsv2_bufferSize(cusparseHandle_t handle,
                           bsrsv2Info_t info,
                           int* pBufferSizeInBytes)
 {
-    return cusparseDbsrsv2_bufferSize(handle,
+    return hipsparseDbsrsv2_bufferSize(handle,
                                       dirA,
                                       transA,
                                       mb,
@@ -300,13 +300,13 @@ cusparseBsrsv2_bufferSize(cusparseHandle_t handle,
                                       info,
                                       pBufferSizeInBytes);
 }
-inline cusparseStatus_t
-cusparseBsrsv2_bufferSize(cusparseHandle_t handle,
-                          cusparseDirection_t dirA,
-                          cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrsv2_bufferSize(hipsparseHandle_t handle,
+                          hipsparseDirection_t dirA,
+                          hipsparseOperation_t transA,
                           int mb,
                           int nnzb,
-                          const cusparseMatDescr_t descrA,
+                          const hipsparseMatDescr_t descrA,
                           float* bsrSortedValA,
                           const int* bsrSortedRowPtrA,
                           const int* bsrSortedColIndA,
@@ -314,7 +314,7 @@ cusparseBsrsv2_bufferSize(cusparseHandle_t handle,
                           bsrsv2Info_t info,
                           int* pBufferSizeInBytes)
 {
-    return cusparseSbsrsv2_bufferSize(handle,
+    return hipsparseSbsrsv2_bufferSize(handle,
                                       dirA,
                                       transA,
                                       mb,
@@ -328,21 +328,21 @@ cusparseBsrsv2_bufferSize(cusparseHandle_t handle,
                                       pBufferSizeInBytes);
 }
 
-inline cusparseStatus_t
-cusparseBsrilu02(cusparseHandle_t handle,
-                 cusparseDirection_t dirA,
+inline hipsparseStatus_t
+cusparseBsrilu02(hipsparseHandle_t handle,
+                 hipsparseDirection_t dirA,
                  int mb,
                  int nnzb,
-                 const cusparseMatDescr_t descrA,
+                 const hipsparseMatDescr_t descrA,
                  double* bsrSortedVal,
                  const int* bsrSortedRowPtr,
                  const int* bsrSortedColInd,
                  int blockDim,
                  bsrilu02Info_t info,
-                 cusparseSolvePolicy_t policy,
+                 hipsparseSolvePolicy_t policy,
                  void* pBuffer)
 {
-    return cusparseDbsrilu02(handle,
+    return hipsparseDbsrilu02(handle,
                              dirA,
                              mb,
                              nnzb,
@@ -355,21 +355,21 @@ cusparseBsrilu02(cusparseHandle_t handle,
                              policy,
                              pBuffer);
 }
-inline cusparseStatus_t
-cusparseBsrilu02(cusparseHandle_t handle,
-                 cusparseDirection_t dirA,
+inline hipsparseStatus_t
+cusparseBsrilu02(hipsparseHandle_t handle,
+                 hipsparseDirection_t dirA,
                  int mb,
                  int nnzb,
-                 const cusparseMatDescr_t descrA,
+                 const hipsparseMatDescr_t descrA,
                  float* bsrSortedVal,
                  const int* bsrSortedRowPtr,
                  const int* bsrSortedColInd,
                  int blockDim,
                  bsrilu02Info_t info,
-                 cusparseSolvePolicy_t policy,
+                 hipsparseSolvePolicy_t policy,
                  void* pBuffer)
 {
-    return cusparseSbsrilu02(handle,
+    return hipsparseSbsrilu02(handle,
                              dirA,
                              mb,
                              nnzb,
@@ -383,15 +383,15 @@ cusparseBsrilu02(cusparseHandle_t handle,
                              pBuffer);
 }
 
-inline cusparseStatus_t
-cusparseBsrmv(cusparseHandle_t handle,
-              cusparseDirection_t dirA,
-              cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrmv(hipsparseHandle_t handle,
+              hipsparseDirection_t dirA,
+              hipsparseOperation_t transA,
               int mb,
               int nb,
               int nnzb,
               const double* alpha,
-              const cusparseMatDescr_t descrA,
+              const hipsparseMatDescr_t descrA,
               const double* bsrSortedValA,
               const int* bsrSortedRowPtrA,
               const int* bsrSortedColIndA,
@@ -400,7 +400,7 @@ cusparseBsrmv(cusparseHandle_t handle,
               const double* beta,
               double* y)
 {
-    return cusparseDbsrmv(handle,
+    return hipsparseDbsrmv(handle,
                           dirA,
                           transA,
                           mb,
@@ -417,15 +417,15 @@ cusparseBsrmv(cusparseHandle_t handle,
                           y);
 }
 
-inline cusparseStatus_t
-cusparseBsrmv(cusparseHandle_t handle,
-              cusparseDirection_t dirA,
-              cusparseOperation_t transA,
+inline hipsparseStatus_t
+cusparseBsrmv(hipsparseHandle_t handle,
+              hipsparseDirection_t dirA,
+              hipsparseOperation_t transA,
               int mb,
               int nb,
               int nnzb,
               const float* alpha,
-              const cusparseMatDescr_t descrA,
+              const hipsparseMatDescr_t descrA,
               const float* bsrSortedValA,
               const int* bsrSortedRowPtrA,
               const int* bsrSortedColIndA,
@@ -434,7 +434,7 @@ cusparseBsrmv(cusparseHandle_t handle,
               const float* beta,
               float* y)
 {
-    return cusparseSbsrmv(handle,
+    return hipsparseSbsrmv(handle,
                           dirA,
                           transA,
                           mb,

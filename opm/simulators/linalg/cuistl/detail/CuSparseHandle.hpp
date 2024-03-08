@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUSPARSEHANDLE_HPP
 #define OPM_CUSPARSEHANDLE_HPP
-#include <cusparse.h>
+#include <hipsparse/hipsparse.h>
 #include <memory>
 
 namespace Opm::cuistl::detail
@@ -33,7 +33,7 @@ namespace Opm::cuistl::detail
  * void someFunction() {
  *     auto& cuSparseHandle = ::Opm::cuistl::detail::CuSparseHandle::getInstance();
  *     int cuSparseVersion = -1;
- *     OPM_CUSPARSE_SAFE_CALL(cusparseGetVersion(cuSparseHandle.get(), &cuSparseVersion));
+ *     OPM_CUSPARSE_SAFE_CALL(hipsparseGetVersion(cuSparseHandle.get(), &cuSparseVersion));
  * }
  * @endcode
  */
@@ -52,7 +52,7 @@ public:
     /**
      * @brief get returns the underlying cuSparse handle (to be used in calls to cusparse)
      */
-    cusparseHandle_t get();
+    hipsparseHandle_t get();
 
     /**
      * @brief getInstance creates (if necessary) and returns the single unique instance of CuSparseHandle (singleton)
@@ -61,7 +61,7 @@ public:
 
 private:
     CuSparseHandle();
-    cusparseHandle_t m_handle;
+    hipsparseHandle_t m_handle;
 };
 } // namespace Opm::cuistl::detail
 #endif // OPM_CUSPARSEHANDLE_HPP

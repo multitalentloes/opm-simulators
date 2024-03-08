@@ -18,7 +18,7 @@
 */
 #ifndef CUSPARSERESOURCE_HPP
 #define CUSPARSERESOURCE_HPP
-#include <cusparse.h>
+#include <hipsparse/hipsparse.h>
 #include <functional>
 #include <memory>
 #include <type_traits>
@@ -32,7 +32,7 @@ namespace Opm::cuistl::detail
  * Current we support the following types for T:
  *   - bsrilu02Info_t
  *   - bsrsv2Info_t
- *   - cusparseMatDescr_t
+ *   - hipsparseMatDescr_t
  *
  * More types are in principle supported by supplying a manual Creator and Destructor.
  *
@@ -54,8 +54,8 @@ template <class T>
 class CuSparseResource
 {
 public:
-    using CreatorType = typename std::function<cusparseStatus_t(T*)>;
-    using DeleterType = typename std::function<cusparseStatus_t(T)>;
+    using CreatorType = typename std::function<hipsparseStatus_t(T*)>;
+    using DeleterType = typename std::function<hipsparseStatus_t(T)>;
 
     /**
      * @brief CuSparseResource creates a new instance by calling creator, and will delete using deleter

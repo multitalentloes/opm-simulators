@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*
   Copyright 2022-2023 SINTEF AS
 

@@ -36,12 +36,12 @@ namespace
 
         static DeleterType getDeleter()
         {
-            return cusparseDestroyBsrilu02Info;
+            return hipsparseDestroyBsrilu02Info;
         }
 
         static CreatorType getCreator()
         {
-            return cusparseCreateBsrilu02Info;
+            return hipsparseCreateBsrilu02Info;
         }
     };
 
@@ -52,28 +52,28 @@ namespace
 
         static DeleterType getDeleter()
         {
-            return cusparseDestroyBsrsv2Info;
+            return hipsparseDestroyBsrsv2Info;
         }
 
         static CreatorType getCreator()
         {
-            return cusparseCreateBsrsv2Info;
+            return hipsparseCreateBsrsv2Info;
         }
     };
 
     template <>
-    struct CuSparseDeleteAndCreate<cusparseMatDescr_t> {
-        using DeleterType = typename CuSparseResource<cusparseMatDescr_t>::DeleterType;
-        using CreatorType = typename CuSparseResource<cusparseMatDescr_t>::CreatorType;
+    struct CuSparseDeleteAndCreate<hipsparseMatDescr_t> {
+        using DeleterType = typename CuSparseResource<hipsparseMatDescr_t>::DeleterType;
+        using CreatorType = typename CuSparseResource<hipsparseMatDescr_t>::CreatorType;
 
         static DeleterType getDeleter()
         {
-            return cusparseDestroyMatDescr;
+            return hipsparseDestroyMatDescr;
         }
 
         static CreatorType getCreator()
         {
-            return cusparseCreateMatDescr;
+            return hipsparseCreateMatDescr;
         }
     };
 

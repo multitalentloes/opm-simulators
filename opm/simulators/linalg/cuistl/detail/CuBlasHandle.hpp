@@ -18,7 +18,7 @@
 */
 #ifndef OPM_CUBLASHANDLE_HPP
 #define OPM_CUBLASHANDLE_HPP
-#include <cublas_v2.h>
+#include <hipblas/hipblas.h>
 #include <memory>
 
 namespace Opm::cuistl::detail
@@ -46,14 +46,14 @@ public:
     CuBlasHandle& operator=(const CuBlasHandle&) = delete;
 
     /**
-     * Calls cublasDestroy() on the handle
+     * Calls hipblasDestroy() on the handle
      */
     ~CuBlasHandle();
 
     /**
      * @brief get returns the underlying cuBlas handle (to be used in calls to cublas)
      */
-    cublasHandle_t get();
+    hipblasHandle_t get();
 
     /**
      * @brief getInstance creates (if necessary) and returns the single unique instance of CuBlasHandle (singleton)
@@ -62,7 +62,7 @@ public:
 
 private:
     CuBlasHandle();
-    cublasHandle_t m_handle;
+    hipblasHandle_t m_handle;
 };
 } // namespace Opm::cuistl::detail
 #endif // OPM_CUBLASHANDLE_HPP

@@ -16,9 +16,10 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cusparse.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hipsparse/hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>

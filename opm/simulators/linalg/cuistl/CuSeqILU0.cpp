@@ -16,9 +16,10 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <cusparse.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
+#include <hipsparse/hipsparse.h>
+#include <hipsparse/hipsparse.h>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
@@ -94,7 +95,7 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
     // Solve L m_temporaryStorage = d
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
                                                         detail::CUSPARSE_MATRIX_ORDER,
-                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                        HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                         numberOfRows,
                                                         numberOfNonzeroBlocks,
                                                         &one,
@@ -106,13 +107,13 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         m_infoL.get(),
                                                         d.data(),
                                                         m_temporaryStorage.data(),
-                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                        HIPSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                         m_buffer->data()));
 
     // Solve U v = m_temporaryStorage
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_solve(m_cuSparseHandle.get(),
                                                         detail::CUSPARSE_MATRIX_ORDER,
-                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                        HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                         numberOfRows,
                                                         numberOfNonzeroBlocks,
                                                         &one,
@@ -124,7 +125,7 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         m_infoU.get(),
                                                         m_temporaryStorage.data(),
                                                         v.data(),
-                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                        HIPSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                         m_buffer->data()));
 
 
@@ -179,13 +180,13 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
                                                              columnIndices,
                                                              blockSize,
                                                              m_infoM.get(),
-                                                             CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                             HIPSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                              m_buffer->data()));
 
     // Make sure we can decompose the matrix.
     int structuralZero;
-    auto statusPivot = cusparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
-    OPM_ERROR_IF(statusPivot != CUSPARSE_STATUS_SUCCESS,
+    auto statusPivot = hipsparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
+    OPM_ERROR_IF(statusPivot != HIPSPARSE_STATUS_SUCCESS,
                  fmt::format("Found a structural zero at A({}, {}). Could not decompose LU \\approx A.\n\n A has "
                              "dimension {}, and has {} nonzeroes.",
                              structuralZero,
@@ -196,7 +197,7 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
     // analysis of ilu apply
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
                                                            detail::CUSPARSE_MATRIX_ORDER,
-                                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                           HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                            numberOfRows,
                                                            numberOfNonzeroBlocks,
                                                            m_descriptionL->get(),
@@ -205,12 +206,12 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
                                                            columnIndices,
                                                            blockSize,
                                                            m_infoL.get(),
-                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                           HIPSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                            m_buffer->data()));
 
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
                                                            detail::CUSPARSE_MATRIX_ORDER,
-                                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                           HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                            numberOfRows,
                                                            numberOfNonzeroBlocks,
                                                            m_descriptionU->get(),
@@ -219,7 +220,7 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
                                                            columnIndices,
                                                            blockSize,
                                                            m_infoU.get(),
-                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                           HIPSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                            m_buffer->data()));
     m_analysisDone = true;
 }
@@ -256,7 +257,7 @@ CuSeqILU0<M, X, Y, l>::findBufferSize()
     int bufferSizeL = 0;
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_bufferSize(m_cuSparseHandle.get(),
                                                              detail::CUSPARSE_MATRIX_ORDER,
-                                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                             HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                              numberOfRows,
                                                              numberOfNonzeroBlocks,
                                                              m_descriptionL->get(),
@@ -270,7 +271,7 @@ CuSeqILU0<M, X, Y, l>::findBufferSize()
     int bufferSizeU = 0;
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_bufferSize(m_cuSparseHandle.get(),
                                                              detail::CUSPARSE_MATRIX_ORDER,
-                                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                             HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                              numberOfRows,
                                                              numberOfNonzeroBlocks,
                                                              m_descriptionL->get(),
@@ -312,17 +313,17 @@ CuSeqILU0<M, X, Y, l>::createILU()
                                                     columnIndices,
                                                     blockSize,
                                                     m_infoM.get(),
-                                                    CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                    HIPSPARSE_SOLVE_POLICY_USE_LEVEL,
                                                     m_buffer->data()));
 
     // We need to do this here as well. The first call was to check that we could decompose the system A=LU
     // the second call here is to make sure we can solve LUx=y
     int structuralZero;
-    // cusparseXbsrilu02_zeroPivot() calls cudaDeviceSynchronize()
-    auto statusPivot = cusparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
+    // hipsparseXbsrilu02_zeroPivot() calls hipDeviceSynchronize()
+    auto statusPivot = hipsparseXbsrilu02_zeroPivot(m_cuSparseHandle.get(), m_infoM.get(), &structuralZero);
 
     OPM_ERROR_IF(
-        statusPivot != CUSPARSE_STATUS_SUCCESS,
+        statusPivot != HIPSPARSE_STATUS_SUCCESS,
         fmt::format("Found a structucal zero at LU({}, {}). Could not solve LUx = y.", structuralZero, structuralZero));
 }
 

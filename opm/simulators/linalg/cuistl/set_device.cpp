@@ -17,7 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <config.h>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include <opm/common/OpmLog/OpmLog.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/set_device.hpp>
@@ -28,7 +28,7 @@ setDevice(int mpiRank, [[maybe_unused]] int numberOfMpiRanks)
 {
 
     int deviceCount = -1;
-    cudaGetDeviceCount(&deviceCount);
+    hipGetDeviceCount(&deviceCount);
 
     if (deviceCount <= 0) {
         // If they have CUDA enabled (ie. using a component that needs CUDA, eg. cubicgstab or CUILU0), this will fail
@@ -41,8 +41,8 @@ setDevice(int mpiRank, [[maybe_unused]] int numberOfMpiRanks)
     // Now do a round robin kind of assignment
     // TODO: We need to be more sophistacted here. We have no guarantee this will pick the correct device.
     const auto deviceId = mpiRank % deviceCount;
-    OPM_CUDA_SAFE_CALL(cudaDeviceReset());
-    OPM_CUDA_SAFE_CALL(cudaSetDevice(deviceId));
+    OPM_CUDA_SAFE_CALL(hipDeviceReset());
+    OPM_CUDA_SAFE_CALL(hipSetDevice(deviceId));
     OpmLog::info("Set CUDA device to " + std::to_string(deviceId) + " (out of " + std::to_string(deviceCount)
                  + " devices).");
 }

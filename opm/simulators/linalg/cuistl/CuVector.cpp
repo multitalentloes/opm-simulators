@@ -16,9 +16,10 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <cublas_v2.h>
-#include <cuda.h>
-#include <cuda_runtime.h>
+#include <hipblas/hipblas.h>
+#include <hipblas/hipblas.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime.h>
 #include <fmt/core.h>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
@@ -40,7 +41,7 @@ CuVector<T>::CuVector(const size_t numberOfElements)
     : m_numberOfElements(detail::to_int(numberOfElements))
     , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
 {
-    OPM_CUDA_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * detail::to_size_t(m_numberOfElements)));
+    OPM_CUDA_SAFE_CALL(hipMalloc(&m_dataOnDevice, sizeof(T) * detail::to_size_t(m_numberOfElements)));
 }
 
 template <class T>
@@ -48,8 +49,8 @@ CuVector<T>::CuVector(const T* dataOnHost, const size_t numberOfElements)
     : CuVector(numberOfElements)
 {
 
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(
-        m_dataOnDevice, dataOnHost, detail::to_size_t(m_numberOfElements) * sizeof(T), cudaMemcpyHostToDevice));
+    OPM_CUDA_SAFE_CALL(hipMemcpy(
+        m_dataOnDevice, dataOnHost, detail::to_size_t(m_numberOfElements) * sizeof(T), hipMemcpyHostToDevice));
 }
 
 template <class T>
@@ -68,10 +69,10 @@ CuVector<T>::operator=(const CuVector<T>& other)
     assertHasElements();
     assertSameSize(other);
 
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(m_dataOnDevice,
+    OPM_CUDA_SAFE_CALL(hipMemcpy(m_dataOnDevice,
                                   other.m_dataOnDevice,
                                   detail::to_size_t(m_numberOfElements) * sizeof(T),
-                                  cudaMemcpyDeviceToDevice));
+                                  hipMemcpyDeviceToDevice));
     return *this;
 }
 
@@ -81,16 +82,16 @@ CuVector<T>::CuVector(const CuVector<T>& other)
 {
     assertHasElements();
     assertSameSize(other);
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(m_dataOnDevice,
+    OPM_CUDA_SAFE_CALL(hipMemcpy(m_dataOnDevice,
                                   other.m_dataOnDevice,
                                   detail::to_size_t(m_numberOfElements) * sizeof(T),
-                                  cudaMemcpyDeviceToDevice));
+                                  hipMemcpyDeviceToDevice));
 }
 
 template <class T>
 CuVector<T>::~CuVector()
 {
-    OPM_CUDA_WARN_IF_ERROR(cudaFree(m_dataOnDevice));
+    OPM_CUDA_WARN_IF_ERROR(hipFree(m_dataOnDevice));
 }
 
 template <typename T>
@@ -263,7 +264,7 @@ CuVector<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
                               dim(),
                               numberOfElements));
     }
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+    OPM_CUDA_SAFE_CALL(hipMemcpy(data(), dataPointer, numberOfElements * sizeof(T), hipMemcpyHostToDevice));
 }
 
 template <class T>
@@ -271,7 +272,7 @@ void
 CuVector<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 {
     assertSameSize(detail::to_int(numberOfElements));
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(dataPointer, data(), numberOfElements * sizeof(T), cudaMemcpyDeviceToHost));
+    OPM_CUDA_SAFE_CALL(hipMemcpy(dataPointer, data(), numberOfElements * sizeof(T), hipMemcpyDeviceToHost));
 }
 
 template <class T>

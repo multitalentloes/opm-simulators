@@ -21,47 +21,47 @@
  * Contains wrappers to make the CuBLAS library behave as a modern C++ library with function overlading.
  *
  * In simple terms, this allows one to call say cublasScal on both double and single precisision,
- * instead of calling cublasDscal and cublasSscal respectively.
+ * instead of calling hipblasDscal and hipblasSscal respectively.
  */
 
 #ifndef OPM_CUBLASWRAPPER_HEADER_INCLUDED
 #define OPM_CUBLASWRAPPER_HEADER_INCLUDED
-#include <cublas_v2.h>
+#include <hipblas/hipblas.h>
 #include <opm/common/ErrorMacros.hpp>
 
 namespace Opm::cuistl::detail
 {
 
-inline cublasStatus_t
-cublasScal(cublasHandle_t handle,
+inline hipblasStatus_t
+cublasScal(hipblasHandle_t handle,
            int n,
            const double* alpha, /* host or device pointer */
            double* x,
            int incx)
 {
-    return cublasDscal(handle,
+    return hipblasDscal(handle,
                        n,
                        alpha, /* host or device pointer */
                        x,
                        incx);
 }
 
-inline cublasStatus_t
-cublasScal(cublasHandle_t handle,
+inline hipblasStatus_t
+cublasScal(hipblasHandle_t handle,
            int n,
            const float* alpha, /* host or device pointer */
            float* x,
            int incx)
 {
-    return cublasSscal(handle,
+    return hipblasSscal(handle,
                        n,
                        alpha, /* host or device pointer */
                        x,
                        incx);
 }
 
-inline cublasStatus_t
-cublasScal([[maybe_unused]] cublasHandle_t handle,
+inline hipblasStatus_t
+cublasScal([[maybe_unused]] hipblasHandle_t handle,
            [[maybe_unused]] int n,
            [[maybe_unused]] const int* alpha, /* host or device pointer */
            [[maybe_unused]] int* x,
@@ -69,8 +69,8 @@ cublasScal([[maybe_unused]] cublasHandle_t handle,
 {
     OPM_THROW(std::runtime_error, "cublasScal multiplication for integer vectors is not implemented yet.");
 }
-inline cublasStatus_t
-cublasAxpy(cublasHandle_t handle,
+inline hipblasStatus_t
+cublasAxpy(hipblasHandle_t handle,
            int n,
            const double* alpha, /* host or device pointer */
            const double* x,
@@ -78,7 +78,7 @@ cublasAxpy(cublasHandle_t handle,
            double* y,
            int incy)
 {
-    return cublasDaxpy(handle,
+    return hipblasDaxpy(handle,
                        n,
                        alpha, /* host or device pointer */
                        x,
@@ -87,8 +87,8 @@ cublasAxpy(cublasHandle_t handle,
                        incy);
 }
 
-inline cublasStatus_t
-cublasAxpy(cublasHandle_t handle,
+inline hipblasStatus_t
+cublasAxpy(hipblasHandle_t handle,
            int n,
            const float* alpha, /* host or device pointer */
            const float* x,
@@ -96,7 +96,7 @@ cublasAxpy(cublasHandle_t handle,
            float* y,
            int incy)
 {
-    return cublasSaxpy(handle,
+    return hipblasSaxpy(handle,
                        n,
                        alpha, /* host or device pointer */
                        x,
@@ -105,8 +105,8 @@ cublasAxpy(cublasHandle_t handle,
                        incy);
 }
 
-inline cublasStatus_t
-cublasAxpy([[maybe_unused]] cublasHandle_t handle,
+inline hipblasStatus_t
+cublasAxpy([[maybe_unused]] hipblasHandle_t handle,
            [[maybe_unused]] int n,
            [[maybe_unused]] const int* alpha, /* host or device pointer */
            [[maybe_unused]] const int* x,
@@ -117,20 +117,20 @@ cublasAxpy([[maybe_unused]] cublasHandle_t handle,
     OPM_THROW(std::runtime_error, "axpy multiplication for integer vectors is not implemented yet.");
 }
 
-inline cublasStatus_t
-cublasDot(cublasHandle_t handle, int n, const double* x, int incx, const double* y, int incy, double* result)
+inline hipblasStatus_t
+cublasDot(hipblasHandle_t handle, int n, const double* x, int incx, const double* y, int incy, double* result)
 {
-    return cublasDdot(handle, n, x, incx, y, incy, result);
+    return hipblasDdot(handle, n, x, incx, y, incy, result);
 }
 
-inline cublasStatus_t
-cublasDot(cublasHandle_t handle, int n, const float* x, int incx, const float* y, int incy, float* result)
+inline hipblasStatus_t
+cublasDot(hipblasHandle_t handle, int n, const float* x, int incx, const float* y, int incy, float* result)
 {
-    return cublasSdot(handle, n, x, incx, y, incy, result);
+    return hipblasSdot(handle, n, x, incx, y, incy, result);
 }
 
-inline cublasStatus_t
-cublasDot([[maybe_unused]] cublasHandle_t handle,
+inline hipblasStatus_t
+cublasDot([[maybe_unused]] hipblasHandle_t handle,
           [[maybe_unused]] int n,
           [[maybe_unused]] const int* x,
           [[maybe_unused]] int incx,
@@ -141,21 +141,21 @@ cublasDot([[maybe_unused]] cublasHandle_t handle,
     OPM_THROW(std::runtime_error, "inner product for integer vectors is not implemented yet.");
 }
 
-inline cublasStatus_t
-cublasNrm2(cublasHandle_t handle, int n, const double* x, int incx, double* result)
+inline hipblasStatus_t
+cublasNrm2(hipblasHandle_t handle, int n, const double* x, int incx, double* result)
 {
-    return cublasDnrm2(handle, n, x, incx, result);
+    return hipblasDnrm2(handle, n, x, incx, result);
 }
 
 
-inline cublasStatus_t
-cublasNrm2(cublasHandle_t handle, int n, const float* x, int incx, float* result)
+inline hipblasStatus_t
+cublasNrm2(hipblasHandle_t handle, int n, const float* x, int incx, float* result)
 {
-    return cublasSnrm2(handle, n, x, incx, result);
+    return hipblasSnrm2(handle, n, x, incx, result);
 }
 
-inline cublasStatus_t
-cublasNrm2([[maybe_unused]] cublasHandle_t handle,
+inline hipblasStatus_t
+cublasNrm2([[maybe_unused]] hipblasHandle_t handle,
            [[maybe_unused]] int n,
            [[maybe_unused]] const int* x,
            [[maybe_unused]] int incx,

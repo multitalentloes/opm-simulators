@@ -16,7 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <cublas_v2.h>
+#include <hipblas/hipblas.h>
 #include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
 namespace Opm::cuistl::detail
@@ -25,15 +25,15 @@ namespace Opm::cuistl::detail
 
 CuBlasHandle::CuBlasHandle()
 {
-    OPM_CUBLAS_SAFE_CALL(cublasCreate(&m_handle));
+    OPM_CUBLAS_SAFE_CALL(hipblasCreate(&m_handle));
 }
 
 CuBlasHandle::~CuBlasHandle()
 {
-    OPM_CUBLAS_WARN_IF_ERROR(cublasDestroy(m_handle));
+    OPM_CUBLAS_WARN_IF_ERROR(hipblasDestroy(m_handle));
 }
 
-cublasHandle_t
+hipblasHandle_t
 CuBlasHandle::get()
 {
     return m_handle;

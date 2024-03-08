@@ -16,7 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <cuda.h>
+#include <hip/hip_runtime.h>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
@@ -156,28 +156,28 @@ template <typename T>
 void
 CuSparseMatrix<T>::setUpperTriangular()
 {
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatFillMode(m_matrixDescription->get(), CUSPARSE_FILL_MODE_UPPER));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(m_matrixDescription->get(), HIPSPARSE_FILL_MODE_UPPER));
 }
 
 template <typename T>
 void
 CuSparseMatrix<T>::setLowerTriangular()
 {
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatFillMode(m_matrixDescription->get(), CUSPARSE_FILL_MODE_LOWER));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatFillMode(m_matrixDescription->get(), HIPSPARSE_FILL_MODE_LOWER));
 }
 
 template <typename T>
 void
 CuSparseMatrix<T>::setUnitDiagonal()
 {
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatDiagType(m_matrixDescription->get(), CUSPARSE_DIAG_TYPE_UNIT));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(m_matrixDescription->get(), HIPSPARSE_DIAG_TYPE_UNIT));
 }
 
 template <typename T>
 void
 CuSparseMatrix<T>::setNonUnitDiagonal()
 {
-    OPM_CUSPARSE_SAFE_CALL(cusparseSetMatDiagType(m_matrixDescription->get(), CUSPARSE_DIAG_TYPE_NON_UNIT));
+    OPM_CUSPARSE_SAFE_CALL(hipsparseSetMatDiagType(m_matrixDescription->get(), HIPSPARSE_DIAG_TYPE_NON_UNIT));
 }
 
 template <typename T>
@@ -199,7 +199,7 @@ CuSparseMatrix<T>::mv(const CuVector<T>& x, CuVector<T>& y) const
     T beta = 0.0;
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
-                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                 HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                  m_numberOfRows,
                                                  m_numberOfRows,
                                                  m_numberOfNonzeroBlocks,
@@ -234,7 +234,7 @@ CuSparseMatrix<T>::umv(const CuVector<T>& x, CuVector<T>& y) const
     T beta = 1.0;
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
-                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                 HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                  m_numberOfRows,
                                                  m_numberOfRows,
                                                  m_numberOfNonzeroBlocks,
@@ -270,7 +270,7 @@ CuSparseMatrix<T>::usmv(T alpha, const CuVector<T>& x, CuVector<T>& y) const
     T beta = 1.0;
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
                                                  detail::CUSPARSE_MATRIX_ORDER,
-                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                 HIPSPARSE_OPERATION_NON_TRANSPOSE,
                                                  numberOfRows,
                                                  numberOfRows,
                                                  numberOfNonzeroBlocks,
