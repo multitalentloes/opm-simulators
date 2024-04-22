@@ -1056,12 +1056,16 @@ public:
         FluidState &fluidState,
         unsigned globalSpaceIdx) const
     {
+
         OPM_TIMEBLOCK_LOCAL(updateRelperms);
         {
             // calculate relative permeabilities. note that we store the result into the
             // mobility_ class attribute. the division by the phase viscosity happens later.
             const auto& materialParams = materialLawParams(globalSpaceIdx);
             MaterialLaw::relativePermeabilities(mobility, materialParams, fluidState);
+            // MaterialLaw::DefaultMaterial::relativePermeabilities(mobility,
+            //                                         materialParams.template getRealParams<EclMultiplexerApproach::Default>(),
+            //                                         fluidState); // skips multiplexer function
             Valgrind::CheckDefined(mobility);
         }
         if (materialLawManager_->hasDirectionalRelperms()
