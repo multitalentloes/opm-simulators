@@ -30,6 +30,9 @@
 
 namespace Opm
 {
+    double xval = -1.0;
+    size_t xidx = -1;
+    long long cnt_xskip = 0;
     SimulatorReportSingle SimulatorReportSingle::serializationTestObject()
     {
         return SimulatorReportSingle{1.0, 2.0, 3.0, 4.0, 5.0, 6.0,
@@ -207,6 +210,7 @@ namespace Opm
                             failureReport->total_linear_iterations,
                             100.0*failureReport->total_linear_iterations/noZero(n));
         }
+        os << "Cnt Skips: " << cnt_xskip << std::endl;
         os << std::endl;
     }
 

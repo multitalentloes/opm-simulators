@@ -56,9 +56,6 @@ flowBlackoilTpfaMainInit(int argc, char** argv, bool outputCout, bool outputFile
 }
 
 // ----------------- Main program -----------------
-double xval = -1.0;
-size_t xidx = -1;
-int cnt_xskip = 0;
 int flowBlackoilTpfaMain(int argc, char** argv, bool outputCout, bool outputFiles)
 {
     // we always want to use the default locale, and thus spare us the trouble
