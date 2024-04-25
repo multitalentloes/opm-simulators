@@ -6,47 +6,54 @@
 int main(){
     // Initialize AMGX
     AMGX_SAFE_CALL(AMGX_initialize());
-
-    // Create an AMGX configuration
-    // "config_version=2, solver(my_solver)=MULTICOLOR_DILU, my_solver:max_iters=1, my_solver:relaxation_factor=0.5" // gir feil svar
-    // "config_version=2, solver(my_solver)=AMG, my_solver:smoother(my_smoother)=MULTICOLOR_DILU, max_iters=1, my_smoother:relaxation_factor=0.5" // gir eksakt riktig svar, så kan være den gjør mer enn bare dilu
-    // "determinism_flag=1, smoother=MULTICOLOR_DILU, coloring_level=1, matrix_coloring_scheme=MIN_MAX, max_uncolored_percentage=0.0, smoother_weight=1.0"
     AMGX_config_handle cfg;
-    // AMGX_SAFE_CALL(AMGX_config_create(&cfg, "config_version=2, solver(my_solver)=AMG, my_solver:smoother(my_smoother)=MULTICOLOR_GS, my_smoother:max_iters=10, my_smoother:relaxation_factor=0.5"));
-    // AMGX_SAFE_CALL(AMGX_config_create(&cfg, "determinism_flag=1, solver=MULTICOLOR_DILU, coloring_level=1, matrix_coloring_scheme=MIN_MAX, max_uncolored_percentage=0.55, smoother_weight=0.5"));
 
+    // Two problematic solvers in AMGX:
+    // From reading the reference manual it should not be a problem to use a solver that is just a preconditioner, although this might be outside of intended use?
+    // It works fine for some preconditioners but not others
+    // In some cases the reference manual says a preconditioner supports blocks when it does not in the code (multicolor ILU)
+    // Others give unhelpful internal errors (block_jacobi)
+    // AMGX_SAFE_CALL(AMGX_config_create(&cfg, "config_version=2, \
+    //                                         solver(jac_solv)=BLOCK_JACOBI, \
+    //                                         jac_solv:relaxation_factor=1.0, \
+    //                                         jac_solv:max_iters=1")); // gives internal error
+    // AMGX_SAFE_CALL(AMGX_config_create(&cfg, "config_version=2, \
+    //                                         solver(gs_solv)=MULTICOLOR_GS, \
+    //                                         gs_solv:coloring_level=1, \
+    //                                         gs_solv:matrix_coloring_scheme=MIN_MAX, \
+    //                                         gs_solv:max_uncolored_percentage=0.0, \
+    //                                         gs_solv:relaxation_factor=1.0, \
+    //                                         gs_solv:max_iters=1,\
+    //                                         gs_solv:reorder_cols_by_color=1, \
+    //                                         gs_solv:insert_diag_while_reordering=1")); // gives unsupported block size!
+
+    // We have our own implementation on DILU that works great on SPE1, this version does not seem to precondition the systems effectively
     AMGX_SAFE_CALL(AMGX_config_create(&cfg, "config_version=2, \
                                             solver(dilu_solv)=MULTICOLOR_DILU, \
                                             dilu_solv:coloring_level=1, \
                                             dilu_solv:matrix_coloring_scheme=MIN_MAX, \
-                                            dilu_solv:max_uncolored_percentage=0.15, \
-                                            dilu_solv:relaxation_factor=0.9, \
-                                            dilu_solv:max_iters=1"));
+                                            dilu_solv:max_uncolored_percentage=0.0, \
+                                            dilu_solv:relaxation_factor=1.0, \
+                                            dilu_solv:max_iters=1,\
+                                            dilu_solv:reorder_cols_by_color=1, \
+                                            dilu_solv:insert_diag_while_reordering=1")); // is valid, but works terribly in practice when solving SPE1
+
+
 
     // Create AMGX resources
     AMGX_resources_handle rsrc;
     AMGX_SAFE_CALL(AMGX_resources_create_simple(&rsrc, cfg));
 
     // Define the linear system size
-    int num_rows = 2; 
+    int num_rows = 2;
     int blocksize = 2;
-
-    int nnz = 4; //nonzero blockelements
+    int nnz = 3; //nonzero blockelementss
     // Create and populate the vector
-    double input_vector_x[num_rows*blocksize] = {1, 2, 1, 1};
-    double input_vector_b[num_rows*blocksize] = {2, 1, 3, 4};
-    int row_ptrs[num_rows+1] = {0,2,4};
-    int col_indices[nnz] = {0,1,0,1};
-    double values[nnz*blocksize*blocksize]  = {3,1,2,1,1,0,0,1,2,0,0,2,-1,0,0,-1};
-
-
-    // int nnz = 3; //nonzero blockelementss
-    // // Create and populate the vector
-    // double input_vector_x[4] = {1, 2, 1, 1};
-    // double input_vector_b[4] = {2, 1, 3, 4};
-    // int row_ptrs[num_rows] = {0,2,3};
-    // int col_indices[nnz] = {0,1,1};
-    // double values[nnz*blocksize*blocksize]  = {3,1,1,2,1,0,0,1,-1,0,0,-1};
+    double input_vector_x[4] = {1, 2, 1, 1};
+    double input_vector_b[4] = {2, 1, 3, 4};
+    int row_ptrs[num_rows] = {0,2,3};
+    int col_indices[nnz] = {0,1,1};
+    double values[nnz*blocksize*blocksize]  = {3,1,1,2,1,0,0,1,-1,0,0,-1};
 
     // Create AMGX vector
     AMGX_vector_handle x;
@@ -62,26 +69,26 @@ int main(){
     AMGX_solver_handle solver;
     AMGX_SAFE_CALL(AMGX_solver_create(&solver, rsrc, AMGX_mode_dDDI, cfg));
 
-    // Setup the linear system (A is not used in this example)
+    // Setup the linear system
     AMGX_matrix_handle A;
     AMGX_SAFE_CALL(AMGX_matrix_create(&A, rsrc, AMGX_mode_dDDI));
 
     // Upload the matrix data to AMGX using AMGX_matrix_upload_all()
     AMGX_SAFE_CALL(AMGX_matrix_upload_all(A, num_rows, nnz, blocksize, blocksize, row_ptrs, col_indices, values, NULL));
-    
+
     // Setup the solver
     AMGX_SAFE_CALL(AMGX_solver_setup(solver, A));
 
     /*
-        Test data to validate jacobi preconditioner, expected result is x_1
-            | |3 1|  | 1  0| |       | |1| |     | |2| |       | |   1| |
-            | |1 2|  | 0  1| |       | |2| |     | |1| |       | |   0| |
-        A = |                | x_0 = |     | b = |     | x_1 = |        |
-            | |0 0|  |-1  0| |       | |1| |     | |3| |       | |  -1| |
-            | |0 0|  | 0 -1| |       | |1| |     | |4| |       | |-1.5| |
+        Test data to validate preconditioner, expected result is x_1
+            | |3 1|  | 1  0| |       | |1| |     | |2| |
+            | |1 2|  | 0  1| |       | |2| |     | |1| |
+        A = |                | x_0 = |     | b = |     |
+            | |0 0|  |-1  0| |       | |1| |     | |3| |
+            | |0 0|  | 0 -1| |       | |1| |     | |4| |
     */
 
-    // Perform Jacobi preconditioning
+    // Apply preconditioner
     AMGX_SAFE_CALL(AMGX_solver_solve(solver, b, x));
 
     // Download the result vector from AMGX
@@ -100,16 +107,6 @@ int main(){
     for (int i = 0; i < num_rows*blocksize; ++i) {
         std::cout << "x[" << i << "] = " << input_vector_x[i] << std::endl;
     }
-
-    /*
-
-    DILU OUTPUT:
-    x[0] = 0.972318
-    x[1] = 1.13841
-    x[2] = -0.0553633
-    x[3] = -0.323529
-
-    */
 
     return 0;
 }
