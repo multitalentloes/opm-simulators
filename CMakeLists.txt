@@ -767,6 +767,7 @@ if(CUDA_FOUND)
                        cuseqilu0
                        cuowneroverlapcopy
                        solver_adapter
+                       ad
                        PROPERTIES LABELS ${gpu_label})
 endif()
 
