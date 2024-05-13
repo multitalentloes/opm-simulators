@@ -25,31 +25,33 @@
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 
+#include <config.h>
+#include <opm/common/utility/gpuDecorators.hpp>
 namespace Opm::cuistl
 {
 
 template <class T>
-CuBuffer<T>::CuBuffer(const std::vector<T>& data)
+OPM_HOST_DEVICE CuBuffer<T>::CuBuffer(const std::vector<T>& data)
     : CuBuffer(data.data(), detail::to_int(data.size()))
 {
 }
 
 template <class T>
-CuBuffer<T>::CuBuffer(const size_t numberOfElements)
+OPM_HOST_DEVICE CuBuffer<T>::CuBuffer(const size_t numberOfElements)
     : m_numberOfElements(detail::to_int(numberOfElements))
 {
     OPM_CUDA_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * detail::to_size_t(m_numberOfElements)));
 }
 
 template <class T>
-CuBuffer<T>::CuBuffer()
+OPM_HOST_DEVICE CuBuffer<T>::CuBuffer()
     : m_numberOfElements(0)
 {
     OPM_CUDA_SAFE_CALL(cudaMalloc(&m_dataOnDevice, 0));
 }
 
 template <class T>
-CuBuffer<T>::CuBuffer(const T* dataOnHost, const size_t numberOfElements)
+OPM_HOST_DEVICE CuBuffer<T>::CuBuffer(const T* dataOnHost, const size_t numberOfElements)
     : CuBuffer(numberOfElements)
 {
 
@@ -70,20 +72,27 @@ CuBuffer<T>::CuBuffer(const CuBuffer<T>& other)
 }
 
 template <class T>
-CuBuffer<T>::~CuBuffer()
+OPM_HOST_DEVICE CuBuffer<T>::~CuBuffer()
 {
     OPM_CUDA_WARN_IF_ERROR(cudaFree(m_dataOnDevice));
 }
 
 template <typename T>
-typename CuBuffer<T>::size_type
+OPM_HOST_DEVICE const T*
+CuBuffer<T>::data() const
+{
+    return m_dataOnDevice;
+}
+
+template <typename T>
+OPM_HOST_DEVICE typename CuBuffer<T>::size_type
 CuBuffer<T>::size() const
 {
     return detail::to_size_t(m_numberOfElements);
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::resize(int newSize)
 {
     if (newSize < 0) {
@@ -111,7 +120,7 @@ CuBuffer<T>::resize(int newSize)
 }
 
 template <typename T>
-std::vector<T>
+OPM_HOST_DEVICE std::vector<T>
 CuBuffer<T>::asStdVector() const
 {
     std::vector<T> temporary(detail::to_size_t(m_numberOfElements));
@@ -127,7 +136,7 @@ CuBuffer<T>::assertSameSize(const CuBuffer<T>& x) const
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::assertSameSize(int size) const
 {
     if (size != m_numberOfElements) {
@@ -137,7 +146,7 @@ CuBuffer<T>::assertSameSize(int size) const
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::assertHasElements() const
 {
     if (m_numberOfElements <= 0) {
@@ -146,7 +155,7 @@ CuBuffer<T>::assertHasElements() const
 }
 
 template <typename T>
-T*
+OPM_HOST_DEVICE T*
 CuBuffer<T>::data()
 {
     return m_dataOnDevice;
@@ -160,7 +169,7 @@ CuBuffer<T>::data() const
 }
 
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
 {
     if (numberOfElements > size()) {
@@ -173,7 +182,7 @@ CuBuffer<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
 }
 
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 {
     assertSameSize(detail::to_int(numberOfElements));
@@ -181,13 +190,13 @@ CuBuffer<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 }
 
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::copyFromHost(const std::vector<T>& data)
 {
     copyFromHost(data.data(), data.size());
 }
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuBuffer<T>::copyToHost(std::vector<T>& data) const
 {
     copyToHost(data.data(), data.size());

@@ -18,6 +18,8 @@
 */
 #ifndef OPM_CUBUFFER_HEADER_HPP
 #define OPM_CUBUFFER_HEADER_HPP
+#include <config.h>
+#include <opm/common/utility/gpuDecorators.hpp>
 #include <dune/common/fvector.hh>
 #include <dune/istl/bvector.hh>
 #include <exception>
@@ -67,7 +69,7 @@ public:
      *
      * @param other the vector to copy from
      */
-    CuBuffer(const CuBuffer<T>& other);
+    OPM_HOST_DEVICE CuBuffer(const CuBuffer<T>& other);
 
     /**
      * @brief CuBuffer allocates new GPU memory of the same size as data and copies the content of the data vector to
@@ -80,7 +82,7 @@ public:
      *
      * @param data the vector to copy from
      */
-    explicit CuBuffer(const std::vector<T>& data);
+    OPM_HOST_DEVICE explicit CuBuffer(const std::vector<T>& data);
 
     /**
      * @brief Default constructor that will initialize cublas and allocate 0 bytes of memory
@@ -94,7 +96,7 @@ public:
      *
      * @param numberOfElements number of T elements to allocate
      */
-    explicit CuBuffer(const size_t numberOfElements);
+    OPM_HOST_DEVICE explicit CuBuffer(const size_t numberOfElements);
 
 
     /**
@@ -108,17 +110,17 @@ public:
      *
      * @note For now numberOfElements needs to be within the limits of int due to restrictions in cublas
      */
-    CuBuffer(const T* dataOnHost, const size_t numberOfElements);
+    OPM_HOST_DEVICE CuBuffer(const T* dataOnHost, const size_t numberOfElements);
 
     /**
      * @brief ~CuBuffer calls cudaFree
      */
-    virtual ~CuBuffer();
+    OPM_HOST_DEVICE virtual ~CuBuffer();
 
     /**
      * @return the raw pointer to the GPU data
      */
-    T* data();
+    OPM_HOST_DEVICE T* data();
 
     /**
      * @return the raw pointer to the GPU data
@@ -133,7 +135,7 @@ public:
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
     template <int BlockDimension>
-    void copyFromHost(const Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector)
+    OPM_HOST_DEVICE void copyFromHost(const Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector)
     {
         // TODO: [perf] vector.size() can be replaced by bvector.N() * BlockDimension
         if (detail::to_size_t(m_numberOfElements) != bvector.size()) {
@@ -156,7 +158,7 @@ public:
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
     template <int BlockDimension>
-    void copyToHost(Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector) const
+    OPM_HOST_DEVICE void copyToHost(Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector) const
     {
         // TODO: [perf] vector.size() can be replaced by bvector.N() * BlockDimension
         if (detail::to_size_t(m_numberOfElements) != bvector.size()) {
@@ -178,7 +180,7 @@ public:
      * @note This does synchronous transfer.
      * @note assumes that this vector has numberOfElements elements
      */
-    void copyFromHost(const T* dataPointer, size_t numberOfElements);
+    OPM_HOST_DEVICE void copyFromHost(const T* dataPointer, size_t numberOfElements);
 
     /**
      * @brief copyFromHost copies numberOfElements to the CPU memory dataPointer
@@ -187,7 +189,7 @@ public:
      * @note This does synchronous transfer.
      * @note assumes that this vector has numberOfElements elements
      */
-    void copyToHost(T* dataPointer, size_t numberOfElements) const;
+    OPM_HOST_DEVICE void copyToHost(T* dataPointer, size_t numberOfElements) const;
 
     /**
      * @brief copyToHost copies data from an std::vector
@@ -196,7 +198,7 @@ public:
      * @note This does synchronous transfer.
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
-    void copyFromHost(const std::vector<T>& data);
+    OPM_HOST_DEVICE void copyFromHost(const std::vector<T>& data);
 
     /**
      * @brief copyToHost copies data to an std::vector
@@ -211,28 +213,28 @@ public:
      * @brief size returns the size (number of T elements) in the vector
      * @return number of elements
      */
-    size_type size() const;
+    OPM_HOST_DEVICE size_type size() const;
 
     /**
      * @brief resize the number of elements that fit in the vector, shrinking it causes truncation
      * @param number of elements in the new buffer
      */
-    void resize(int);
+    OPM_HOST_DEVICE void resize(int);
 
     /**
      * @brief creates an std::vector of the same size and copies the GPU data to this std::vector
      * @return an std::vector containing the elements copied from the GPU.
      */
-    std::vector<T> asStdVector() const;
+    OPM_HOST_DEVICE std::vector<T> asStdVector() const;
 
 private:
     T* m_dataOnDevice = nullptr;
     int m_numberOfElements;
 
-    void assertSameSize(const CuBuffer<T>& other) const;
-    void assertSameSize(int size) const;
+    OPM_HOST_DEVICE void assertSameSize(const CuBuffer<T>& other) const;
+    OPM_HOST_DEVICE void assertSameSize(int size) const;
 
-    void assertHasElements() const;
+    OPM_HOST_DEVICE void assertHasElements() const;
 };
 
 template <class T>
