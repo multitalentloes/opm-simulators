@@ -308,6 +308,66 @@ public:
         return res;
     }
 
+    class iterator {
+    public:
+        // Iterator typedefs
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+        using value_type = T;
+        using pointer = T*;
+        using reference = T&;
+
+        // Constructor
+        iterator(T* ptr) : m_ptr(ptr) {}
+
+        // Dereference operator
+        reference operator*() const {
+            return *m_ptr;
+        }
+
+        // Pre-increment operator
+        iterator& operator++() {
+            ++m_ptr;
+            return *this;
+        }
+
+        // Post-increment operator
+        iterator operator++(int) {
+            iterator tmp = *this;
+            ++m_ptr;
+            return tmp;
+        }
+
+        // Equality comparison operator
+        bool operator==(const iterator& other) const {
+            return m_ptr == other.m_ptr;
+        }
+
+        // Inequality comparison operator
+        bool operator!=(const iterator& other) const {
+            return !(*this == other);
+        }
+
+    private:
+        T* m_ptr; // Pointer to the current element
+    };
+
+    /**
+     * @brief Get an iterator pointing to the first element of the buffer
+     * @param iterator to traverse the buffer
+     */
+    iterator begin(){
+        return iterator(m_dataOnDevice);
+    }
+
+    /**
+     * @brief Get an iterator pointing to the address after the last element of the buffer
+     * @param iterator pointing to the first value after the end of the buffer
+     */
+    iterator end(){
+        return iterator(m_dataOnDevice + m_numberOfElements);
+    }
+
 private:
     T* m_dataOnDevice = nullptr;
 
