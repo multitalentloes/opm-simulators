@@ -45,6 +45,14 @@ CuBuffer<T>::CuBuffer(const size_t numberOfElements)
 }
 
 template <class T>
+CuBuffer<T>::CuBuffer()
+    : m_numberOfElements(0)
+    , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
+{
+    OPM_CUDA_SAFE_CALL(cudaMalloc(&m_dataOnDevice, 0));
+}
+
+template <class T>
 CuBuffer<T>::CuBuffer(const T* dataOnHost, const size_t numberOfElements)
     : CuBuffer(numberOfElements)
 {

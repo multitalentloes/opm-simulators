@@ -84,6 +84,11 @@ public:
     explicit CuBuffer(const std::vector<T>& data);
 
     /**
+     * @brief Default constructor that will initialize cublas and allocate 0 bytes of memory
+     */
+    explicit CuBuffer();
+
+    /**
      * @brief operator= copies the content of the data vector to the memory of this vector.
      *
      * @note This requires the two vectors to be of the same size.

@@ -36,6 +36,7 @@ BOOST_AUTO_TEST_CASE(TestDocumentedUsage)
     auto someDataOnCPU = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
 
     auto dataOnGPU = ::Opm::cuistl::CuBuffer<double>(someDataOnCPU);
+    auto checkThatDefaulConstructorCompiles = ::Opm::cuistl::CuBuffer<double>();
 
     auto stdVectorOnCPU = dataOnGPU.asStdVector();
 
