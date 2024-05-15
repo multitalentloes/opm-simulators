@@ -66,6 +66,22 @@ BOOST_AUTO_TEST_CASE(TestFrontAndBack)
     BOOST_CHECK(cpuResults[1] == someDataOnCPU.back());
 }
 
+BOOST_AUTO_TEST_CASE(TestConstAndSwap)
+{
+    std::vector<double> avec = {1, 2, 3, 4, 5, 6, 7};
+    using CuBuffer = ::Opm::cuistl::CuBuffer<double>;
+    const CuBuffer a(avec);
+
+    CuBuffer b;
+    b.resize(a.size());
+
+    std::move(a.begin(), a.end(), b.begin());
+
+    auto bvec = b.asStdVector();
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(avec.begin(), avec.end(), bvec.begin(), bvec.end());
+}
+
 BOOST_AUTO_TEST_CASE(TestSTLSort)
 {
     auto someDataOnCPU = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692, -100, 20});

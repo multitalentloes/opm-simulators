@@ -400,11 +400,19 @@ public:
         return iterator(m_dataOnDevice);
     }
 
+    iterator begin() const {
+        return iterator(m_dataOnDevice);
+    }
+
     /**
      * @brief Get an iterator pointing to the address after the last element of the buffer
      * @param iterator pointing to the first value after the end of the buffer
      */
     iterator end(){
+        return iterator(m_dataOnDevice + m_numberOfElements);
+    }
+
+    iterator end() const {
         return iterator(m_dataOnDevice + m_numberOfElements);
     }
 
