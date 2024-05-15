@@ -28,14 +28,15 @@
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <random>
 #include <array>
+#include <algorithm>
 
 BOOST_AUTO_TEST_CASE(TestDocumentedUsage)
 {
+    // A simple test to check that we can move data to and from the GPU
     auto someDataOnCPU = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
 
     auto dataOnGPU = ::Opm::cuistl::CuBuffer<double>(someDataOnCPU);
 
-    // Get data back on CPU in another vector:
     auto stdVectorOnCPU = dataOnGPU.asStdVector();
 
     BOOST_CHECK_EQUAL_COLLECTIONS(
@@ -44,6 +45,7 @@ BOOST_AUTO_TEST_CASE(TestDocumentedUsage)
 
 BOOST_AUTO_TEST_CASE(TestFrontAndBack)
 {
+    // This test checks that the results of front() and back() matches that of a regular vector
     size_t bytes = sizeof(double) * 2;
 
     auto someDataOnCPU = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
@@ -61,4 +63,18 @@ BOOST_AUTO_TEST_CASE(TestFrontAndBack)
 
     BOOST_CHECK(cpuResults[0] == someDataOnCPU.front());
     BOOST_CHECK(cpuResults[1] == someDataOnCPU.back());
+}
+
+BOOST_AUTO_TEST_CASE(TestSTLSort)
+{
+    auto someDataOnCPU = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692, -100, 20});
+    auto dataOnGPU = ::Opm::cuistl::CuBuffer<double>(someDataOnCPU);
+
+    std::sort(someDataOnCPU.begin(), someDataOnCPU.end());
+    std::sort(dataOnGPU.begin(), dataOnGPU.end());
+
+    auto gpuResults = dataOnGPU.asStdVector();
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        gpuResults.begin(), gpuResults.end(), someDataOnCPU.begin(), someDataOnCPU.end());
 }

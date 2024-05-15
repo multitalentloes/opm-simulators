@@ -338,6 +338,18 @@ public:
             return tmp;
         }
 
+        iterator& operator--() {
+            --m_ptr;
+            return *this;
+        }
+
+        // Post-increment operator
+        iterator operator--(int) {
+            iterator tmp = *this;
+            --m_ptr;
+            return tmp;
+        }
+
         // Equality comparison operator
         bool operator==(const iterator& other) const {
             return m_ptr == other.m_ptr;
@@ -346,6 +358,29 @@ public:
         // Inequality comparison operator
         bool operator!=(const iterator& other) const {
             return !(*this == other);
+        }
+
+        // Subtraction operator
+        difference_type operator-(const iterator& other) const {
+            return std::distance(other.m_ptr, m_ptr);
+        }
+        iterator operator-(int n) const {
+            return iterator(m_ptr-n);
+        }
+
+        // Addition operator
+        iterator operator+(difference_type n) const {
+            return iterator(m_ptr + n);
+        }
+
+        // Less than operator
+        bool operator<(const iterator& other) const {
+            return m_ptr < other.m_ptr;
+        }
+
+        // Greater than operator
+        bool operator>(const iterator& other) const {
+            return m_ptr > other.m_ptr;
         }
 
     private:
