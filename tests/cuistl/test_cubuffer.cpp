@@ -68,12 +68,17 @@ BOOST_AUTO_TEST_CASE(TestFrontAndBack)
 BOOST_AUTO_TEST_CASE(TestSTLSort)
 {
     auto someDataOnCPU = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692, -100, 20});
+    auto expectedWhenSorted = std::vector<double>({{-100, 1.0, 2.0, 10.7132692, 20, 42.0, 59.9451743}});
     auto dataOnGPU = ::Opm::cuistl::CuBuffer<double>(someDataOnCPU);
 
     std::sort(someDataOnCPU.begin(), someDataOnCPU.end());
     std::sort(dataOnGPU.begin(), dataOnGPU.end());
 
     auto gpuResults = dataOnGPU.asStdVector();
+
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        gpuResults.begin(), gpuResults.end(), expectedWhenSorted.begin(), expectedWhenSorted.end());
 
     BOOST_CHECK_EQUAL_COLLECTIONS(
         gpuResults.begin(), gpuResults.end(), someDataOnCPU.begin(), someDataOnCPU.end());

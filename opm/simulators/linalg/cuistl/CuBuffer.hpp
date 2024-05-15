@@ -317,7 +317,6 @@ public:
         using pointer = T*;
         using reference = T&;
 
-        // Constructor
         iterator(T* ptr) : m_ptr(ptr) {}
 
         // Dereference operator
@@ -338,12 +337,13 @@ public:
             return tmp;
         }
 
+        // Pre-decrement operator
         iterator& operator--() {
             --m_ptr;
             return *this;
         }
 
-        // Post-increment operator
+        // Post-decrement operator
         iterator operator--(int) {
             iterator tmp = *this;
             --m_ptr;
