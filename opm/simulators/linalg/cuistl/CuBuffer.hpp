@@ -117,6 +117,15 @@ public:
     T& operator[](int idx);
 
     /**
+     * @brief operator[] to retrieve a copy of an item in the buffer
+     *
+     * @note This does asynchronous operations
+     *
+     * @param idx The index of the element
+     */
+    T operator[](int idx) const;
+
+    /**
      * @brief CuBuffer allocates new GPU memory of size numberOfElements * sizeof(T)
      *
      * @note For now numberOfElements needs to be within the limits of int due to restrictions in cublas

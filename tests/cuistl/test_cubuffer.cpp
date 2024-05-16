@@ -86,18 +86,33 @@ BOOST_AUTO_TEST_CASE(TestConstAndSwap)
 
 BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
 {
+    // test for mutable cubuffers
     std::vector<double> cpuv = {1.0, 0.0};
     std::vector<double> expected = {1.0, 1.0};
 
     using CuBuffer = ::Opm::cuistl::CuBuffer<double>;
-    
-    CuBuffer a(cpuv);
-    a[1] = a[0];
 
-    std::vector<double> gpuv = a.asStdVector();
+    CuBuffer a(cpuv);
+    a[1] = a[0]; // checks both read and write for mutable cubuffers
+
+    auto gpuv = a.asStdVector();
 
     BOOST_CHECK(gpuv[0] == gpuv[1]);
     BOOST_CHECK_EQUAL_COLLECTIONS(expected.begin(), expected.end(), gpuv.begin(), gpuv.end());
+
+    // test functionality of const cubuffers
+    const CuBuffer b(cpuv);
+    double* gpuDouble;
+    OPM_CUDA_SAFE_CALL(cudaMalloc(&gpuDouble, sizeof(double)));
+    gpuDouble[0] = b[0];
+
+    double cpuDouble[1];
+
+    OPM_CUDA_SAFE_CALL(cudaMemcpy(cpuDouble, gpuDouble, sizeof(double), cudaMemcpyDeviceToHost));
+    auto gpuv2 = b.asStdVector();
+
+    BOOST_CHECK(cpuDouble[0] == cpuv[0]);
+    BOOST_CHECK_EQUAL_COLLECTIONS(cpuv.begin(), cpuv.end(), gpuv2.begin(), gpuv2.end());
 }
 
 BOOST_AUTO_TEST_CASE(TestSTLSort)
