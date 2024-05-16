@@ -225,7 +225,7 @@ CuBuffer<T>::data()
 }
 
 template <typename T>
-T
+T&
 CuBuffer<T>::front()
 {
 #ifndef NDEBUG
@@ -239,7 +239,33 @@ CuBuffer<T>::front()
 
 template <typename T>
 T
+CuBuffer<T>::front() const
+{
+#ifndef NDEBUG
+    if (m_numberOfElements < 1) {
+        OPM_THROW(std::invalid_argument,
+                  fmt::format("Can not fetch the front item of a CuBuffer with no elements"));
+    }
+#endif
+    return m_dataOnDevice[0];
+}
+
+template <typename T>
+T&
 CuBuffer<T>::back()
+{
+#ifndef NDEBUG
+    if (m_numberOfElements < 1) {
+        OPM_THROW(std::invalid_argument,
+                  fmt::format("Can not fetch the back item of a CuBuffer with no elements"));
+    }
+#endif
+    return m_dataOnDevice[m_numberOfElements-1];
+}
+
+template <typename T>
+T
+CuBuffer<T>::back() const
 {
 #ifndef NDEBUG
     if (m_numberOfElements < 1) {

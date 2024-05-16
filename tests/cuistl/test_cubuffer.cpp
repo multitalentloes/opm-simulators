@@ -93,6 +93,12 @@ BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
     using CuBuffer = ::Opm::cuistl::CuBuffer<double>;
 
     CuBuffer a(cpuv);
+    // check that these functions exist
+    a.front();
+    a.back();
+    a.begin();
+    a.end();
+
     a[1] = a[0]; // checks both read and write for mutable cubuffers
 
     auto gpuv = a.asStdVector();
@@ -102,6 +108,12 @@ BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
 
     // test functionality of const cubuffers
     const CuBuffer b(cpuv);
+    // check that these functions exist
+    b.front();
+    b.back();
+    b.begin();
+    b.end();
+    
     double* gpuDouble;
     OPM_CUDA_SAFE_CALL(cudaMalloc(&gpuDouble, sizeof(double)));
     gpuDouble[0] = b[0];

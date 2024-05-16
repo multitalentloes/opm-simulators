@@ -159,16 +159,6 @@ public:
     T* data();
 
     /**
-     * @return fetch the first element in a CuBuffer
-     */
-    T front();
-
-    /**
-     * @return fetch the last element in a CuBuffer
-     */
-    T back();
-
-    /**
      * @return the raw pointer to the GPU data
      */
     const T* data() const;
@@ -176,12 +166,23 @@ public:
     /**
      * @return fetch the first element in a CuBuffer
      */
-    const T front() const;
+    T& front();
 
     /**
      * @return fetch the last element in a CuBuffer
      */
-    const T back() const;
+    T& back();
+
+    //TODO: do we need another version of front and back if the elements are to be const as well?
+    /**
+     * @return fetch the first element in a CuBuffer
+     */
+    T front() const;
+
+    /**
+     * @return fetch the last element in a CuBuffer
+     */
+    T back() const;
 
     /**
      * @brief copyFromHost copies data from a Dune::BlockVector
