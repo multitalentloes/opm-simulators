@@ -85,6 +85,19 @@ CuBuffer<T>::operator=(const CuBuffer<T>& other)
 }
 
 template <class T>
+T&
+CuBuffer<T>::operator[](int idx)
+{
+#ifndef NDEBUG
+    if (idx >= m_numberOfElements || idx < 0) {
+        OPM_THROW(std::invalid_argument,
+                  fmt::format("The index provided was not in the range [0, buffersize-1]"));
+    }
+#endif
+    return m_dataOnDevice[idx];
+}
+
+template <class T>
 CuBuffer<T>::CuBuffer(const CuBuffer<T>& other)
     : CuBuffer(other.m_numberOfElements)
 {

@@ -30,6 +30,8 @@
 #include <array>
 #include <algorithm>
 
+//TODO: clang format this file when sketch is done
+
 BOOST_AUTO_TEST_CASE(TestDocumentedUsage)
 {
     // A simple test to check that we can move data to and from the GPU
@@ -80,6 +82,22 @@ BOOST_AUTO_TEST_CASE(TestConstAndSwap)
     auto bvec = b.asStdVector();
 
     BOOST_CHECK_EQUAL_COLLECTIONS(avec.begin(), avec.end(), bvec.begin(), bvec.end());
+}
+
+BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
+{
+    std::vector<double> cpuv = {1.0, 0.0};
+    std::vector<double> expected = {1.0, 1.0};
+
+    using CuBuffer = ::Opm::cuistl::CuBuffer<double>;
+    
+    CuBuffer a(cpuv);
+    a[1] = a[0];
+
+    std::vector<double> gpuv = a.asStdVector();
+
+    BOOST_CHECK(gpuv[0] == gpuv[1]);
+    BOOST_CHECK_EQUAL_COLLECTIONS(expected.begin(), expected.end(), gpuv.begin(), gpuv.end());
 }
 
 BOOST_AUTO_TEST_CASE(TestSTLSort)

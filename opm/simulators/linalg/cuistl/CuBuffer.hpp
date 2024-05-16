@@ -108,6 +108,15 @@ public:
     CuBuffer& operator=(T scalar);
 
     /**
+     * @brief operator[] to retrieve a reference to an item in the buffer
+     *
+     * @note This does asynchronous operations
+     *
+     * @param idx The index of the element
+     */
+    T& operator[](int idx);
+
+    /**
      * @brief CuBuffer allocates new GPU memory of size numberOfElements * sizeof(T)
      *
      * @note For now numberOfElements needs to be within the limits of int due to restrictions in cublas
