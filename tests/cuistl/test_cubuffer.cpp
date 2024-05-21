@@ -145,3 +145,20 @@ BOOST_AUTO_TEST_CASE(TestSTLSort)
     BOOST_CHECK_EQUAL_COLLECTIONS(
         gpuResults.begin(), gpuResults.end(), someDataOnCPU.begin(), someDataOnCPU.end());
 }
+
+// as of now this does not really test anything new as .size() is already marked with const
+BOOST_AUTO_TEST_CASE(TestConstCuBufferSize)
+{
+    auto buffer = std::vector<int>({1, 2, 3, 4, 5, 6});
+    auto resultbuffer = std::vector<int>({{-1}});
+
+    const auto GPUbuffer = ::Opm::cuistl::CuBuffer<int>(buffer);
+    auto GPUResultbuffer = ::Opm::cuistl::CuBuffer<int>(resultbuffer);
+
+    GPUResultbuffer[0] = GPUbuffer.size();
+
+    auto ans = GPUResultbuffer.asStdVector().front();
+
+
+    BOOST_CHECK(ans == 6);
+}
