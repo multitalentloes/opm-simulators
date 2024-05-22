@@ -23,7 +23,6 @@
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
-#include <opm/simulators/linalg/cuistl/detail/CuBlasHandle.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <vector>
 #include <string>
@@ -437,11 +436,7 @@ public:
 
 private:
     T* m_dataOnDevice = nullptr;
-
-    // Note that we store this as int to make sure we are always cublas compatible.
-    // This gives the added benefit that a size_t to int conversion error occurs during construction.
     int m_numberOfElements;
-    detail::CuBlasHandle& m_cuBlasHandle;
 
     void assertSameSize(const CuBuffer<T>& other) const;
     void assertSameSize(int size) const;

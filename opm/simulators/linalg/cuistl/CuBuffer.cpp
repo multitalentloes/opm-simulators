@@ -16,14 +16,11 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <fmt/core.h>
 #include <opm/simulators/linalg/cuistl/CuBuffer.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
-#include <opm/simulators/linalg/cuistl/detail/cublas_wrapper.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 
@@ -39,7 +36,6 @@ CuBuffer<T>::CuBuffer(const std::vector<T>& data)
 template <class T>
 CuBuffer<T>::CuBuffer(const size_t numberOfElements)
     : m_numberOfElements(detail::to_int(numberOfElements))
-    , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
 {
     OPM_CUDA_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * detail::to_size_t(m_numberOfElements)));
 }
@@ -47,7 +43,6 @@ CuBuffer<T>::CuBuffer(const size_t numberOfElements)
 template <class T>
 CuBuffer<T>::CuBuffer()
     : m_numberOfElements(0)
-    , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
 {
     OPM_CUDA_SAFE_CALL(cudaMalloc(&m_dataOnDevice, 0));
 }
