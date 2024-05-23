@@ -23,24 +23,25 @@
 #include <opm/simulators/linalg/cuistl/CuView.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
+#include <opm/common/utility/gpuDecorators.hpp>
 
 namespace Opm::cuistl
 {
 
 template <class T>
-CuView<T>::CuView(std::vector<T>& data)
+OPM_HOST_DEVICE CuView<T>::CuView(std::vector<T>& data)
     : CuView(data.data(), detail::to_int(data.size()))
 {
 }
 
 template <class T>
-CuView<T>::CuView(T* dataOnHost, size_t numberOfElements)
+OPM_HOST_DEVICE CuView<T>::CuView(T* dataOnHost, size_t numberOfElements)
     : m_dataPtr(dataOnHost), m_numberOfElements(numberOfElements)
 {
 }
 
 template <class T>
-T&
+OPM_HOST_DEVICE T&
 CuView<T>::operator[](size_t idx)
 {
 #ifndef NDEBUG
@@ -53,7 +54,7 @@ CuView<T>::operator[](size_t idx)
 }
 
 template <class T>
-T
+OPM_HOST_DEVICE T
 CuView<T>::operator[](size_t idx) const
 {
 #ifndef NDEBUG
@@ -66,26 +67,26 @@ CuView<T>::operator[](size_t idx) const
 }
 
 template <class T>
-CuView<T>::CuView(const CuView<T>& other)
+OPM_HOST_DEVICE CuView<T>::CuView(const CuView<T>& other)
     : CuView(other.m_dataPtr, other.m_numberOfElements)
 {
 }
 
 template <class T>
-CuView<T>::~CuView()
+OPM_HOST_DEVICE CuView<T>::~CuView()
 {
     OPM_CUDA_WARN_IF_ERROR(cudaFree(m_dataPtr));
 }
 
 template <typename T>
-const T*
+OPM_HOST_DEVICE const T*
 CuView<T>::data() const
 {
     return m_dataPtr;
 }
 
 template <typename T>
-size_t
+OPM_HOST_DEVICE size_t
 CuView<T>::size() const
 {
     // Note that there is no way for m_numberOfElements to be non-positive,
@@ -97,7 +98,7 @@ CuView<T>::size() const
 }
 
 template <typename T>
-std::vector<T>
+OPM_HOST_DEVICE std::vector<T>
 CuView<T>::asStdVector() const
 {
     std::vector<T> temporary(detail::to_size_t(m_numberOfElements));
@@ -106,21 +107,21 @@ CuView<T>::asStdVector() const
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::setZeroAtIndexSet(const CuView<int>& indexSet)
 {
     detail::setZeroAtIndexSet(m_dataPtr, indexSet.size(), indexSet.data());
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::assertSameSize(const CuView<T>& x) const
 {
     assertSameSize(x.m_numberOfElements);
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::assertSameSize(size_t size) const
 {
     if (size != m_numberOfElements) {
@@ -130,7 +131,7 @@ CuView<T>::assertSameSize(size_t size) const
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::assertHasElements() const
 {
     if (m_numberOfElements <= 0) {
@@ -139,14 +140,14 @@ CuView<T>::assertHasElements() const
 }
 
 template <typename T>
-T*
+OPM_HOST_DEVICE T*
 CuView<T>::data()
 {
     return m_dataPtr;
 }
 
 template <typename T>
-T&
+OPM_HOST_DEVICE T&
 CuView<T>::front()
 {
 #ifndef NDEBUG
@@ -159,7 +160,7 @@ CuView<T>::front()
 }
 
 template <typename T>
-T
+OPM_HOST_DEVICE T
 CuView<T>::front() const
 {
 #ifndef NDEBUG
@@ -172,7 +173,7 @@ CuView<T>::front() const
 }
 
 template <typename T>
-T&
+OPM_HOST_DEVICE T&
 CuView<T>::back()
 {
 #ifndef NDEBUG
@@ -185,7 +186,7 @@ CuView<T>::back()
 }
 
 template <typename T>
-T
+OPM_HOST_DEVICE T
 CuView<T>::back() const
 {
 #ifndef NDEBUG
@@ -198,7 +199,7 @@ CuView<T>::back() const
 }
 
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
 {
     if (numberOfElements > size()) {
@@ -211,7 +212,7 @@ CuView<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
 }
 
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 {
     assertSameSize(detail::to_int(numberOfElements));
@@ -219,26 +220,26 @@ CuView<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 }
 
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::copyFromHost(const std::vector<T>& data)
 {
     copyFromHost(data.data(), data.size());
 }
 template <class T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::copyToHost(std::vector<T>& data) const
 {
     copyToHost(data.data(), data.size());
 }
 
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::prepareSendBuf(CuView<T>& buffer, const CuView<int>& indexSet) const
 {
     return detail::prepareSendBuf(m_dataPtr, buffer.data(), indexSet.size(), indexSet.data());
 }
 template <typename T>
-void
+OPM_HOST_DEVICE void
 CuView<T>::syncFromRecvBuf(CuView<T>& buffer, const CuView<int>& indexSet) const
 {
     return detail::syncFromRecvBuf(m_dataPtr, buffer.data(), indexSet.size(), indexSet.data());

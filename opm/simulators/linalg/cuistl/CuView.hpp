@@ -26,6 +26,7 @@
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <vector>
 #include <string>
+#include <opm/common/utility/gpuDecorators.hpp>
 
 
 namespace Opm::cuistl
@@ -64,7 +65,7 @@ struct CuView
      *
      * @param other the vector to copy from
      */
-    CuView(const CuView<T>& other);
+    OPM_HOST_DEVICE CuView(const CuView<T>& other);
 
     /**
      * @brief CuView allocates new GPU memory of the same size as data and copies the content of the data vector to
@@ -77,11 +78,11 @@ struct CuView
      *
      * @param data the vector to copy from
      */
-    explicit CuView(std::vector<T>& data);
+    explicit OPM_HOST_DEVICE CuView(std::vector<T>& data);
     /**
      * @brief Default constructor that will initialize cublas and allocate 0 bytes of memory
      */
-    explicit CuView();
+    explicit OPM_HOST_DEVICE CuView();
 
     /**
      * @brief operator[] to retrieve a reference to an item in the buffer
@@ -90,7 +91,7 @@ struct CuView
      *
      * @param idx The index of the element
      */
-    T& operator[](size_t idx);
+    OPM_HOST_DEVICE T& operator[](size_t idx);
 
     /**
      * @brief operator[] to retrieve a copy of an item in the buffer
@@ -99,7 +100,7 @@ struct CuView
      *
      * @param idx The index of the element
      */
-    T operator[](size_t idx) const;
+   OPM_HOST_DEVICE T operator[](size_t idx) const;
 
 
     /**
@@ -113,43 +114,43 @@ struct CuView
      *
      * @note For now numberOfElements needs to be within the limits of int due to restrictions in cublas
      */
-    CuView(T* dataOnHost, size_t numberOfElements);
+    OPM_HOST_DEVICE CuView(T* dataOnHost, size_t numberOfElements);
 
     /**
      * @brief ~CuView calls cudaFree
      */
-    virtual ~CuView();
+    virtual OPM_HOST_DEVICE ~CuView();
 
     /**
      * @return the raw pointer to the GPU data
      */
-    T* data();
+    OPM_HOST_DEVICE T* data();
 
     /**
      * @return the raw pointer to the GPU data
      */
-    const T* data() const;
+    OPM_HOST_DEVICE const T* data() const;
 
     /**
      * @return fetch the first element in a CuView
      */
-    T& front();
+    OPM_HOST_DEVICE T& front();
 
     /**
      * @return fetch the last element in a CuView
      */
-    T& back();
+    OPM_HOST_DEVICE T& back();
 
     //TODO: do we need another version of front and back if the elements are to be const as well?
     /**
      * @return fetch the first element in a CuView
      */
-    T front() const;
+    OPM_HOST_DEVICE T front() const;
 
     /**
      * @return fetch the last element in a CuView
      */
-    T back() const;
+    OPM_HOST_DEVICE T back() const;
 
     /**
      * @brief copyFromHost copies data from a Dune::BlockVector
@@ -159,7 +160,7 @@ struct CuView
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
     template <int BlockDimension>
-    void copyFromHost(const Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector)
+    OPM_HOST_DEVICE void copyFromHost(const Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector)
     {
         // TODO: [perf] vector.size() can be replaced by bvector.N() * BlockDimension
         if (detail::to_size_t(m_numberOfElements) != bvector.size()) {
@@ -182,7 +183,7 @@ struct CuView
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
     template <int BlockDimension>
-    void copyToHost(Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector) const
+    OPM_HOST_DEVICE void copyToHost(Dune::BlockVector<Dune::FieldVector<T, BlockDimension>>& bvector) const
     {
         // TODO: [perf] vector.size() can be replaced by bvector.N() * BlockDimension
         if (detail::to_size_t(m_numberOfElements) != bvector.size()) {
@@ -204,7 +205,7 @@ struct CuView
      * @note This does synchronous transfer.
      * @note assumes that this vector has numberOfElements elements
      */
-    void copyFromHost(const T* dataPointer, size_t numberOfElements);
+    OPM_HOST_DEVICE void copyFromHost(const T* dataPointer, size_t numberOfElements);
 
     /**
      * @brief copyFromHost copies numberOfElements to the CPU memory dataPointer
@@ -213,7 +214,7 @@ struct CuView
      * @note This does synchronous transfer.
      * @note assumes that this vector has numberOfElements elements
      */
-    void copyToHost(T* dataPointer, size_t numberOfElements) const;
+    OPM_HOST_DEVICE void copyToHost(T* dataPointer, size_t numberOfElements) const;
 
     /**
      * @brief copyToHost copies data from an std::vector
@@ -222,7 +223,7 @@ struct CuView
      * @note This does synchronous transfer.
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
-    void copyFromHost(const std::vector<T>& data);
+    OPM_HOST_DEVICE void copyFromHost(const std::vector<T>& data);
 
     /**
      * @brief copyToHost copies data to an std::vector
@@ -231,29 +232,29 @@ struct CuView
      * @note This does synchronous transfer.
      * @note This assumes that the size of this vector is equal to the size of the input vector.
      */
-    void copyToHost(std::vector<T>& data) const;
+    OPM_HOST_DEVICE void copyToHost(std::vector<T>& data) const;
 
-    void prepareSendBuf(CuView<T>& buffer, const CuView<int>& indexSet) const;
-    void syncFromRecvBuf(CuView<T>& buffer, const CuView<int>& indexSet) const;
+    OPM_HOST_DEVICE void prepareSendBuf(CuView<T>& buffer, const CuView<int>& indexSet) const;
+    OPM_HOST_DEVICE void syncFromRecvBuf(CuView<T>& buffer, const CuView<int>& indexSet) const;
 
     /**
      * @brief size returns the size (number of T elements) in the vector
      * @return number of elements
      */
-    size_t size() const;
+    OPM_HOST_DEVICE size_t size() const;
 
     /**
      * @brief creates an std::vector of the same size and copies the GPU data to this std::vector
      * @return an std::vector containing the elements copied from the GPU.
      */
-    std::vector<T> asStdVector() const;
+    OPM_HOST_DEVICE std::vector<T> asStdVector() const;
 
     /**
      * @brief creates an std::vector of the same size and copies the GPU data to this std::vector
      * @return an std::vector containing the elements copied from the GPU.
      */
     template <int blockSize>
-    Dune::BlockVector<Dune::FieldVector<T, blockSize>> asDuneBlockVector() const
+    OPM_HOST_DEVICE Dune::BlockVector<Dune::FieldVector<T, blockSize>> asDuneBlockVector() const
     {
         OPM_ERROR_IF(size() % blockSize != 0,
                      fmt::format("blockSize is not a multiple of size(). Given blockSize = {}, and size() = {}",
@@ -279,10 +280,10 @@ struct CuView
      * }
      * @endcode
      */
-    void setZeroAtIndexSet(const CuView<int>& indexSet);
+    OPM_HOST_DEVICE void setZeroAtIndexSet(const CuView<int>& indexSet);
 
     // Slow method that creates a string representation of a CuView for debug purposes
-    std::string toDebugString()
+    OPM_HOST_DEVICE std::string toDebugString()
     {
         std::vector<T> v = asStdVector();
         std::string res = "";
@@ -302,67 +303,67 @@ struct CuView
         using pointer = T*;
         using reference = T&;
 
-        iterator(T* ptr) : m_ptr(ptr) {}
+        OPM_HOST_DEVICE iterator(T* ptr) : m_ptr(ptr) {}
 
         // Dereference operator
-        reference operator*() const {
+        OPM_HOST_DEVICE reference operator*() const {
             return *m_ptr;
         }
 
         // Pre-increment operator
-        iterator& operator++() {
+        OPM_HOST_DEVICE iterator& operator++() {
             ++m_ptr;
             return *this;
         }
 
         // Post-increment operator
-        iterator operator++(int) {
+        OPM_HOST_DEVICE iterator operator++(int) {
             iterator tmp = *this;
             ++m_ptr;
             return tmp;
         }
 
         // Pre-decrement operator
-        iterator& operator--() {
+        OPM_HOST_DEVICE iterator& operator--() {
             --m_ptr;
             return *this;
         }
 
         // Post-decrement operator
-        iterator operator--(int) {
+        OPM_HOST_DEVICE iterator operator--(int) {
             iterator tmp = *this;
             --m_ptr;
             return tmp;
         }
 
         // Inequality comparison operator
-        bool operator!=(const iterator& other) const {
+        OPM_HOST_DEVICE bool operator!=(const iterator& other) const {
             return !(*m_ptr == *other.m_ptr);
         }
-        bool operator==(const iterator& other) const {
+        OPM_HOST_DEVICE bool operator==(const iterator& other) const {
             return *m_ptr == *other.m_ptr;
         }
 
         // Subtraction operator
-        difference_type operator-(const iterator& other) const {
+        OPM_HOST_DEVICE difference_type operator-(const iterator& other) const {
             return std::distance(other.m_ptr, m_ptr);
         }
-        iterator operator-(int n) const {
+        OPM_HOST_DEVICE iterator operator-(int n) const {
             return iterator(m_ptr-n);
         }
 
         // Addition operator
-        iterator operator+(difference_type n) const {
+        OPM_HOST_DEVICE iterator operator+(difference_type n) const {
             return iterator(m_ptr + n);
         }
 
         // Less than operator
-        bool operator<(const iterator& other) const {
+        OPM_HOST_DEVICE bool operator<(const iterator& other) const {
             return m_ptr < other.m_ptr;
         }
 
         // Greater than operator
-        bool operator>(const iterator& other) const {
+        OPM_HOST_DEVICE bool operator>(const iterator& other) const {
             return m_ptr > other.m_ptr;
         }
 
@@ -375,11 +376,11 @@ struct CuView
      * @brief Get an iterator pointing to the first element of the buffer
      * @param iterator to traverse the buffer
      */
-    iterator begin(){
+    OPM_HOST_DEVICE iterator begin(){
         return iterator(m_dataPtr);
     }
 
-    iterator begin() const {
+    OPM_HOST_DEVICE iterator begin() const {
         return iterator(m_dataPtr);
     }
 
@@ -387,18 +388,18 @@ struct CuView
      * @brief Get an iterator pointing to the address after the last element of the buffer
      * @param iterator pointing to the first value after the end of the buffer
      */
-    iterator end(){
+    OPM_HOST_DEVICE iterator end(){
         return iterator(m_dataPtr + m_numberOfElements);
     }
 
-    iterator end() const {
+    OPM_HOST_DEVICE iterator end() const {
         return iterator(m_dataPtr + m_numberOfElements);
     }
 
-    void assertSameSize(const CuView<T>& other) const;
-    void assertSameSize(size_t size) const;
+    OPM_HOST_DEVICE void assertSameSize(const CuView<T>& other) const;
+    OPM_HOST_DEVICE void assertSameSize(size_t size) const;
 
-    void assertHasElements() const;
+    OPM_HOST_DEVICE void assertHasElements() const;
 };
 
 } // namespace Opm::cuistl
