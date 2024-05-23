@@ -337,7 +337,10 @@ struct CuView
 
         // Inequality comparison operator
         bool operator!=(const iterator& other) const {
-            return !(m_ptr == other.m_ptr);
+            return !(*m_ptr == *other.m_ptr);
+        }
+        bool operator==(const iterator& other) const {
+            return *m_ptr == *other.m_ptr;
         }
 
         // Subtraction operator
