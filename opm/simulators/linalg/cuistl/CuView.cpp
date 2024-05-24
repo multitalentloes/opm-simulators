@@ -29,7 +29,7 @@ namespace Opm::cuistl
 {
 
 template <class T>
-OPM_HOST_DEVICE CuView<T>::CuView(std::vector<T>& data)
+CuView<T>::CuView(std::vector<T>& data)
     : CuView(data.data(), detail::to_int(data.size()))
 {
 }
@@ -75,7 +75,6 @@ OPM_HOST_DEVICE CuView<T>::CuView(const CuView<T>& other)
 template <class T>
 OPM_HOST_DEVICE CuView<T>::~CuView()
 {
-    OPM_CUDA_WARN_IF_ERROR(cudaFree(m_dataPtr));
 }
 
 template <typename T>
@@ -98,7 +97,7 @@ CuView<T>::size() const
 }
 
 template <typename T>
-OPM_HOST_DEVICE std::vector<T>
+std::vector<T>
 CuView<T>::asStdVector() const
 {
     std::vector<T> temporary(detail::to_size_t(m_numberOfElements));
@@ -199,7 +198,7 @@ CuView<T>::back() const
 }
 
 template <class T>
-OPM_HOST_DEVICE void
+void
 CuView<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
 {
     if (numberOfElements > size()) {
@@ -212,7 +211,7 @@ CuView<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
 }
 
 template <class T>
-OPM_HOST_DEVICE void
+void
 CuView<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 {
     assertSameSize(detail::to_int(numberOfElements));
@@ -220,26 +219,26 @@ CuView<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
 }
 
 template <class T>
-OPM_HOST_DEVICE void
+void
 CuView<T>::copyFromHost(const std::vector<T>& data)
 {
     copyFromHost(data.data(), data.size());
 }
 template <class T>
-OPM_HOST_DEVICE void
+void
 CuView<T>::copyToHost(std::vector<T>& data) const
 {
     copyToHost(data.data(), data.size());
 }
 
 template <typename T>
-OPM_HOST_DEVICE void
+void
 CuView<T>::prepareSendBuf(CuView<T>& buffer, const CuView<int>& indexSet) const
 {
     return detail::prepareSendBuf(m_dataPtr, buffer.data(), indexSet.size(), indexSet.data());
 }
 template <typename T>
-OPM_HOST_DEVICE void
+void
 CuView<T>::syncFromRecvBuf(CuView<T>& buffer, const CuView<int>& indexSet) const
 {
     return detail::syncFromRecvBuf(m_dataPtr, buffer.data(), indexSet.size(), indexSet.data());
