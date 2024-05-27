@@ -128,11 +128,6 @@ template <typename T>
 typename CuBuffer<T>::size_type
 CuBuffer<T>::size() const
 {
-    // Note that there is no way for m_numberOfElements to be non-positive,
-    // but for sanity we still use the safe conversion function here.
-    //
-    // We also doubt that this will lead to any performance penalty, but should this prove
-    // to be false, this can be replaced by a simple cast to size_t
     return detail::to_size_t(m_numberOfElements);
 }
 
@@ -332,6 +327,14 @@ template CuView<double> make_view<double>(CuBuffer<double>&);
 template CuView<float> make_view<float>(CuBuffer<float>&);
 template CuView<int> make_view<int>(CuBuffer<int>&);
 
-// TODO: make sure we can instansiate with from a const cubuffer
+
+template <class T>
+CuView<const T> make_view(const CuBuffer<T>& buf) {
+    return CuView<const T>(buf.data(), buf.size());
+}
+
+template CuView<const double> make_view<double>(const CuBuffer<double>&);
+template CuView<const float> make_view<float>(const CuBuffer<float>&);
+template CuView<const int> make_view<int>(const CuBuffer<int>&);
 
 } // namespace Opm::cuistl

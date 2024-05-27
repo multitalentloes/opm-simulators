@@ -447,6 +447,8 @@ private:
 
 template <class T>
 CuView<T> make_view(CuBuffer<T>&);
+// template <class T>
+// CuView<T> make_view(const CuBuffer<T>&);
 
 } // namespace Opm::cuistl
 #endif
