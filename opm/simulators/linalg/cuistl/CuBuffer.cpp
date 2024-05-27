@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <fmt/core.h>
 #include <opm/simulators/linalg/cuistl/CuBuffer.hpp>
+#include <opm/simulators/linalg/cuistl/CuView.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 
@@ -124,13 +125,6 @@ CuBuffer<T>::~CuBuffer()
 }
 
 template <typename T>
-const T*
-CuBuffer<T>::data() const
-{
-    return m_dataOnDevice;
-}
-
-template <typename T>
 typename CuBuffer<T>::size_type
 CuBuffer<T>::size() const
 {
@@ -215,6 +209,13 @@ CuBuffer<T>::assertHasElements() const
 template <typename T>
 T*
 CuBuffer<T>::data()
+{
+    return m_dataOnDevice;
+}
+
+template <typename T>
+const T*
+CuBuffer<T>::data() const
 {
     return m_dataOnDevice;
 }
@@ -321,5 +322,16 @@ CuBuffer<T>::syncFromRecvBuf(CuBuffer<T>& buffer, const CuBuffer<int>& indexSet)
 template class CuBuffer<double>;
 template class CuBuffer<float>;
 template class CuBuffer<int>;
+
+template <class T>
+CuView<T> make_view(CuBuffer<T>& buf) {
+    return CuView<T>(buf.data(), buf.size());
+}
+
+template CuView<double> make_view<double>(CuBuffer<double>&);
+template CuView<float> make_view<float>(CuBuffer<float>&);
+template CuView<int> make_view<int>(CuBuffer<int>&);
+
+// TODO: make sure we can instansiate with from a const cubuffer
 
 } // namespace Opm::cuistl

@@ -25,10 +25,12 @@
 #include <dune/common/fvector.hh>
 #include <dune/istl/bvector.hh>
 #include <opm/simulators/linalg/cuistl/CuBuffer.hpp>
+#include <opm/simulators/linalg/cuistl/CuView.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cuda_safe_call.hpp>
 #include <random>
 #include <array>
 #include <algorithm>
+#include <type_traits>
 
 //TODO: clang format this file when sketch is done
 
@@ -93,6 +95,7 @@ BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
     using CuBuffer = ::Opm::cuistl::CuBuffer<double>;
 
     CuBuffer a(cpuv);
+    
     // check that these functions exist
     a.front();
     a.back();
@@ -113,7 +116,7 @@ BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
     b.back();
     b.begin();
     b.end();
-    
+
     double* gpuDouble;
     OPM_CUDA_SAFE_CALL(cudaMalloc(&gpuDouble, sizeof(double)));
     gpuDouble[0] = b[0];
@@ -161,4 +164,15 @@ BOOST_AUTO_TEST_CASE(TestConstCuBufferSize)
 
 
     BOOST_CHECK(ans == 6);
+}
+
+BOOST_AUTO_TEST_CASE(TestMakeView)
+{
+    auto buf = std::vector<int>({1, 2, 3, 4, 5, 6});
+    auto gpubuf = ::Opm::cuistl::CuBuffer<int>(buf);
+    auto gpuview = ::Opm::cuistl::CuView<int>(buf.data(), buf.size());
+
+    bool gpuBufCreatedView = std::is_same<::Opm::cuistl::CuView<int>, decltype(gpuview)>::value;
+
+    BOOST_CHECK(gpuBufCreatedView);
 }
