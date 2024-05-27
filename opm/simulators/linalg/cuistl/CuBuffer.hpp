@@ -24,6 +24,7 @@
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
+#include <opm/simulators/linalg/cuistl/CuView.hpp>
 #include <vector>
 #include <string>
 
@@ -443,6 +444,9 @@ private:
 
     void assertHasElements() const;
 };
+
+template <class T>
+CuView<T> make_view(CuBuffer<T>&);
 
 } // namespace Opm::cuistl
 #endif

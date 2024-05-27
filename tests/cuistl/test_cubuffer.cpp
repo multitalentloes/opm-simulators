@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(TestSquareBracketOperator)
     using CuBuffer = ::Opm::cuistl::CuBuffer<double>;
 
     CuBuffer a(cpuv);
-    
+
     // check that these functions exist
     a.front();
     a.back();
@@ -171,8 +171,11 @@ BOOST_AUTO_TEST_CASE(TestMakeView)
     auto buf = std::vector<int>({1, 2, 3, 4, 5, 6});
     auto gpubuf = ::Opm::cuistl::CuBuffer<int>(buf);
     auto gpuview = ::Opm::cuistl::CuView<int>(buf.data(), buf.size());
-
     bool gpuBufCreatedView = std::is_same<::Opm::cuistl::CuView<int>, decltype(gpuview)>::value;
 
     BOOST_CHECK(gpuBufCreatedView);
+
+    auto gpuview2 = ::Opm::cuistl::make_view(gpubuf);
+    bool gpuBufCreatedView2 = std::is_same<::Opm::cuistl::CuView<int>, decltype(gpuview2)>::value;
+    BOOST_CHECK(gpuBufCreatedView2);
 }
