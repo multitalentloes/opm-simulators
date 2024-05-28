@@ -28,54 +28,54 @@
 namespace Opm::cuistl
 {
 
-template <class T>
-CuView<T>::CuView(std::vector<T>& data)
-    : CuView(data.data(), detail::to_int(data.size()))
-{
-}
+// template <class T>
+// CuView<T>::CuView(std::vector<T>& data)
+//     : CuView(data.data(), detail::to_int(data.size()))
+// {
+// }
 
-template <typename T>
-std::vector<T>
-CuView<T>::asStdVector() const
-{
-    std::vector<T> temporary(detail::to_size_t(m_numberOfElements));
-    copyToHost(temporary);
-    return temporary;
-}
+// template <typename T>
+// std::vector<T>
+// CuView<T>::asStdVector() const
+// {
+//     std::vector<T> temporary(detail::to_size_t(m_numberOfElements));
+//     copyToHost(temporary);
+//     return temporary;
+// }
 
-template <class T>
-void
-CuView<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
-{
-    if (numberOfElements > size()) {
-        OPM_THROW(std::runtime_error,
-                  fmt::format("Requesting to copy too many elements. Vector has {} elements, while {} was requested.",
-                              size(),
-                              numberOfElements));
-    }
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
-}
+// template <class T>
+// void
+// CuView<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
+// {
+//     if (numberOfElements > size()) {
+//         OPM_THROW(std::runtime_error,
+//                   fmt::format("Requesting to copy too many elements. Vector has {} elements, while {} was requested.",
+//                               size(),
+//                               numberOfElements));
+//     }
+//     OPM_CUDA_SAFE_CALL(cudaMemcpy(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+// }
 
-template <class T>
-void
-CuView<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
-{
-    assertSameSize(detail::to_int(numberOfElements));
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(dataPointer, data(), numberOfElements * sizeof(T), cudaMemcpyDeviceToHost));
-}
+// template <class T>
+// void
+// CuView<T>::copyToHost(T* dataPointer, size_t numberOfElements) const
+// {
+//     assertSameSize(detail::to_int(numberOfElements));
+//     OPM_CUDA_SAFE_CALL(cudaMemcpy(dataPointer, data(), numberOfElements * sizeof(T), cudaMemcpyDeviceToHost));
+// }
 
-template <class T>
-void
-CuView<T>::copyFromHost(const std::vector<T>& data)
-{
-    copyFromHost(data.data(), data.size());
-}
-template <class T>
-void
-CuView<T>::copyToHost(std::vector<T>& data) const
-{
-    copyToHost(data.data(), data.size());
-}
+// template <class T>
+// void
+// CuView<T>::copyFromHost(const std::vector<T>& data)
+// {
+//     copyFromHost(data.data(), data.size());
+// }
+// template <class T>
+// void
+// CuView<T>::copyToHost(std::vector<T>& data) const
+// {
+//     copyToHost(data.data(), data.size());
+// }
 
 template class CuView<double>;
 template class CuView<float>;

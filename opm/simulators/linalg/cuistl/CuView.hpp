@@ -112,6 +112,8 @@ struct CuView
      */
     OPM_HOST_DEVICE ~CuView() = default;
 
+    OPM_HOST_DEVICE void resize(int n){} // NO-OP: we dont want to do resizing in views but some code require the function call
+    
     /**
      * @return the raw pointer to the GPU data
      */
@@ -177,34 +179,34 @@ struct CuView
      * @note This does synchronous transfer.
      * @note assumes that this vector has numberOfElements elements
      */
-    void copyFromHost(const T* dataPointer, size_t numberOfElements);
+    // void copyFromHost(const T* dataPointer, size_t numberOfElements);
 
-    /**
-     * @brief copyFromHost copies numberOfElements to the CPU memory dataPointer
-     * @param dataPointer raw pointer to CPU memory
-     * @param numberOfElements number of elements to copy
-     * @note This does synchronous transfer.
-     * @note assumes that this vector has numberOfElements elements
-     */
-    void copyToHost(T* dataPointer, size_t numberOfElements) const;
+    // /**
+    //  * @brief copyFromHost copies numberOfElements to the CPU memory dataPointer
+    //  * @param dataPointer raw pointer to CPU memory
+    //  * @param numberOfElements number of elements to copy
+    //  * @note This does synchronous transfer.
+    //  * @note assumes that this vector has numberOfElements elements
+    //  */
+    // void copyToHost(T* dataPointer, size_t numberOfElements) const;
 
-    /**
-     * @brief copyToHost copies data from an std::vector
-     * @param data the vector to copy from
-     *
-     * @note This does synchronous transfer.
-     * @note This assumes that the size of this vector is equal to the size of the input vector.
-     */
-    void copyFromHost(const std::vector<T>& data);
+    // /**
+    //  * @brief copyToHost copies data from an std::vector
+    //  * @param data the vector to copy from
+    //  *
+    //  * @note This does synchronous transfer.
+    //  * @note This assumes that the size of this vector is equal to the size of the input vector.
+    //  */
+    // void copyFromHost(const std::vector<T>& data);
 
-    /**
-     * @brief copyToHost copies data to an std::vector
-     * @param data the vector to copy to
-     *
-     * @note This does synchronous transfer.
-     * @note This assumes that the size of this vector is equal to the size of the input vector.
-     */
-    void copyToHost(std::vector<T>& data) const;
+    // /**
+    //  * @brief copyToHost copies data to an std::vector
+    //  * @param data the vector to copy to
+    //  *
+    //  * @note This does synchronous transfer.
+    //  * @note This assumes that the size of this vector is equal to the size of the input vector.
+    //  */
+    // void copyToHost(std::vector<T>& data) const;
 
     /**
      * @brief size returns the size (number of T elements) in the vector
