@@ -23,7 +23,6 @@
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
-#include <opm/simulators/linalg/cuistl/detail/safe_conversion.hpp>
 #include <vector>
 #include <string>
 #include <opm/common/utility/gpuDecorators.hpp>
@@ -49,6 +48,8 @@ namespace Opm::cuistl
 template <typename T>
 struct CuView
 {
+    using value_type = T;
+
     T* m_dataPtr;
     size_t m_numberOfElements;
 
@@ -112,8 +113,6 @@ struct CuView
      */
     OPM_HOST_DEVICE ~CuView() = default;
 
-    OPM_HOST_DEVICE void resize(int n){} // NO-OP: we dont want to do resizing in views but some code require the function call
-    
     /**
      * @return the raw pointer to the GPU data
      */
@@ -213,7 +212,7 @@ struct CuView
      * @return number of elements
      */
     OPM_HOST_DEVICE size_t size() const{
-        return detail::to_size_t(m_numberOfElements);
+        return m_numberOfElements;
     }
 
     /**

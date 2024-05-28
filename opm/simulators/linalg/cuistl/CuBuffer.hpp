@@ -57,6 +57,7 @@ template <typename T>
 class CuBuffer
 {
 public:
+    using value_type = T;
     using field_type = T;
     using size_type = size_t;
 

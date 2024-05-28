@@ -26,6 +26,7 @@
 #include <limits>
 #include <opm/common/ErrorMacros.hpp>
 #include <type_traits>
+#include <opm/common/utility/gpuDecorators.hpp>
 
 
 /**
@@ -47,7 +48,7 @@ namespace Opm::cuistl::detail
  *
  * @todo This can be done for more generic types, but then it is probably wise to wait for C++20's cmp-functions
  */
-inline int
+OPM_HOST_DEVICE inline int
 to_int(std::size_t s)
 {
     static_assert(
@@ -81,7 +82,7 @@ to_int(std::size_t s)
  * @throw std::invalid_argument if i is negative.
  * @todo This can be done for more generic types, but then it is probably wise to wait for C++20's cmp-functions
  */
-inline std::size_t
+OPM_HOST_DEVICE inline std::size_t
 to_size_t(int i)
 {
     static_assert(
