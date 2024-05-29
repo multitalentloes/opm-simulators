@@ -32,22 +32,25 @@
 #include <algorithm>
 #include <type_traits>
 
-__global__ void useCuViewOnGPU(::Opm::cuistl::CuView<double> view){
-    view.front();
-    view.back();
+using CuViewDouble = ::Opm::cuistl::CuView<double>;
+using CuBufferDouble = ::Opm::cuistl::CuBuffer<double>;
 
-    view[0] = view[2];
+__global__ void useCuViewOnGPU(CuViewDouble a, CuViewDouble b){
+    b[0] = a.front();
+    b[1] = a.back();
+    b[2] = *a.begin();
+    b[3] = *(--a.end());
+
+    a[0] = a[2];
 }
-
-//TODO: clang format this file when sketch is done
 
 BOOST_AUTO_TEST_CASE(TestCreationAndIndexing)
 {
     // A simple test to check that we can move data to and from the GPU
     auto cpubuffer = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-    auto cubuffer = ::Opm::cuistl::CuBuffer<double>(cpubuffer);
-    auto cuview = ::Opm::cuistl::CuView<double>(cubuffer.data(), cubuffer.size());
-    const auto const_cuview = ::Opm::cuistl::CuView<double>(cubuffer.data(), cubuffer.size());
+    auto cubuffer = CuBufferDouble(cpubuffer);
+    auto cuview = CuViewDouble(cubuffer.data(), cubuffer.size());
+    const auto const_cuview = CuViewDouble(cubuffer.data(), cubuffer.size());
 
     auto stdVecOfCuView = cuview.asStdVector();
     auto const_stdVecOfCuView = cuview.asStdVector();
@@ -61,31 +64,29 @@ BOOST_AUTO_TEST_CASE(TestCreationAndIndexing)
 BOOST_AUTO_TEST_CASE(TestCuViewOnCPUTypes)
 {
     auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-    auto cpuview = ::Opm::cuistl::CuView<double>(buf.data(), buf.size());
-    const auto const_cpuview = ::Opm::cuistl::CuView<double>(buf.data(), buf.size());
+    auto cpuview = CuViewDouble(buf.data(), buf.size());
+    const auto const_cpuview = CuViewDouble(buf.data(), buf.size());
 
     // check that indexing a mutable view gives references when indexing it
-    bool cpu_front = std::is_same<double&, decltype(cpuview.front())>::value;
-    bool cpu_back = std::is_same<double&, decltype(cpuview.back())>::value;
-    bool const_cpu_front = std::is_same<double, decltype(const_cpuview.front())>::value;
-    bool const_cpu_back = std::is_same<double, decltype(const_cpuview.back())>::value;
+    bool correct_type_of_cpu_front = std::is_same_v<double&, decltype(cpuview.front())>;
+    bool correct_type_of_cpu_back = std::is_same_v<double&, decltype(cpuview.back())>;
+    bool correct_type_of_const_cpu_front = std::is_same_v<double, decltype(const_cpuview.front())>;
+    bool correct_type_of_const_cpu_back = std::is_same_v<double, decltype(const_cpuview.back())>;
 
-    BOOST_CHECK(cpu_front);
-    BOOST_CHECK(cpu_back);
-    BOOST_CHECK(const_cpu_front);
-    BOOST_CHECK(const_cpu_back);
+    BOOST_CHECK(correct_type_of_cpu_front);
+    BOOST_CHECK(correct_type_of_cpu_back);
+    BOOST_CHECK(correct_type_of_const_cpu_front);
+    BOOST_CHECK(correct_type_of_const_cpu_back);
 
-    // just checking that these functions exist
-    cpuview.begin();
-    cpuview.end();
-    const_cpuview.begin();
-    const_cpuview.end();
+    // check that the values are correct
+    BOOST_CHECK(cpuview.front() == buf.front());
+    BOOST_CHECK(cpuview.back() == buf.back());
 }
 
 BOOST_AUTO_TEST_CASE(TestCuViewOnCPUWithSTLIteratorAlgorithm)
 {
     auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-    auto cpuview = ::Opm::cuistl::CuView<double>(buf.data(), buf.size());
+    auto cpuview = CuViewDouble(buf.data(), buf.size());
     std::sort(buf.begin(), buf.end());
     BOOST_CHECK(42.0 == cpuview[3]);
 }
@@ -93,11 +94,22 @@ BOOST_AUTO_TEST_CASE(TestCuViewOnCPUWithSTLIteratorAlgorithm)
 BOOST_AUTO_TEST_CASE(TestCuViewOnGPU)
 {
     auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-    auto cubuf = ::Opm::cuistl::CuBuffer<double>(buf);
-    auto cuview = ::Opm::cuistl::CuView<double>(cubuf.data(), cubuf.size());
-    useCuViewOnGPU<<<1,1>>>(cuview);
+    auto cubufA = CuBufferDouble(buf);
+    auto cuviewA = CuViewDouble(cubufA.data(), cubufA.size());
+    auto cubufB = CuBufferDouble(4);
+    auto cuviewB = CuViewDouble(cubufB.data(), cubufB.size());
 
-    auto vec = cuview.asStdVector();
+    useCuViewOnGPU<<<1,1>>>(cuviewA, cuviewB);
 
-    BOOST_CHECK(42.0 == vec[0]);
+    auto vecA = cuviewA.asStdVector();
+    auto vecB = cuviewB.asStdVector();
+
+    // checks that front/back/begin/end works
+    BOOST_CHECK(vecB[0] == buf[0]);
+    BOOST_CHECK(vecB[1] == buf[4]);
+    BOOST_CHECK(vecB[2] == buf[0]);
+    BOOST_CHECK(vecB[3] == buf[4]);
+
+    // checks that view[0] = view[2] works
+    BOOST_CHECK(buf[2] == vecA[0]);
 }
