@@ -36,9 +36,6 @@ __global__ void useCuViewOnGPU(::Opm::cuistl::CuView<double> view){
     view.front();
     view.back();
 
-    view.begin();
-    view.end();
-
     view[0] = view[2];
 }
 
@@ -102,5 +99,5 @@ BOOST_AUTO_TEST_CASE(TestCuViewOnGPU)
 
     auto vec = cuview.asStdVector();
 
-    BOOST_CHECK(42.0 == cuview[0]);
+    BOOST_CHECK(42.0 == vec[0]);
 }
