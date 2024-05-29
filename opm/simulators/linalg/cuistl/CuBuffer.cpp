@@ -71,38 +71,10 @@ OPM_HOST_DEVICE CuBuffer<T>::CuBuffer(const CuBuffer<T>& other)
                                   cudaMemcpyDeviceToDevice));
 }
 
-// template <class T>
-// OPM_HOST_DEVICE CuBuffer<T>::CuBuffer(const CuBuffer<T>& other)
-//     : m_dataOnDevice(other.data()), m_numberOfElements(other.m_numberOfElements)
-// {
-//     assertHasElements();
-//     assertSameSize(other);
-// }
-
-
-template <class T>
-CuBuffer<T>::CuBuffer(const CuBuffer<T>& other)
-    : CuBuffer(other.m_numberOfElements)
-{
-    assertHasElements();
-    assertSameSize(other);
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(m_dataOnDevice,
-                                  other.m_dataOnDevice,
-                                  detail::to_size_t(m_numberOfElements) * sizeof(T),
-                                  cudaMemcpyDeviceToDevice));
-}
-
 template <class T>
 OPM_HOST_DEVICE CuBuffer<T>::~CuBuffer()
 {
     OPM_CUDA_WARN_IF_ERROR(cudaFree(m_dataOnDevice));
-}
-
-template <typename T>
-OPM_HOST_DEVICE const T*
-CuBuffer<T>::data() const
-{
-    return m_dataOnDevice;
 }
 
 template <typename T>
@@ -227,9 +199,9 @@ template class CuBuffer<double>;
 template class CuBuffer<float>;
 template class CuBuffer<int>;
 
-template <class T>
-CuView<T> make_view(CuBuffer<T>& buf) {
-    return CuView<T>(buf.data(), buf.size());
+template <class constT, class T>
+CuView<constT> make_view(const CuBuffer<T>& buf) {
+    return CuView<constT>(buf.data(), buf.size());
 }
 
 template CuView<const double> make_view<const double, double>(const CuBuffer<double>&);
