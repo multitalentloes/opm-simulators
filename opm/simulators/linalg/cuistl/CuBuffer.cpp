@@ -58,55 +58,6 @@ CuBuffer<T>::CuBuffer(const T* dataOnHost, const size_t numberOfElements)
 }
 
 template <class T>
-CuBuffer<T>&
-CuBuffer<T>::operator=(T scalar)
-{
-    assertHasElements();
-    detail::setVectorValue(data(), detail::to_size_t(m_numberOfElements), scalar);
-    return *this;
-}
-
-template <class T>
-CuBuffer<T>&
-CuBuffer<T>::operator=(const CuBuffer<T>& other)
-{
-    assertHasElements();
-    assertSameSize(other);
-
-    OPM_CUDA_SAFE_CALL(cudaMemcpy(m_dataOnDevice,
-                                  other.m_dataOnDevice,
-                                  detail::to_size_t(m_numberOfElements) * sizeof(T),
-                                  cudaMemcpyDeviceToDevice));
-    return *this;
-}
-
-template <class T>
-T&
-CuBuffer<T>::operator[](int idx)
-{
-#ifndef NDEBUG
-    if (idx >= m_numberOfElements || idx < 0) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("The index provided was not in the range [0, buffersize-1]"));
-    }
-#endif
-    return m_dataOnDevice[idx];
-}
-
-template <class T>
-T
-CuBuffer<T>::operator[](int idx) const
-{
-#ifndef NDEBUG
-    if (idx >= m_numberOfElements || idx < 0) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("The index provided was not in the range [0, buffersize-1]"));
-    }
-#endif
-    return m_dataOnDevice[idx];
-}
-
-template <class T>
 CuBuffer<T>::CuBuffer(const CuBuffer<T>& other)
     : CuBuffer(other.m_numberOfElements)
 {
@@ -170,13 +121,6 @@ CuBuffer<T>::asStdVector() const
 
 template <typename T>
 void
-CuBuffer<T>::setZeroAtIndexSet(const CuBuffer<int>& indexSet)
-{
-    detail::setZeroAtIndexSet(m_dataOnDevice, indexSet.size(), indexSet.data());
-}
-
-template <typename T>
-void
 CuBuffer<T>::assertSameSize(const CuBuffer<T>& x) const
 {
     assertSameSize(x.m_numberOfElements);
@@ -215,58 +159,6 @@ CuBuffer<T>::data() const
     return m_dataOnDevice;
 }
 
-template <typename T>
-T&
-CuBuffer<T>::front()
-{
-#ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the front item of a CuBuffer with no elements"));
-    }
-#endif
-    return m_dataOnDevice[0];
-}
-
-template <typename T>
-T
-CuBuffer<T>::front() const
-{
-#ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the front item of a CuBuffer with no elements"));
-    }
-#endif
-    return m_dataOnDevice[0];
-}
-
-template <typename T>
-T&
-CuBuffer<T>::back()
-{
-#ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the back item of a CuBuffer with no elements"));
-    }
-#endif
-    return m_dataOnDevice[m_numberOfElements-1];
-}
-
-template <typename T>
-T
-CuBuffer<T>::back() const
-{
-#ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the back item of a CuBuffer with no elements"));
-    }
-#endif
-    return m_dataOnDevice[m_numberOfElements-1];
-}
-
 template <class T>
 void
 CuBuffer<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
@@ -301,32 +193,18 @@ CuBuffer<T>::copyToHost(std::vector<T>& data) const
     copyToHost(data.data(), data.size());
 }
 
-template <typename T>
-void
-CuBuffer<T>::prepareSendBuf(CuBuffer<T>& buffer, const CuBuffer<int>& indexSet) const
-{
-    return detail::prepareSendBuf(m_dataOnDevice, buffer.data(), indexSet.size(), indexSet.data());
-}
-template <typename T>
-void
-CuBuffer<T>::syncFromRecvBuf(CuBuffer<T>& buffer, const CuBuffer<int>& indexSet) const
-{
-    return detail::syncFromRecvBuf(m_dataOnDevice, buffer.data(), indexSet.size(), indexSet.data());
-}
-
 template class CuBuffer<double>;
 template class CuBuffer<float>;
 template class CuBuffer<int>;
 
-template <class T>
-CuView<T> make_view(CuBuffer<T>& buf) {
-    return CuView<T>(buf.data(), buf.size());
+template <class constT, class T>
+CuView<constT> make_view(const CuBuffer<T>& buf) {
+    return CuView<constT>(buf.data(), buf.size());
 }
 
-template CuView<double> make_view<double>(CuBuffer<double>&);
-template CuView<float> make_view<float>(CuBuffer<float>&);
-template CuView<int> make_view<int>(CuBuffer<int>&);
-
+template CuView<const double> make_view<const double, double>(const CuBuffer<double>&);
+template CuView<const float> make_view<const float, float>(const CuBuffer<float>&);
+template CuView<const int> make_view<const int, int>(const CuBuffer<int>&);
 
 template <class T>
 CuView<const T> make_view(const CuBuffer<T>& buf) {
@@ -336,5 +214,14 @@ CuView<const T> make_view(const CuBuffer<T>& buf) {
 template CuView<const double> make_view<double>(const CuBuffer<double>&);
 template CuView<const float> make_view<float>(const CuBuffer<float>&);
 template CuView<const int> make_view<int>(const CuBuffer<int>&);
+
+template <class T>
+CuView<T> make_view(CuBuffer<T>& buf) {
+    return CuView<T>(buf.data(), buf.size());
+}
+
+template CuView<double> make_view<double>(CuBuffer<double>&);
+template CuView<float> make_view<float>(CuBuffer<float>&);
+template CuView<int> make_view<int>(CuBuffer<int>&);
 
 } // namespace Opm::cuistl
