@@ -77,19 +77,6 @@ CuView<T>::copyToHost(std::vector<T>& data) const
     copyToHost(data.data(), data.size());
 }
 
-template <typename T>
-void
-CuView<T>::prepareSendBuf(CuView<T>& buffer, const CuView<int>& indexSet) const
-{
-    return detail::prepareSendBuf(m_dataPtr, buffer.data(), indexSet.size(), indexSet.data());
-}
-template <typename T>
-void
-CuView<T>::syncFromRecvBuf(CuView<T>& buffer, const CuView<int>& indexSet) const
-{
-    return detail::syncFromRecvBuf(m_dataPtr, buffer.data(), indexSet.size(), indexSet.data());
-}
-
 template class CuView<double>;
 template class CuView<float>;
 template class CuView<int>;

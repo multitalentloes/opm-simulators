@@ -63,10 +63,7 @@ struct CuView
      */
     OPM_HOST_DEVICE T& operator[](size_t idx){
 #ifndef NDEBUG
-        if (idx >= m_numberOfElements) {
-            OPM_THROW(std::invalid_argument,
-                    fmt::format("The index provided was not in the range [0, buffersize-1]"));
-        }
+    assertInRange(idx);
 #endif
     return m_dataPtr[idx];
     }
@@ -80,10 +77,7 @@ struct CuView
      */
     OPM_HOST_DEVICE T operator[](size_t idx) const {
 #ifndef NDEBUG
-        if (idx >= m_numberOfElements) {
-            OPM_THROW(std::invalid_argument,
-                    fmt::format("The index provided was not in the range [0, buffersize-1]"));
-        }
+    assertInRange(idx);
 #endif
     return m_dataPtr[idx];
     }
@@ -130,10 +124,7 @@ struct CuView
     OPM_HOST_DEVICE T& front()
     {
 #ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the front item of a CuView with no elements"));
-    }
+    assertHasElements();
 #endif
     return m_dataPtr[0];
     }
@@ -144,25 +135,18 @@ struct CuView
     OPM_HOST_DEVICE T& back()
     {
 #ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the back item of a CuView with no elements"));
-    }
+    assertHasElements();
 #endif
     return m_dataPtr[m_numberOfElements-1];
     }
 
-    //TODO: do we need another version of front and back if the elements are to be const as well?
     /**
      * @return fetch the first element in a CuView
      */
     OPM_HOST_DEVICE T front() const
     {
 #ifndef NDEBUG
-        if (m_numberOfElements < 1) {
-            OPM_THROW(std::invalid_argument,
-                    fmt::format("Can not fetch the front item of a CuView with no elements"));
-        }
+    assertHasElements();
 #endif
     return m_dataPtr[0];
     }
@@ -173,10 +157,7 @@ struct CuView
     OPM_HOST_DEVICE T back() const
     {
 #ifndef NDEBUG
-    if (m_numberOfElements < 1) {
-        OPM_THROW(std::invalid_argument,
-                  fmt::format("Can not fetch the back item of a CuView with no elements"));
-    }
+    assertHasElements();
 #endif
     return m_dataPtr[m_numberOfElements-1];
     }
@@ -217,9 +198,6 @@ struct CuView
      */
     void copyToHost(std::vector<T>& data) const;
 
-    void prepareSendBuf(CuView<T>& buffer, const CuView<int>& indexSet) const;
-    void syncFromRecvBuf(CuView<T>& buffer, const CuView<int>& indexSet) const;
-
     /**
      * @brief size returns the size (number of T elements) in the vector
      * @return number of elements
@@ -233,7 +211,7 @@ struct CuView
      * @return an std::vector containing the elements copied from the GPU.
      */
     std::vector<T> asStdVector() const;
-
+    /// @brief Iterator class to make CuViews more similar to std containers
     class iterator {
     public:
         // Iterator typedefs
@@ -243,66 +221,92 @@ struct CuView
         using pointer = T*;
         using reference = T&;
 
+        /// @brief Create iterator from a pointer
+        /// @param ptr provided pointer that will become an iterator
+        /// @return // the created iterator object
         OPM_HOST_DEVICE iterator(T* ptr) : m_ptr(ptr) {}
 
-        // Dereference operator
+        /// @brief Dereference operator
+        /// @return retrieve what the iterator points at
         OPM_HOST_DEVICE reference operator*() const {
             return *m_ptr;
         }
 
-        // Pre-increment operator
+        /// @brief Pre-increment operator
+        /// @return return the pointer after it is incremented
         OPM_HOST_DEVICE iterator& operator++() {
             ++m_ptr;
             return *this;
         }
 
-        // Post-increment operator
+        /// @brief Post-increment operator
+        /// @param no parameter, int is placeholder for c++ implementation to differentiate from pre-increment
+        /// @return Iterator before it is incremented
         OPM_HOST_DEVICE iterator operator++(int) {
             iterator tmp = *this;
             ++m_ptr;
             return tmp;
         }
 
-        // Pre-decrement operator
+        /// @brief Pre-decrement operator
+        /// @return return the pointer after it is decremented
         OPM_HOST_DEVICE iterator& operator--() {
             --m_ptr;
             return *this;
         }
 
-        // Post-decrement operator
+        /// @brief Post-decrement operator
+        /// @param no parameter, int is placeholder for c++ implementation to differentiate from pre-decrement
+        /// @return Iterator before it is decremented
         OPM_HOST_DEVICE iterator operator--(int) {
             iterator tmp = *this;
             --m_ptr;
             return tmp;
         }
 
-        // Inequality comparison operator
+        /// @brief Inequality comparison operator
+        /// @return boolean value that is true if the pointers contains different addresses
         OPM_HOST_DEVICE bool operator!=(const iterator& other) const {
             return !(*m_ptr == *other.m_ptr);
         }
+
+        /// @brief Inequality comparison operator
+        /// @return boolean value that is true if the pointers contains the same address
         OPM_HOST_DEVICE bool operator==(const iterator& other) const {
             return *m_ptr == *other.m_ptr;
         }
 
-        // Subtraction operator
+        /// @brief subtraction operator
+        /// @param other iterator to subtract
+        /// @return diffptr that represents difference between the iterators
         OPM_HOST_DEVICE difference_type operator-(const iterator& other) const {
             return std::distance(other.m_ptr, m_ptr);
         }
+
+        /// @brief Subtraction of given number of elements from iterator
+        /// @param n the number of elements to step backwards
+        /// @return An iterator pointing to a location n steps behind
         OPM_HOST_DEVICE iterator operator-(int n) const {
             return iterator(m_ptr-n);
         }
 
-        // Addition operator
+        /// @brief Addition operator with diffptr
+        /// @param n diffptr to add
+        /// @return new iterator with diffptr added
         OPM_HOST_DEVICE iterator operator+(difference_type n) const {
             return iterator(m_ptr + n);
         }
 
-        // Less than operator
+        /// @brief Less than comparison
+        /// @param other iterator
+        /// @return true if this objects iterator is less than the other iterator
         OPM_HOST_DEVICE bool operator<(const iterator& other) const {
             return m_ptr < other.m_ptr;
         }
 
-        // Greater than operator
+        /// @brief Greater than comparison
+        /// @param other iterator
+        /// @return true if this objects iterator is greater than than the other iterator
         OPM_HOST_DEVICE bool operator>(const iterator& other) const {
             return m_ptr > other.m_ptr;
         }
@@ -320,6 +324,10 @@ struct CuView
         return iterator(m_dataPtr);
     }
 
+    /**
+     * @brief Get a const iterator pointing to the first element of the buffer
+     * @param iterator to traverse the buffer
+     */
     OPM_HOST_DEVICE iterator begin() const {
         return iterator(m_dataPtr);
     }
@@ -332,14 +340,22 @@ struct CuView
         return iterator(m_dataPtr + m_numberOfElements);
     }
 
+    /**
+     * @brief Get a const iterator pointing to the address after the last element of the buffer
+     * @param iterator pointing to the first value after the end of the buffer
+     */
     OPM_HOST_DEVICE iterator end() const {
         return iterator(m_dataPtr + m_numberOfElements);
     }
 
+    /// @brief Helper function to assert if another view has the same size
+    /// @param other view
     OPM_HOST_DEVICE void assertSameSize(const CuView<T>& other) const
     {
         assertSameSize(other.m_numberOfElements);
     }
+    /// @brief Helper function to assert if the size of this view equal to a given value
+    /// @param size The value to compare with the size of this view
     OPM_HOST_DEVICE void assertSameSize(size_t size) const
     {
         if (size != m_numberOfElements) {
@@ -348,10 +364,20 @@ struct CuView
         }
     }
 
+    /// @brief Helper function to assert that the view has at least one element
     OPM_HOST_DEVICE void assertHasElements() const
     {
         if (m_numberOfElements <= 0) {
             OPM_THROW(std::invalid_argument, "We have 0 elements");
+        }
+    }
+
+    /// @brief Helper function to determine if an index is within the range of valid indexes in the view
+    OPM_HOST_DEVICE void assertInRange(size_t idx) const
+    {
+        if (idx >= m_numberOfElements) {
+            OPM_THROW(std::invalid_argument,
+                    fmt::format("The index provided was not in the range [0, buffersize-1]"));
         }
     }
 };
