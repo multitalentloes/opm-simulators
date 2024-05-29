@@ -34,11 +34,16 @@ namespace Opm::cuistl
 
 /**
  * @brief The CuView class is provides a view of some data allocated on the GPU
+ * Essenstially is only stores a pointer and a size.
  *
  *  This class supports being used from inside a CUDA/HIP Kernel.
- *  Implementations being placed in separate files will cause large overhead on GPUS
- *  For this reason we have the implementation in the header and avoid using
- *  Relocated Device Code (compiling with -rdc)
+ *  Implementations are placed in this headerfile for functions that may be called
+ *  inside a kernel to avoid expensive RDC (relocatable device code)
+ *
+ * The view will typically provide a view into a CuBuffer and be able to
+ * manipulate the data within it
+ *
+ * @param T Type of the data we store, typically int/float/double w/o const specifier
  *
  **/
 template <typename T>
@@ -52,6 +57,9 @@ struct CuView
      */
     OPM_HOST_DEVICE explicit CuView() = default;
 
+    //TODO: we probably dont need anything like this or is it useful to have views also be able to handle things on CPU?
+    /// @brief constructor based on std::vectors, this will make a view on the CPU
+    /// @param data std vector to pr
     CuView(std::vector<T>& data);
 
     /**

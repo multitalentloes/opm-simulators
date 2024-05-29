@@ -46,7 +46,6 @@ namespace Opm::cuistl
  *
  *     auto dataOnGPU = CuBuffer<double>(someDataOnCPU);
  *
- *     // Get data back on CPU in another vector:
  *     auto stdVectorOnCPU = dataOnGPU.asStdVector();
  * }
  *
@@ -238,8 +237,10 @@ private:
 
 template <class T>
 CuView<T> make_view(CuBuffer<T>&);
+
 template <class T>
 CuView<const T> make_view(const CuBuffer<T>&);
+
 template <class constT, class T>
 CuView<constT> make_view(const CuBuffer<T>&);
 
