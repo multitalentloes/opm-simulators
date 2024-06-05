@@ -224,7 +224,37 @@ private:
     void splitSerialUpdate()
     {
 
-        // Update the split datastructures
+        /*
+            This code updates the split structures.
+            The idea is to only iterate once and avoid indexing on the form A[row][col] as I think it would require
+            a binary search to find the correct column, whereas this is possible to to contiguously.
+            Iterate simulateosly over all the structures, increment the iterator of the object we pass.
+        */
+        auto lower_row_it = A_lower_.value().begin();
+        auto upper_row_it = A_upper_.value().begin();
+
+        for (auto A_row_it = A_.begin(); A_row_it != A_.end(); ++A_row_it){
+            auto A_block = A_row_it->begin();
+
+            // write to values occurring before the diagonal element
+            for (auto lower_block = lower_row_it->begin(); lower_block.index() < A_row_it.index(); ++lower_block){
+                *lower_block = *A_block;
+                ++A_block;
+            }
+
+            // write to the diagonal element
+            A_diag_.value()[A_row_it.index()] = *A_block;
+            ++A_block;
+
+            // write to the values occurring after the diagonal element
+            for (auto upper_block = upper_row_it->begin(); A_block != A_row_it->end(); ++upper_block){
+                *upper_block = *A_block;
+                ++A_block;
+            }
+
+            ++lower_row_it;
+            ++upper_row_it;
+        }
 
         // Compute the DILU diagonal
         for (std::size_t row = 0; row < A_.N(); ++row) {
