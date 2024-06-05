@@ -65,16 +65,21 @@ public:
     /*! \brief Constructor gets all parameters to operate the prec.
        \param A The matrix to operate on.
     */
-    MultithreadDILU(const M& A)
-        : A_(A)
+    MultithreadDILU(const M& A, bool split_matrix = true)
+        : A_(A), split_matrix_(split_matrix)
     {
         OPM_TIMEBLOCK(prec_construct);
+
         // TODO: rewrite so this value is set by an argument to the constructor
 #if HAVE_OPENMP
-        use_multithreading = omp_get_max_threads() > 1;
+        use_multithreading_ = omp_get_max_threads() > 1;
 #endif
 
-        if (use_multithreading) {
+        if (use_multithreading_ && split_matrix_){
+            OPM_THROW(std::runtime_error, "Splitting matrix while multithreading the linear solve is currently not supported. Consider setting 'split_matrix' to false in the preconditioner configuration, or run single threaded processes");
+        }
+
+        if (use_multithreading_) {
             A_reordered_.emplace(A_.N(), A_.N(), A_.nonzeroes(), M::row_wise);
 
             //! Assuming symmetric matrices using a lower triangular coloring to construct
@@ -99,6 +104,10 @@ public:
             }
         }
 
+        if (split_matrix_){
+            initialize_split_matrices();
+        }
+
         Dinv_.resize(A_.N());
         update();
     }
@@ -110,10 +119,15 @@ public:
     void update() override
     {
         OPM_TIMEBLOCK(prec_update);
-        if (use_multithreading) {
+        if (use_multithreading_) {
             parallelUpdate();
         } else {
-            serialUpdate();
+            if (split_matrix_){
+                splitSerialUpdate();
+            }
+            else{
+                serialUpdate();
+            }
         }
     }
 
@@ -135,7 +149,7 @@ public:
     void apply(X& v, const Y& d) override
     {
         OPM_TIMEBLOCK(prec_apply);
-        if (use_multithreading) {
+        if (use_multithreading_) {
             parallelApply(v, d);
         } else {
             serialApply(v, d);
@@ -168,6 +182,12 @@ private:
     //! \brief Copy of A_ that is reordered to store rows that can be computed simultaneously next to each other to
     //! increase cache usage when multithreading
     std::optional<M> A_reordered_;
+    //! \brief Extra matrix buffers if we want to split the LU matrix
+    std::optional<M> A_lower_;
+    std::optional<M> A_upper_;
+    std::optional<std::vector<typename M::block_type>> A_diag_;
+    //! \brief Boolean value describing whether or not we should split the matrix (only works for single threading)
+    bool split_matrix_;
     //! \brief The inverse of the diagnal matrix
     std::vector<typename M::block_type> Dinv_;
     //! \brief SparseTable storing each row by level
@@ -177,10 +197,36 @@ private:
     //! \brief converts from index in natural ordered structure to index reordered strucutre
     std::vector<std::size_t> natural_to_reorder_;
     //! \brief Boolean value describing whether or not to use multithreaded version of functions
-    bool use_multithreading{false};
+    bool use_multithreading_{false};
 
     void serialUpdate()
     {
+        for (std::size_t row = 0; row < A_.N(); ++row) {
+            Dinv_[row] = A_[row][row];
+        }
+        for (auto row = A_.begin(); row != A_.end(); ++row) {
+            const auto row_i = row.index();
+            auto Dinv_temp = Dinv_[row_i];
+            for (auto a_ij = row->begin(); a_ij.index() < row_i; ++a_ij) {
+                const auto col_j = a_ij.index();
+                const auto a_ji = A_[col_j].find(row_i);
+                // if A[i, j] != 0 and A[j, i] != 0
+                if (a_ji != A_[col_j].end()) {
+                    // Dinv_temp -= A[i, j] * d[j] * A[j, i]
+                    Dinv_temp -= (*a_ij) * Dune::FieldMatrix(Dinv_[col_j]) * (*a_ji);
+                }
+            }
+            Dinv_temp.invert();
+            Dinv_[row_i] = Dinv_temp;
+        }
+    }
+
+    void splitSerialUpdate()
+    {
+
+        // Update the split datastructures
+
+        // Compute the DILU diagonal
         for (std::size_t row = 0; row < A_.N(); ++row) {
             Dinv_[row] = A_[row][row];
         }
@@ -354,6 +400,33 @@ private:
                 }
             }
         }
+    }
+
+    void initialize_split_matrices(){
+        // This is the number of elements in the strictly lower/upper half
+        // If you remove the diagonal you are left with exactly twice the amount we want.
+        const size_t strictly_triangular_nnz = (A_.nonzeroes() - A_.N())/2;
+        A_lower_.emplace(A_.N(), A_.N(), strictly_triangular_nnz, M::row_wise);
+        A_upper_.emplace(A_.N(), A_.N(), strictly_triangular_nnz, M::row_wise);
+
+        auto lowerIt = A_lower_.value().createbegin();
+        auto upperIt = A_upper_.value().createbegin();
+
+        for (auto rowIt = A_.begin(); rowIt != A_.end(); ++rowIt){
+
+            for (auto elem = rowIt->begin(); elem != rowIt->end(); ++elem) {
+                if (elem.index() < rowIt.index()){ // add index to lower matrix if under the diagonal
+                    lowerIt.insert(elem.index());
+                }
+                else if (elem.index() > rowIt.index()){ // add index to upper matrix if above the diagonal
+                    upperIt.insert(elem.index());
+                }
+            }
+            ++lowerIt;
+            ++upperIt;
+        }
+
+        return;
     }
 };
 
