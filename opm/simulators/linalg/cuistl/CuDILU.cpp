@@ -205,7 +205,7 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
             const int numOfRowsInLevel = m_levelSets[level].size();
             levelStartIdx -= numOfRowsInLevel;
             if (m_split_matrix){
-                detail::computeUpperSolveLevelSetSplit<field_type, blocksize_>(m_gpuMatrixReorderedUpper->getNonZeroValues().data(),
+                detail::computeUpperSolveLevelSetSplitStream<field_type, blocksize_>(m_gpuMatrixReorderedUpper->getNonZeroValues().data(),
                                                                         m_gpuMatrixReorderedUpper->getRowIndices().data(),
                                                                         m_gpuMatrixReorderedUpper->getColumnIndices().data(),
                                                                         m_gpuReorderToNatural.data(),

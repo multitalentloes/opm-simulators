@@ -311,6 +311,74 @@ namespace
         }
     }
 
+    template <class T, int blocksize, int warpSize>
+    __global__ void cuComputeUpperSolveLevelSetSplitStream(T* mat,
+                                                int* rowIndices,
+                                                int* colIndices,
+                                                int* indexConversion,
+                                                int startIdx,
+                                                int rowsInLevelSet,
+                                                const T* dInv,
+                                                T* v)
+    {
+        // the streaming implementation uses one warp per row
+        const int thr = (blockDim.x * blockIdx.x + threadIdx.x);
+        const int warp = thr / warpSize;
+        const int reorderedRowIdx = startIdx + warp;
+
+        if (reorderedRowIdx < rowsInLevelSet + startIdx) { // I think this is superfluous as of now
+            const size_t nnzIdx = rowIndices[reorderedRowIdx];
+            const size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
+            const int naturalRowIdx = indexConversion[reorderedRowIdx];
+
+            // Here we compute the number of whole blocks we will fetch if each thread fetches a single element
+            constexpr const int scalarsInBlock = blocksize*blocksize;
+            constexpr const int blocksFetchedByWarps = warpSize / scalarsInBlock;
+            const int scalarsToFetchAtMost = blocksFetchedByWarps * scalarsInBlock;
+            int scalarsLeft = blocksize * blocksize * (nnzIdxLim - nnzIdx);
+            const int lane = thr%warpSize;
+            int curBlock = nnzIdx;
+            int scalarsToFetchNow = (scalarsLeft < scalarsToFetchAtMost ? scalarsLeft : scalarsToFetchAtMost); // min operation
+            //TODO: add an assert that this next division does not have a remainder
+            int blocksToFetchNow = scalarsToFetchNow / scalarsInBlock; // min operation
+
+            T localBlocks[blocksFetchedByWarps*blocksize*blocksize];
+            // I think this vector will be random access anyways, so do not bother parallelizing the fetch for now
+            // T localVecs[blocksFetchedByWarps*blocksize];
+            T rhs[blocksize] = {0};
+
+            while (curBlock < nnzIdxLim){
+                if (lane < scalarsToFetchNow){
+                    // this fetch from global memory should now be contiguous!
+                    localBlocks[lane] = mat[curBlock * blocksize * blocksize + lane];
+                }
+
+                for (int i = 1; i < scalarsToFetchNow; ++i){
+                    // every thread sends their data to the threads of lower addresses at the right place
+                    // we only really care about that thread 0 ends up with all the data for now
+                    localBlocks[i] = __shfl_down(localBlocks[i], i);
+                }
+
+                // perform computations with the values on the first thread
+                if (lane == 0){
+                    for (int i = 0; i < blocksToFetchNow; ++i){
+                        const int col = colIndices[curBlock + i];
+                        umv<T, blocksize>(&localBlocks[i * scalarsInBlock], &v[col * blocksize], rhs);
+                    }
+                }
+
+                // update how many scalars to fetch and what block we are
+                scalarsLeft -= scalarsToFetchNow;
+                scalarsToFetchNow = (scalarsLeft < scalarsToFetchAtMost ? scalarsLeft : scalarsToFetchAtMost); // min operation
+                curBlock += blocksToFetchNow;
+            }
+
+            if (lane == 0){
+                mmv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+            }
+        }
+    }
+
     template <class T, int blocksize>
     __global__ void cuComputeDiluDiagonal(T* mat,
                                           int* rowIndices,
@@ -587,6 +655,27 @@ computeUpperSolveLevelSetSplit(T* reorderedMat,
 
 template <class T, int blocksize>
 void
+computeUpperSolveLevelSetSplitStream(T* reorderedMat,
+                          int* rowIndices,
+                          int* colIndices,
+                          int* indexConversion,
+                          int startIdx,
+                          int rowsInLevelSet,
+                          const T* dInv,
+                          T* v)
+{
+#ifdef USE_HIP
+const int WARP_WAVEFRONT_SIZE = 64;
+#else
+const int WARP_WAVEFRONT_SIZE = 32;
+#endif
+    const int numOfThreads = rowsInLevelSet * WARP_WAVEFRONT_SIZE;
+    cuComputeUpperSolveLevelSetSplitStream<T, blocksize, WARP_WAVEFRONT_SIZE><<<getBlocks(numOfThreads), getThreads(numOfThreads)>>>(
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+}
+
+template <class T, int blocksize>
+void
 computeDiluDiagonal(T* reorderedMat,
                     int* rowIndices,
                     int* colIndices,
@@ -672,7 +761,10 @@ copyMatDataToReorderedSplit(
     template void computeUpperSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);                     \
     template void computeLowerSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);           \
     template void computeUpperSolveLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);                \
-    template void computeLowerSolveLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);
+    template void computeLowerSolveLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);      \
+    template void computeUpperSolveLevelSetSplitStream<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);      
+    // template void cuComputeUpperSolveLevelSetSplitStream<T, blocksize, 32>(T*, int*, int*, int*, int, int, const T*, T*);      \
+    // template void cuComputeUpperSolveLevelSetSplitStream<T, blocksize, 64>(T*, int*, int*, int*, int, int, const T*, T*);
 
 INSTANTIATE_KERNEL_WRAPPERS(float, 1);
 INSTANTIATE_KERNEL_WRAPPERS(float, 2);

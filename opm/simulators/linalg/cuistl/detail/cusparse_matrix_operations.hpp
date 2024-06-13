@@ -112,7 +112,6 @@ void computeUpperSolveLevelSet(T* reorderedMat,
                                int rowsInLevelSet,
                                const T* dInv,
                                T* v);
-template <class T, int blocksize>
 
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel
@@ -129,7 +128,18 @@ template <class T, int blocksize>
  * @param [out] v Will store the results of the lower solve. To begin with it should store the output from the lower
  * solve
  */
+template <class T, int blocksize>
 void computeUpperSolveLevelSetSplit(T* reorderedUpperMat,
+                               int* rowIndices,
+                               int* colIndices,
+                               int* indexConversion,
+                               int startIdx,
+                               int rowsInLevelSet,
+                               const T* dInv,
+                               T* v);
+
+template <class T, int blocksize>
+void computeUpperSolveLevelSetSplitStream(T* reorderedUpperMat,
                                int* rowIndices,
                                int* colIndices,
                                int* indexConversion,
