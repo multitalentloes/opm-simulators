@@ -19,6 +19,8 @@
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cusparse_matrix_operations.hpp>
 #include <stdexcept>
+#include <algorithm>
+#include <config.h>
 namespace Opm::cuistl::detail
 {
 namespace
@@ -379,6 +381,83 @@ namespace
         }
     }
 
+    template <class T, int blocksize, int warpSize>
+    __global__ void cuComputeUpperSolveLevelSetSplitStreamShared(T* mat,
+                                                int* rowIndices,
+                                                int* colIndices,
+                                                int* indexConversion,
+                                                int startIdx,
+                                                int rowsInLevelSet,
+                                                const T* dInv,
+                                                T* v,
+                                                int maxBlocksInRowInLevel,
+                                                int rowsInThreadBlock)
+    {
+        const int locthr = threadIdx.x;
+        const int thr = (blockDim.x * blockIdx.x + threadIdx.x);
+        const int warp = thr / warpSize;
+        const int threadsInThreadblock = 1024; // TODO: make more generic
+        const int reorderedRowIdx = startIdx + warp;
+        constexpr const int scalarsInBlock = blocksize*blocksize;
+
+
+        if (reorderedRowIdx < rowsInLevelSet + startIdx) {
+
+            // bool that keeps track of whether we are the last block in the kernel AND that blocks rows does not divide the number of warps run
+            const bool remainderRowsInBlock = (rowsInLevelSet%rowsInThreadBlock != 0) && blockIdx.x + 1 == (rowsInLevelSet + (rowsInThreadBlock - 1)) / rowsInThreadBlock;
+            // Where this thread block should load data is from startIdx + the amount of rows covered by previous blocks, that must have been full
+            const int firstRowInThisBlock = startIdx + blockIdx.x * rowsInThreadBlock;
+            const int lastRowInThisBlock = (remainderRowsInBlock ? startIdx + rowsInLevelSet-1 : firstRowInThisBlock + rowsInThreadBlock - 1);
+
+            // stream all the data from the row into the shared memory buffer
+            extern __shared__ char sharedBuffer[]; // slight hack to allow for use of shared memory buffer in a templated function
+            T* shared = reinterpret_cast<T *>(sharedBuffer);
+
+            // Helper variables containing the first and last block to load from the matrix
+            const size_t firstBlockToLoad = rowIndices[firstRowInThisBlock];
+            const size_t lastBlockToLoad = rowIndices[lastRowInThisBlock+1];
+            // totalScalarsToLoad contains the number of scalars in all blocks that will be computed by this threadblock
+            const size_t totalScalarsToLoad = (lastBlockToLoad - firstBlockToLoad) * scalarsInBlock;
+            int scalarsLeftToLoad = totalScalarsToLoad;
+            // We start filling the shared memory of this threadblock from the start
+            size_t sharedAddressReferencePoint = 0;
+            // Start reading from the first block to read in the matrix
+            size_t matrixAddressReferencePoint = firstBlockToLoad * scalarsInBlock;
+
+            // While there are scalars to load, use all threads in a contiguous memory read pattern
+            while (locthr < scalarsLeftToLoad){
+                // load data into shared memory from the matrix
+                shared[sharedAddressReferencePoint + threadIdx.x] = mat[matrixAddressReferencePoint + threadIdx.x];
+
+                // update the reference point that we load in based on offsets from
+                sharedAddressReferencePoint += threadsInThreadblock;
+                matrixAddressReferencePoint += threadsInThreadblock;
+                scalarsLeftToLoad -= threadsInThreadblock;
+            }
+
+            __syncthreads(); // Ensure all reads from shared memory are complete.
+
+            // only the first thread in each warp does computation for now
+            // this can later be done in parallel for each block, but that requires a reduction of the block elements
+            // additionally we cannot assume that the number of blocks is smaller than the nubmer of threads in a warp
+            // so the parallel version must also have a while loop
+            if (threadIdx.x%warpSize == 0){
+                const size_t nnzIdx = rowIndices[reorderedRowIdx];
+                const size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
+                const int naturalRowIdx = indexConversion[reorderedRowIdx];
+
+                T rhs[blocksize] = {0};
+                for (int block = nnzIdx; block < nnzIdxLim; ++block) {
+                    const int col = colIndices[block];
+                    umv<T, blocksize>(&shared[(block - firstBlockToLoad) * scalarsInBlock], &v[col * blocksize], rhs);
+                }
+
+                mmv<T, blocksize>(&dInv[reorderedRowIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+            }
+        }
+    }
+
+
     template <class T, int blocksize>
     __global__ void cuComputeDiluDiagonal(T* mat,
                                           int* rowIndices,
@@ -662,16 +741,36 @@ computeUpperSolveLevelSetSplitStream(T* reorderedMat,
                           int startIdx,
                           int rowsInLevelSet,
                           const T* dInv,
-                          T* v)
+                          T* v,
+                          int maxBlocksInRowInLevel)
 {
 #ifdef USE_HIP
 const int WARP_WAVEFRONT_SIZE = 64;
 #else
 const int WARP_WAVEFRONT_SIZE = 32;
 #endif
-    const int numOfThreads = rowsInLevelSet * WARP_WAVEFRONT_SIZE;
-    cuComputeUpperSolveLevelSetSplitStream<T, blocksize, WARP_WAVEFRONT_SIZE><<<getBlocks(numOfThreads), getThreads(numOfThreads)>>>(
-        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+    int maxDynShared;
+    std::ignore = hipDeviceGetAttribute(&maxDynShared, hipDeviceAttributeMaxSharedMemoryPerBlock, 0);
+
+    const int threadBlockSize = 1024;
+    const int bytesInRow = maxBlocksInRowInLevel*blocksize*blocksize*sizeof(T);
+
+    // printf("threadblocks %zu, nnz blocks %d, bytes in row %d, bytes in shared %d\n", getBlocks(rowsInLevelSet*WARP_WAVEFRONT_SIZE), maxBlocksInRowInLevel, bytesInRow, bytesInRow*(threadBlockSize / WARP_WAVEFRONT_SIZE));
+    // printf("start %d, rows in level set %d\n", startIdx, rowsInLevelSet);
+
+    // if the row fits in shared memory move it there for faster access
+    if (bytesInRow <= maxDynShared){
+        int rowsInThreadBlock = threadBlockSize / WARP_WAVEFRONT_SIZE;
+        cuComputeUpperSolveLevelSetSplitStreamShared<T, blocksize, WARP_WAVEFRONT_SIZE><<<getBlocks(rowsInLevelSet*WARP_WAVEFRONT_SIZE), 1024, bytesInRow*rowsInThreadBlock>>>(
+            reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v, maxBlocksInRowInLevel, rowsInThreadBlock);
+
+    }
+    else{
+        cuComputeUpperSolveLevelSetSplit<T, blocksize><<<getBlocks(rowsInLevelSet), getThreads(rowsInLevelSet)>>>(
+            reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+    }
+
+
 }
 
 template <class T, int blocksize>
@@ -762,7 +861,7 @@ copyMatDataToReorderedSplit(
     template void computeLowerSolveLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);           \
     template void computeUpperSolveLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);                \
     template void computeLowerSolveLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*);      \
-    template void computeUpperSolveLevelSetSplitStream<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*);      
+    template void computeUpperSolveLevelSetSplitStream<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);      
     // template void cuComputeUpperSolveLevelSetSplitStream<T, blocksize, 32>(T*, int*, int*, int*, int, int, const T*, T*);      \
     // template void cuComputeUpperSolveLevelSetSplitStream<T, blocksize, 64>(T*, int*, int*, int*, int, int, const T*, T*);
 

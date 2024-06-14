@@ -146,7 +146,8 @@ void computeUpperSolveLevelSetSplitStream(T* reorderedUpperMat,
                                int startIdx,
                                int rowsInLevelSet,
                                const T* dInv,
-                               T* v);
+                               T* v,
+                               int maxBlocksInRowInLevel);
 
 /**
  * @brief Computes the ILU0 of the diagonal elements of the reordered matrix and stores it in a reordered vector

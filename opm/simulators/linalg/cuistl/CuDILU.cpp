@@ -34,6 +34,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <algorithm>
 
 namespace
 {
@@ -148,9 +149,21 @@ CuDILU<M, X, Y, l>::CuDILU(const M& A, bool split_matrix)
                  fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
                              m_gpuMatrix.nonzeroes(),
                              A.nonzeroes()));
+
     if (m_split_matrix){
         m_gpuMatrixReorderedDiag.emplace(CuVector<field_type>(blocksize_*blocksize_*m_cpuMatrix.N()));
         extractLowerAndUpperMatrices<M, field_type, CuSparseMatrix<field_type>>(m_cpuMatrix, m_reorderedToNatural, m_gpuMatrixReorderedLower, m_gpuMatrixReorderedUpper);
+
+        auto rowSizes = m_gpuMatrixReorderedUpper->getRowIndices().asStdVector();
+        m_largestRowUpper.assign(m_levelSets.size(), 0);
+        int reorderedRowIndex = 0;
+        for (int i = 0; i < m_levelSets.size(); ++i){
+            for (size_t j = 0; j < m_levelSets[i].size(); ++j){
+                int sizeOfRow = rowSizes[reorderedRowIndex + 1] - rowSizes[reorderedRowIndex];
+                m_largestRowUpper[i] = std::max(m_largestRowUpper[i], sizeOfRow);
+                ++reorderedRowIndex;
+            }
+        }
     }
     else{
         createReorderedMatrix<M, field_type, CuSparseMatrix<field_type>>(m_cpuMatrix, m_reorderedToNatural, m_gpuMatrixReordered);
@@ -212,7 +225,8 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
                                                                         levelStartIdx,
                                                                         numOfRowsInLevel,
                                                                         m_gpuDInv.data(),
-                                                                        v.data());
+                                                                        v.data(),
+                                                                        m_largestRowUpper[level]);
             }
             else{
                 detail::computeUpperSolveLevelSet<field_type, blocksize_>(m_gpuMatrixReordered->getNonZeroValues().data(),

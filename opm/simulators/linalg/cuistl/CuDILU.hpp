@@ -129,6 +129,9 @@ private:
     CuVector<field_type> m_gpuDInv;
     //! \brief Bool storing whether or not we should store matrices in a split format
     bool m_split_matrix;
+
+    //! \brief Store the largest amount of blocks in each level
+    std::vector<int> m_largestRowUpper;
 };
 } // end namespace Opm::cuistl
 
