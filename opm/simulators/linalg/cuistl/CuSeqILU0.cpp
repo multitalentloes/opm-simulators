@@ -35,8 +35,6 @@
 
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
-
-
 namespace Opm::cuistl
 {
 
@@ -106,7 +104,7 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         m_infoL.get(),
                                                         d.data(),
                                                         m_temporaryStorage.data(),
-                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                        CUSPARSE_SOLVE_POLICY_NO_LEVEL,
                                                         m_buffer->data()));
 
     // Solve U v = m_temporaryStorage
@@ -124,7 +122,7 @@ CuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
                                                         m_infoU.get(),
                                                         m_temporaryStorage.data(),
                                                         v.data(),
-                                                        CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                        CUSPARSE_SOLVE_POLICY_NO_LEVEL,
                                                         m_buffer->data()));
 
 
@@ -179,7 +177,7 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
                                                              columnIndices,
                                                              blockSize,
                                                              m_infoM.get(),
-                                                             CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                             CUSPARSE_SOLVE_POLICY_NO_LEVEL,
                                                              m_buffer->data()));
 
     // Make sure we can decompose the matrix.
@@ -205,7 +203,7 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
                                                            columnIndices,
                                                            blockSize,
                                                            m_infoL.get(),
-                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                           CUSPARSE_SOLVE_POLICY_NO_LEVEL,
                                                            m_buffer->data()));
 
     OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrsv2_analysis(m_cuSparseHandle.get(),
@@ -219,7 +217,7 @@ CuSeqILU0<M, X, Y, l>::analyzeMatrix()
                                                            columnIndices,
                                                            blockSize,
                                                            m_infoU.get(),
-                                                           CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                           CUSPARSE_SOLVE_POLICY_NO_LEVEL,
                                                            m_buffer->data()));
     m_analysisDone = true;
 }
@@ -312,7 +310,7 @@ CuSeqILU0<M, X, Y, l>::createILU()
                                                     columnIndices,
                                                     blockSize,
                                                     m_infoM.get(),
-                                                    CUSPARSE_SOLVE_POLICY_USE_LEVEL,
+                                                    CUSPARSE_SOLVE_POLICY_NO_LEVEL,
                                                     m_buffer->data()));
 
     // We need to do this here as well. The first call was to check that we could decompose the system A=LU

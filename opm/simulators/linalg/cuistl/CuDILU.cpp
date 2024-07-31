@@ -36,6 +36,22 @@
 #include <tuple>
 
 
+class ScopeTimer {
+private:
+    std::chrono::high_resolution_clock::time_point start_time;
+    std::string timer_name;
+
+public:
+    ScopeTimer(const std::string& name = "Unnamed") : timer_name(name) {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
+
+    ~ScopeTimer() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        std::cout << timer_name << " took " << duration.count() << " microseconds." << std::endl;
+    }
+};
 namespace
 {
 std::vector<int>
@@ -182,6 +198,7 @@ template <class M, class X, class Y, int l>
 void
 CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    ScopeTimer timer("Apply");
     OPM_TIMEBLOCK(prec_apply);
     {
         int levelStartIdx = 0;
@@ -245,6 +262,7 @@ CuDILU<M, X, Y, l>::apply(X& v, const Y& d)
             }
         }
     }
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>

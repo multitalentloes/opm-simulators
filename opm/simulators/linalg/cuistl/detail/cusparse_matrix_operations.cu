@@ -242,13 +242,13 @@ namespace
         const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (reorderedRowIdx < rowsInLevelSet + startIdx) {
 
-            const size_t nnzIdx = rowIndices[reorderedRowIdx];
-            const size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
+            const size_t nnzIdx = __builtin_nontemporal_load(rowIndices+reorderedRowIdx);
+            const size_t nnzIdxLim = __builtin_nontemporal_load(rowIndices+reorderedRowIdx + 1);
             const int naturalRowIdx = indexConversion[reorderedRowIdx];
 
             T rhs[blocksize];
             for (int i = 0; i < blocksize; i++) {
-                rhs[i] = d[naturalRowIdx * blocksize + i];
+                rhs[i] = __builtin_nontemporal_load(d+naturalRowIdx * blocksize + i);
             }
 
             // TODO: removce the first condition in the for loop
@@ -299,8 +299,8 @@ namespace
     {
         const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (reorderedRowIdx < rowsInLevelSet + startIdx) {
-            const size_t nnzIdx = rowIndices[reorderedRowIdx];
-            const size_t nnzIdxLim = rowIndices[reorderedRowIdx + 1];
+            const size_t nnzIdx = __builtin_nontemporal_load(rowIndices+reorderedRowIdx);
+            const size_t nnzIdxLim = __builtin_nontemporal_load(rowIndices+reorderedRowIdx + 1);
             const int naturalRowIdx = indexConversion[reorderedRowIdx];
 
             T rhs[blocksize] = {0};
