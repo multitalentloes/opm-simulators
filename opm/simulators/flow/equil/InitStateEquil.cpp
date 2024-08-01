@@ -36,16 +36,20 @@ namespace Opm {
 
 template<class Scalar>
 using MatLaw = EclMaterialLawManager<ThreePhaseMaterialTraits<Scalar,0,1,2>>;
+template<class Scalar>
+using MatLawSimple = EclMaterialLawManagerSimple<ThreePhaseMaterialTraits<Scalar,0,1,2>>;
 
 namespace EQUIL {
 namespace DeckDependent {
 
-#define INSTANTIATE_COMP(T, GridView, Mapper)                                      \
+#define INSTANTIATE_COMP_CLASS(T, GridView, Mapper)                                \
     template class InitialStateComputer<BlackOilFluidSystem<T>,                    \
                                         Dune::CpGrid,                              \
                                         GridView,                                  \
                                         Mapper,                                    \
-                                        Dune::CartesianIndexMapper<Dune::CpGrid>>; \
+                                        Dune::CartesianIndexMapper<Dune::CpGrid>>;
+
+#define INSTANTIATE_COMP(T, GridView, Mapper, MatLaw)                              \
     template InitialStateComputer<BlackOilFluidSystem<T>,                          \
                                   Dune::CpGrid,                                    \
                                   GridView,                                        \
@@ -63,9 +67,13 @@ namespace DeckDependent {
 using GridView = Dune::GridView<Dune::DefaultLeafGridViewTraits<Dune::CpGrid>>;
 using Mapper = Dune::MultipleCodimMultipleGeomTypeMapper<GridView>;
 
-INSTANTIATE_COMP(double, GridView, Mapper)
+INSTANTIATE_COMP_CLASS(double, GridView, Mapper)
+INSTANTIATE_COMP(double, GridView, Mapper, MatLaw)
+INSTANTIATE_COMP(double, GridView, Mapper, MatLawSimple)
 #if FLOW_INSTANTIATE_FLOAT
-INSTANTIATE_COMP(float, GridView, Mapper)
+INSTANTIATE_COMP_CLASS(float, GridView, Mapper)
+INSTANTIATE_COMP(float, GridView, Mapper, MatLaw)
+INSTANTIATE_COMP(float, GridView, Mapper, MatLawSimple)
 #endif
 
 #if HAVE_DUNE_FEM
@@ -74,10 +82,14 @@ using GridViewFem = Dune::Fem::AdaptiveLeafGridPart<Dune::CpGrid,
                                                     false>;
 using MapperFem = Dune::MultipleCodimMultipleGeomTypeMapper<GridViewFem>;
 
-INSTANTIATE_COMP(double, GridViewFem, MapperFem)
+INSTANTIATE_COMP_CLASS(double, GridViewFem, MapperFem)
+INSTANTIATE_COMP(double, GridViewFem, MapperFem, MatLaw)
+INSTANTIATE_COMP(double, GridViewFem, MapperFem, MatLawSimple)
 
 #if FLOW_INSTANTIATE_FLOAT
-INSTANTIATE_COMP(float, GridViewFem, MapperFem)
+INSTANTIATE_COMP_CLASS(float, GridViewFem, MapperFem)
+INSTANTIATE_COMP(float, GridViewFem, MapperFem, MatLaw)
+INSTANTIATE_COMP(float, GridViewFem, MapperFem, MatLawSimple)
 #endif
 
 #endif // HAVE_DUNE_FEM
