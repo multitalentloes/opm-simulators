@@ -28,7 +28,6 @@
 #ifndef OPM_FLOW_BASE_PROBLEM_PROPERTIES_HPP
 #define OPM_FLOW_BASE_PROBLEM_PROPERTIES_HPP
 
-
 #include <opm/material/thermal/EclThermalLawManager.hpp>
 
 #include <opm/models/discretization/ecfv/ecfvdiscretization.hh>
