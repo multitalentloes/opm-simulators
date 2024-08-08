@@ -40,6 +40,26 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
+#include <iostream>
+#include <string>
+#include <tuple>
+
+class ScopedTimer {
+public:
+    explicit ScopedTimer(const std::string& name)
+        : name_(name), start_(std::chrono::high_resolution_clock::now()) {}
+
+    ~ScopedTimer() {
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start_);
+        std::cout << name_ << " took " << duration.count() << " microseconds." << std::endl;
+    }
+
+private:
+    std::string name_;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
+};
+
 namespace Opm::cuistl
 {
 
@@ -84,6 +104,8 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    std::ignore = cudaDeviceSynchronize();
+    ScopedTimer a("jacobi apply");
     // Jacobi preconditioner: x_{n+1} = x_n + w * (D^-1 * (b - Ax_n) )
     // Working with defect d and update v it we only need to set v = w*(D^-1)*d
 
@@ -91,6 +113,7 @@ CuJac<M, X, Y, l>::apply(X& v, const Y& d)
     // The product is thus computed as a hadamard product.
     detail::weightedDiagMV(
         m_diagInvFlattened.data(), m_gpuMatrix.N(), m_gpuMatrix.blockSize(), m_relaxationFactor, d.data(), v.data());
+    std::ignore = cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>
