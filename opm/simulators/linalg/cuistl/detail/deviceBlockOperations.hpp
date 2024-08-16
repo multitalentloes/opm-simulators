@@ -144,6 +144,19 @@ mv(const T* a, const T* b, T* c)
 
 template <class T, int blocksize>
 __device__ __forceinline__ void
+mvMixed(const float* A, const T* b, T* c)
+{
+    for (int i = 0; i < blocksize; ++i) {
+        c[i] = 0;
+
+        for (int j = 0; j < blocksize; ++j) {
+            c[i] += T(A[i * blocksize + j]) * b[j];
+        }
+    }
+}
+
+template <class T, int blocksize>
+__device__ __forceinline__ void
 umv(const T* a, const T* b, T* c)
 {
     matrixVectorProductWithAction<T, blocksize, MVType::PLUS>(a, b, c);
@@ -156,6 +169,16 @@ mmv(const T* a, const T* b, T* c)
     matrixVectorProductWithAction<T, blocksize, MVType::MINUS>(a, b, c);
 }
 
+template <class T, int blocksize>
+__device__ __forceinline__ void
+mmvMixed(const float* A, const T* b, T* c)
+{
+    for (int i = 0; i < blocksize; ++i) {
+        for (int j = 0; j < blocksize; ++j) {
+            c[i] -= T(A[i * blocksize + j]) * b[j];
+        }
+    }
+}
 // dst -= A*B*C
 template <class T, int blocksize>
 __device__ __forceinline__ void

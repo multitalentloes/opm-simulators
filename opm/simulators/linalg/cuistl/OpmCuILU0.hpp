@@ -55,6 +55,7 @@ public:
     using field_type = typename X::field_type;
     //! \brief The GPU matrix type
     using CuMat = CuSparseMatrix<field_type>;
+    using floatMat = CuSparseMatrix<float>;
 
     //! \brief Constructor.
     //!
@@ -62,7 +63,7 @@ public:
     //! \param A The matrix to operate on.
     //! \param w The relaxation factor.
     //!
-    explicit OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels);
+    explicit OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels, bool float_ILU, bool float_ILU_off_diags);
 
     //! \brief Prepare the preconditioner.
     //! \note Does nothing at the time being.
@@ -117,8 +118,11 @@ private:
     //! \brief If matrix splitting is enabled, then we store the lower and upper part separately
     std::unique_ptr<CuMat> m_gpuMatrixReorderedLower;
     std::unique_ptr<CuMat> m_gpuMatrixReorderedUpper;
+    std::unique_ptr<floatMat> m_gpuMatrixReorderedLowerfloat;
+    std::unique_ptr<floatMat> m_gpuMatrixReorderedUpperfloat;
     //! \brief If matrix splitting is enabled, we also store the diagonal separately
     std::optional<CuVector<field_type>> m_gpuMatrixReorderedDiag;
+    std::optional<CuVector<float>> m_gpuMatrixReorderedDiagfloat;
     //! row conversion from natural to reordered matrix indices stored on the GPU
     CuVector<int> m_gpuNaturalToReorder;
     //! row conversion from reordered to natural matrix indices stored on the GPU
@@ -129,6 +133,8 @@ private:
     bool m_splitMatrix;
     //! \brief Bool storing whether or not we will tune the threadblock sizes. Only used for AMD cards
     bool m_tuneThreadBlockSizes;
+    bool m_float_ILU; // true if the entire ILU factorization should be stored as f32
+    bool m_float_ILU_off_diags; // true if only the off-diagonals should be stored as f32
     //! \brief variables storing the threadblocksizes to use if using the tuned sizes and AMD cards
     //! The default value of -1 indicates that we have not calibrated and selected a value yet
     int m_applyThreadBlockSize = -1;

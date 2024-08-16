@@ -100,6 +100,29 @@ void solveUpperLevelSetSplit(T* reorderedMat,
                              T* v,
                              int threadBlockSize);
 
+
+template <class T, int blocksize>
+void solveUpperLevelSetSplitFloatILU(float* reorderedMat,
+                             int* rowIndices,
+                             int* colIndices,
+                             int* indexConversion,
+                             int startIdx,
+                             int rowsInLevelSet,
+                             const float* dInv,
+                             T* v,
+                             int threadBlockSize);
+
+template <class T, int blocksize>
+void solveUpperLevelSetSplitFloatOffDiag(float* reorderedMat,
+                             int* rowIndices,
+                             int* colIndices,
+                             int* indexConversion,
+                             int startIdx,
+                             int rowsInLevelSet,
+                             const T* dInv,
+                             T* v,
+                             int threadBlockSize);
+
 /**
  * @brief Perform an lower solve on certain rows in a matrix that can safely be computed in parallel
  * @param reorderedLowerMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered
@@ -119,6 +142,17 @@ void solveUpperLevelSetSplit(T* reorderedMat,
  */
 template <class T, int blocksize>
 void solveLowerLevelSetSplit(T* reorderedLowerMat,
+                             int* rowIndices,
+                             int* colIndices,
+                             int* indexConversion,
+                             int startIdx,
+                             int rowsInLevelSet,
+                             const T* d,
+                             T* v,
+                             int threadBlockSize);
+
+template <class T, int blocksize>
+void solveLowerLevelSetSplitMixed(float* reorderedLowerMat,
                              int* rowIndices,
                              int* colIndices,
                              int* indexConversion,

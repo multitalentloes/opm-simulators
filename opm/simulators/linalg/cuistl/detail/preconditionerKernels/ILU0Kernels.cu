@@ -298,6 +298,37 @@ namespace
     }
 
     template <class T, int blocksize>
+    __global__ void cuSolveLowerLevelSetSplitMixed(float* mat,
+                                              int* rowIndices,
+                                              int* colIndices,
+                                              int* indexConversion,
+                                              int startIdx,
+                                              int rowsInLevelSet,
+                                              const T* d,
+                                              T* v)
+    {
+        auto reorderedIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
+        if (reorderedIdx < rowsInLevelSet + startIdx) {
+            const size_t nnzIdx = rowIndices[reorderedIdx];
+            const size_t nnzIdxLim = rowIndices[reorderedIdx + 1];
+            const int naturalRowIdx = indexConversion[reorderedIdx];
+
+            T rhs[blocksize];
+            for (int i = 0; i < blocksize; i++) {
+                rhs[i] = d[naturalRowIdx * blocksize + i];
+            }
+
+            for (int block = nnzIdx; block < nnzIdxLim; ++block) {
+                const int col = colIndices[block];
+                mmvMixed<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+            }
+            for (int i = 0; i < blocksize; ++i) {
+                v[naturalRowIdx * blocksize + i] = rhs[i];
+            }
+        }
+    }
+
+    template <class T, int blocksize>
     __global__ void cuSolveUpperLevelSetSplit(T* mat,
                                               int* rowIndices,
                                               int* colIndices,
@@ -321,6 +352,66 @@ namespace
             for (int block = nnzIdx; block < nnzIdxLim; ++block) {
                 const int col = colIndices[block];
                 mmv<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+            }
+
+            mv<T, blocksize>(&dInv[reorderedIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+        }
+    }
+
+    template <class T, int blocksize>
+    __global__ void cuSolveUpperLevelSetSplitFloatILU(float* mat,
+                                              int* rowIndices,
+                                              int* colIndices,
+                                              int* indexConversion,
+                                              int startIdx,
+                                              int rowsInLevelSet,
+                                              const float* dInv,
+                                              T* v)
+    {
+        auto reorderedIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
+        if (reorderedIdx < rowsInLevelSet + startIdx) {
+            const size_t nnzIdx = rowIndices[reorderedIdx];
+            const size_t nnzIdxLim = rowIndices[reorderedIdx + 1];
+            const int naturalRowIdx = indexConversion[reorderedIdx];
+
+            T rhs[blocksize];
+            for (int i = 0; i < blocksize; i++) {
+                rhs[i] = v[naturalRowIdx * blocksize + i];
+            }
+
+            for (int block = nnzIdx; block < nnzIdxLim; ++block) {
+                const int col = colIndices[block];
+                mmvMixed<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+            }
+
+            mvMixed<T, blocksize>(&dInv[reorderedIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
+        }
+    }
+
+    template <class T, int blocksize>
+    __global__ void cuSolveUpperLevelSetSplitFloatOffDiag(float* mat,
+                                              int* rowIndices,
+                                              int* colIndices,
+                                              int* indexConversion,
+                                              int startIdx,
+                                              int rowsInLevelSet,
+                                              const T* dInv,
+                                              T* v)
+    {
+        auto reorderedIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
+        if (reorderedIdx < rowsInLevelSet + startIdx) {
+            const size_t nnzIdx = rowIndices[reorderedIdx];
+            const size_t nnzIdxLim = rowIndices[reorderedIdx + 1];
+            const int naturalRowIdx = indexConversion[reorderedIdx];
+
+            T rhs[blocksize];
+            for (int i = 0; i < blocksize; i++) {
+                rhs[i] = v[naturalRowIdx * blocksize + i];
+            }
+
+            for (int block = nnzIdx; block < nnzIdxLim; ++block) {
+                const int col = colIndices[block];
+                mmvMixed<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
             }
 
             mv<T, blocksize>(&dInv[reorderedIdx * blocksize * blocksize], rhs, &v[naturalRowIdx * blocksize]);
@@ -383,6 +474,26 @@ solveLowerLevelSetSplit(T* reorderedMat,
     cuSolveLowerLevelSetSplit<T, blocksize><<<nThreadBlocks, threadBlockSize>>>(
         reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, d, v);
 }
+
+template <class T, int blocksize>
+void
+solveLowerLevelSetSplitMixed(float* reorderedMat,
+                        int* rowIndices,
+                        int* colIndices,
+                        int* indexConversion,
+                        int startIdx,
+                        int rowsInLevelSet,
+                        const T* d,
+                        T* v,
+                        int thrBlockSize)
+{
+    int threadBlockSize = ::Opm::cuistl::detail::getCudaRecomendedThreadBlockSize(
+        cuSolveLowerLevelSetSplitMixed<T, blocksize>, thrBlockSize);
+    int nThreadBlocks = ::Opm::cuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
+    cuSolveLowerLevelSetSplitMixed<T, blocksize><<<nThreadBlocks, threadBlockSize>>>(
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, d, v);
+}
+
 // perform the upper solve for all rows in the same level set
 template <class T, int blocksize>
 void
@@ -400,6 +511,46 @@ solveUpperLevelSetSplit(T* reorderedMat,
         cuSolveUpperLevelSetSplit<T, blocksize>, thrBlockSize);
     int nThreadBlocks = ::Opm::cuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
     cuSolveUpperLevelSetSplit<T, blocksize><<<nThreadBlocks, threadBlockSize>>>(
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+}
+
+// perform the upper solve for all rows in the same level set
+template <class T, int blocksize>
+void
+solveUpperLevelSetSplitFloatILU(float* reorderedMat,
+                        int* rowIndices,
+                        int* colIndices,
+                        int* indexConversion,
+                        int startIdx,
+                        int rowsInLevelSet,
+                        const float* dInv,
+                        T* v,
+                        int thrBlockSize)
+{
+    int threadBlockSize = ::Opm::cuistl::detail::getCudaRecomendedThreadBlockSize(
+        cuSolveUpperLevelSetSplitFloatILU<T, blocksize>, thrBlockSize);
+    int nThreadBlocks = ::Opm::cuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
+    cuSolveUpperLevelSetSplitFloatILU<T, blocksize><<<nThreadBlocks, threadBlockSize>>>(
+        reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+}
+
+// perform the upper solve for all rows in the same level set
+template <class T, int blocksize>
+void
+solveUpperLevelSetSplitFloatOffDiag(float* reorderedMat,
+                        int* rowIndices,
+                        int* colIndices,
+                        int* indexConversion,
+                        int startIdx,
+                        int rowsInLevelSet,
+                        const T* dInv,
+                        T* v,
+                        int thrBlockSize)
+{
+    int threadBlockSize = ::Opm::cuistl::detail::getCudaRecomendedThreadBlockSize(
+        cuSolveUpperLevelSetSplitFloatOffDiag<T, blocksize>, thrBlockSize);
+    int nThreadBlocks = ::Opm::cuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
+    cuSolveUpperLevelSetSplitFloatOffDiag<T, blocksize><<<nThreadBlocks, threadBlockSize>>>(
         reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
 }
 
@@ -459,7 +610,10 @@ LUFactorizationSplit(T* reorderedLowerMat,
     template void LUFactorizationSplit<T, blocksize>(                                                                  \
         T*, int*, int*, T*, int*, int*, T*, int*, int*, const int, int, int);                                          \
     template void solveUpperLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);            \
-    template void solveLowerLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);
+    template void solveUpperLevelSetSplitFloatILU<T, blocksize>(float*, int*, int*, int*, int, int, const float*, T*, int);            \
+    template void solveUpperLevelSetSplitFloatOffDiag<T, blocksize>(float*, int*, int*, int*, int, int, const T*, T*, int);            \
+    template void solveLowerLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);            \
+    template void solveLowerLevelSetSplitMixed<T, blocksize>(float*, int*, int*, int*, int, int, const T*, T*, int);
 
 INSTANTIATE_KERNEL_WRAPPERS(float, 1);
 INSTANTIATE_KERNEL_WRAPPERS(float, 2);
