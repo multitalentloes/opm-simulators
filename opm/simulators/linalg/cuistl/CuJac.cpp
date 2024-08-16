@@ -27,6 +27,38 @@
 #include <opm/simulators/linalg/cuistl/detail/vector_operations.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
 
+#include <chrono>
+
+class CumulativeScopeTimer {
+public:
+    // Constructor starts the timer
+    CumulativeScopeTimer() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~CumulativeScopeTimer() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/apply. This apply: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Applies: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long CumulativeScopeTimer::total_time_spent = 0;
+int CumulativeScopeTimer::instance_count = 0;
+
 namespace Opm::cuistl
 {
 
@@ -67,6 +99,8 @@ template <class M, class X, class Y, int l>
 void
 CuJac<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    cudaDeviceSynchronize();
+    CumulativeScopeTimer timer1;
     // Jacobi preconditioner: x_{n+1} = x_n + w * (D^-1 * (b - Ax_n) )
     // Working with defect d and update v it we only need to set v = w*(D^-1)*d
 
@@ -74,6 +108,7 @@ CuJac<M, X, Y, l>::apply(X& v, const Y& d)
     // The product is thus computed as a hadamard product.
     detail::weightedDiagMV(
         m_diagInvFlattened.data(), m_gpuMatrix.N(), m_gpuMatrix.blockSize(), m_relaxationFactor, d.data(), v.data());
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>
