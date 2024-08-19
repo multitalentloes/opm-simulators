@@ -113,6 +113,17 @@ void solveUpperLevelSetSplitFloatILU(float* reorderedMat,
                              int threadBlockSize);
 
 template <class T, int blocksize>
+void solveUpperLevelSetSplitFloatILUFloatCompute(float* reorderedMat,
+                             int* rowIndices,
+                             int* colIndices,
+                             int* indexConversion,
+                             int startIdx,
+                             int rowsInLevelSet,
+                             const float* dInv,
+                             T* v,
+                             int threadBlockSize);
+
+template <class T, int blocksize>
 void solveUpperLevelSetSplitFloatOffDiag(float* reorderedMat,
                              int* rowIndices,
                              int* colIndices,
@@ -153,6 +164,18 @@ void solveLowerLevelSetSplit(T* reorderedLowerMat,
 
 template <class T, int blocksize>
 void solveLowerLevelSetSplitMixed(float* reorderedLowerMat,
+                             int* rowIndices,
+                             int* colIndices,
+                             int* indexConversion,
+                             int startIdx,
+                             int rowsInLevelSet,
+                             const T* d,
+                             T* v,
+                             int threadBlockSize);
+
+
+template <class T, int blocksize>
+void solveLowerLevelSetSplitMixedFloatCompute(float* reorderedLowerMat,
                              int* rowIndices,
                              int* colIndices,
                              int* indexConversion,

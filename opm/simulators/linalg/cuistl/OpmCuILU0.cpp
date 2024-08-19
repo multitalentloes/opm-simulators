@@ -68,7 +68,7 @@ namespace Opm::cuistl
 {
 
 template <class M, class X, class Y, int l>
-OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels, bool float_ILU, bool float_ILU_off_diags)
+OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels, bool float_ILU, bool float_ILU_off_diags, bool float_ILU_float_compute)
     : m_cpuMatrix(A)
     , m_levelSets(Opm::getMatrixRowColoring(m_cpuMatrix, Opm::ColoringType::LOWER))
     , m_reorderedToNatural(detail::createReorderedToNatural(m_levelSets))
@@ -85,11 +85,12 @@ OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels,
     , m_tuneThreadBlockSizes(tuneKernels)
     , m_float_ILU(float_ILU)
     , m_float_ILU_off_diags(float_ILU_off_diags)
+    , m_float_ILU_float_compute(float_ILU_float_compute)
     , m_gpuMatrixReorderedDiagfloat(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
 {
     // only one of these may be selected at a time
     assert(!(m_float_ILU && m_float_ILU_off_diags));
-    bool using_mixed = (m_float_ILU || m_float_ILU_off_diags);
+    bool using_mixed = (m_float_ILU || m_float_ILU_off_diags || m_float_ILU_float_compute);
     if (using_mixed){
         assert(m_splitMatrix);
     }
@@ -145,9 +146,21 @@ OpmCuILU0<M, X, Y, l>::apply(X& v, const Y& d)
         int levelStartIdx = 0;
         for (int level = 0; level < m_levelSets.size(); ++level) {
             const int numOfRowsInLevel = m_levelSets[level].size();
-            if (m_splitMatrix || m_float_ILU_off_diags) {
+            if (m_splitMatrix || m_float_ILU_off_diags || m_float_ILU_float_compute) {
                 if (m_float_ILU) { // use float for all ILU things
                     detail::ILU0::solveLowerLevelSetSplitMixed<field_type, blocksize_>(
+                        m_gpuMatrixReorderedLowerfloat->getNonZeroValues().data(),
+                        m_gpuMatrixReorderedLowerfloat->getRowIndices().data(),
+                        m_gpuMatrixReorderedLowerfloat->getColumnIndices().data(),
+                        m_gpuReorderToNatural.data(),
+                        levelStartIdx,
+                        numOfRowsInLevel,
+                        d.data(),
+                        v.data(),
+                        m_applyThreadBlockSize);
+                }
+                else if (m_float_ILU_float_compute){
+                    detail::ILU0::solveLowerLevelSetSplitMixedFloatCompute<field_type, blocksize_>(
                         m_gpuMatrixReorderedLowerfloat->getNonZeroValues().data(),
                         m_gpuMatrixReorderedLowerfloat->getRowIndices().data(),
                         m_gpuMatrixReorderedLowerfloat->getColumnIndices().data(),
@@ -210,6 +223,18 @@ OpmCuILU0<M, X, Y, l>::apply(X& v, const Y& d)
                         levelStartIdx,
                         numOfRowsInLevel,
                         m_gpuMatrixReorderedDiag.value().data(),
+                        v.data(),
+                        m_applyThreadBlockSize);
+                }
+                else if (m_float_ILU_float_compute) {
+                    detail::ILU0::solveUpperLevelSetSplitFloatILUFloatCompute<field_type, blocksize_>(
+                        m_gpuMatrixReorderedUpperfloat->getNonZeroValues().data(),
+                        m_gpuMatrixReorderedUpperfloat->getRowIndices().data(),
+                        m_gpuMatrixReorderedUpperfloat->getColumnIndices().data(),
+                        m_gpuReorderToNatural.data(),
+                        levelStartIdx,
+                        numOfRowsInLevel,
+                        m_gpuMatrixReorderedDiagfloat.value().data(),
                         v.data(),
                         m_applyThreadBlockSize);
                 }
@@ -328,7 +353,7 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
     // mixed precision only makes sense if this is instantiated on a double
     if constexpr(std::is_same_v<double, field_type>){
         // cast off-diagonals to float
-        if (m_float_ILU_off_diags || m_float_ILU){
+        if (m_float_ILU_off_diags || m_float_ILU || m_float_ILU_float_compute){
             {
                 auto elements = m_gpuMatrixReorderedLower->getNonZeroValues().asStdVector();
                 auto rows = m_gpuMatrixReorderedLower->getRowIndices().asStdVector();
@@ -355,7 +380,7 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
             }
         }
         // cast diagonal to float
-        if (m_float_ILU){
+        if (m_float_ILU || m_float_ILU_float_compute){
             auto elements = m_gpuMatrixReorderedDiag.value().asStdVector();
 
             size_t idx = 0;

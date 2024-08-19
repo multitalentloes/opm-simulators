@@ -63,7 +63,7 @@ public:
     //! \param A The matrix to operate on.
     //! \param w The relaxation factor.
     //!
-    explicit OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels, bool float_ILU, bool float_ILU_off_diags);
+    explicit OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels, bool float_ILU, bool float_ILU_off_diags, bool float_ILU_float_compute);
 
     //! \brief Prepare the preconditioner.
     //! \note Does nothing at the time being.
@@ -133,8 +133,9 @@ private:
     bool m_splitMatrix;
     //! \brief Bool storing whether or not we will tune the threadblock sizes. Only used for AMD cards
     bool m_tuneThreadBlockSizes;
-    bool m_float_ILU; // true if the entire ILU factorization should be stored as f32
-    bool m_float_ILU_off_diags; // true if only the off-diagonals should be stored as f32
+    bool m_float_ILU; // true if the entire ILU factorization should be stored as f32 and computations done in f64
+    bool m_float_ILU_off_diags; // true if only the off-diagonals should be stored as f32 and computations should be done in f64
+    bool m_float_ILU_float_compute; // true if the entire ILU factorization should be stored as f32 and the computations should be done in f32
     //! \brief variables storing the threadblocksizes to use if using the tuned sizes and AMD cards
     //! The default value of -1 indicates that we have not calibrated and selected a value yet
     int m_applyThreadBlockSize = -1;
