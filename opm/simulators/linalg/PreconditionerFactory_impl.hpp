@@ -46,7 +46,7 @@
 
 #include <config.h>
 
-#include <cuda_fp16.h>
+// #include <cuda_fp16.h>
 
 // Include all cuistl/GPU preconditioners inside of this headerfile
 #include <opm/simulators/linalg/PreconditionerFactoryGPUIncludeWrapper.hpp>
@@ -661,20 +661,20 @@ struct StandardPreconditioners<Operator, Dune::Amg::SequentialInformation> {
             return converted;
         });
 
-        F::addCreator("CUJacHalf", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
-            const double w = prm.get<double>("relaxation", 1.0);
-            using ToScalarType = __half;
-            using block_type = typename V::block_type;
-            using VTo = Dune::BlockVector<Dune::FieldVector<ToScalarType, block_type::dimension>>;
-            using matrix_type_to = typename Dune::BCRSMatrix<Dune::FieldMatrix<ToScalarType, block_type::dimension, block_type::dimension>>;
-            using CuJac_t = typename cuistl::CuJac<matrix_type_to, cuistl::CuVector<ToScalarType>, cuistl::CuVector<ToScalarType>>;
-            using Adapter = typename cuistl::PreconditionerAdapter<VTo, VTo, CuJac_t>;
-            using Converter = typename cuistl::PreconditionerConvertFieldTypeAdapter<Adapter, M, V, V>;
-            auto converted = std::make_shared<Converter>(op.getmat());
-            auto adapted = std::make_shared<Adapter>(std::make_shared<CuJac_t>(converted->getConvertedMatrix(), w));
-            converted->setUnderlyingPreconditioner(adapted);
-            return converted;
-        });
+        // F::addCreator("CUJacHalf", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
+        //     const double w = prm.get<double>("relaxation", 1.0);
+        //     using ToScalarType = __half;
+        //     using block_type = typename V::block_type;
+        //     using VTo = Dune::BlockVector<Dune::FieldVector<ToScalarType, block_type::dimension>>;
+        //     using matrix_type_to = typename Dune::BCRSMatrix<Dune::FieldMatrix<ToScalarType, block_type::dimension, block_type::dimension>>;
+        //     using CuJac_t = typename cuistl::CuJac<matrix_type_to, cuistl::CuVector<ToScalarType>, cuistl::CuVector<ToScalarType>>;
+        //     using Adapter = typename cuistl::PreconditionerAdapter<VTo, VTo, CuJac_t>;
+        //     using Converter = typename cuistl::PreconditionerConvertFieldTypeAdapter<Adapter, M, V, V>;
+        //     auto converted = std::make_shared<Converter>(op.getmat());
+        //     auto adapted = std::make_shared<Adapter>(std::make_shared<CuJac_t>(converted->getConvertedMatrix(), w));
+        //     converted->setUnderlyingPreconditioner(adapted);
+        //     return converted;
+        // });
 
         F::addCreator("CUDILU", [](const O& op, [[maybe_unused]] const P& prm, const std::function<V()>&, std::size_t) {
             const bool split_matrix = prm.get<bool>("split_matrix", true);

@@ -17,7 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <cuda.h>
-#include <cuda_fp16.h>
+// #include <cuda_fp16.h>
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
@@ -210,10 +210,10 @@ CuSparseMatrix<T>::mv(const CuVector<T>& x, CuVector<T>& y) const
     }
 
 
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "cusparseMV not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "cusparseMV not supported for half precision");
+    // }
+    // else{
         const auto nonzeroValues = getNonZeroValues().data();
 
         auto rowIndices = getRowIndices().data();
@@ -235,7 +235,7 @@ CuSparseMatrix<T>::mv(const CuVector<T>& x, CuVector<T>& y) const
                                                     x.data(),
                                                     &beta,
                                                     y.data()));
-    }
+    // }
 }
 
 template <typename T>
@@ -250,10 +250,10 @@ CuSparseMatrix<T>::umv(const CuVector<T>& x, CuVector<T>& y) const
             "CuSparseMatrix<T>::usmv and CuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
     }
 
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "cusparseMV not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "cusparseMV not supported for half precision");
+    // }
+    // else{
 
         const auto nonzeroValues = getNonZeroValues().data();
 
@@ -276,7 +276,7 @@ CuSparseMatrix<T>::umv(const CuVector<T>& x, CuVector<T>& y) const
                                                     x.data(),
                                                     &beta,
                                                     y.data()));
-    }
+    // }
 }
 
 template <typename T>
@@ -291,10 +291,10 @@ CuSparseMatrix<T>::usmv(T alpha, const CuVector<T>& x, CuVector<T>& y) const
             "CuSparseMatrix<T>::usmv and CuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
     }
 
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "cusparseMV not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "cusparseMV not supported for half precision");
+    // }
+    // else{
 
         const auto numberOfRows = N();
         const auto numberOfNonzeroBlocks = nonzeroes();
@@ -319,7 +319,7 @@ CuSparseMatrix<T>::usmv(T alpha, const CuVector<T>& x, CuVector<T>& y) const
                                                     x.data(),
                                                     &beta,
                                                     y.data()));
-    }
+    // }
 }
 
 template <class T>
@@ -364,11 +364,11 @@ INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(float, 4);
 INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(float, 5);
 INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(float, 6);
 
-INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 1);
-INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 2);
-INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 3);
-INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 4);
-INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 5);
-INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 6);
+// INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 1);
+// INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 2);
+// INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 3);
+// INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 4);
+// INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 5);
+// INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(__half, 6);
 
 } // namespace Opm::cuistl

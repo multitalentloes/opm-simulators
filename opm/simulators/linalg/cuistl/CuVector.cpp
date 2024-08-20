@@ -19,7 +19,7 @@
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <cuda_fp16.h>
+// #include <cuda_fp16.h>
 #include <type_traits>
 #include <fmt/core.h>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
@@ -127,12 +127,12 @@ template <typename T>
 void
 CuVector<T>::setZeroAtIndexSet(const CuVector<int>& indexSet)
 {
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "setZeroAtIndexSet not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "setZeroAtIndexSet not supported for half precision");
+    // }
+    // else{
         detail::setZeroAtIndexSet(m_dataOnDevice, indexSet.dim(), indexSet.data());
-    }
+    // }
 }
 
 template <typename T>
@@ -173,13 +173,13 @@ CuVector<T>&
 CuVector<T>::operator*=(const T& scalar)
 {
     assertHasElements();
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasScale not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasScale not supported for half precision");
+    // }
+    // else{
         OPM_CUBLAS_SAFE_CALL(detail::cublasScal(m_cuBlasHandle.get(), m_numberOfElements, &scalar, data(), 1));
         return *this;
-    }
+    // }
 }
 
 template <class T>
@@ -188,13 +188,13 @@ CuVector<T>::axpy(T alpha, const CuVector<T>& y)
 {
     assertHasElements();
     assertSameSize(y);
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasAxpy not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasAxpy not supported for half precision");
+    // }
+    // else{
         OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(), m_numberOfElements, &alpha, y.data(), 1, data(), 1));
         return *this;
-    }
+    // }
 }
 
 template <class T>
@@ -204,14 +204,14 @@ CuVector<T>::dot(const CuVector<T>& other) const
     assertHasElements();
     assertSameSize(other);
     T result = T(0);
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
+    // }
+    // else{
         OPM_CUBLAS_SAFE_CALL(
             detail::cublasDot(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, other.data(), 1, &result));
         return result;
-    }
+    // }
 }
 template <class T>
 T
@@ -219,25 +219,25 @@ CuVector<T>::two_norm() const
 {
     assertHasElements();
     T result = T(0);
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasNrm2 not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasNrm2 not supported for half precision");
+    // }
+    // else{
         OPM_CUBLAS_SAFE_CALL(detail::cublasNrm2(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, &result));
         return result;
-    }
+    // }
 }
 
 template <typename T>
 T
 CuVector<T>::dot(const CuVector<T>& other, const CuVector<int>& indexSet, CuVector<T>& buffer) const
 {
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
+    // }
+    // else{
         return detail::innerProductAtIndices(m_cuBlasHandle.get(), m_dataOnDevice, other.data(), buffer.data(), indexSet.dim(), indexSet.data());
-    }
+    // }
 }
 
 template <typename T>
@@ -246,12 +246,12 @@ CuVector<T>::two_norm(const CuVector<int>& indexSet, CuVector<T>& buffer) const
 {
     // TODO: [perf] Optimize this to a single call
 
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
+    // }
+    // else{
         return std::sqrt(this->dot(*this, indexSet, buffer));
-    }
+    // }
 }
 
 template <typename T>
@@ -260,12 +260,12 @@ CuVector<T>::dot(const CuVector<T>& other, const CuVector<int>& indexSet) const
 {
     CuVector<T> buffer(indexSet.dim());
 
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasDot not supported for half precision");
+    // }
+    // else{
         return detail::innerProductAtIndices(m_cuBlasHandle.get(), m_dataOnDevice, other.data(), buffer.data(), indexSet.dim(), indexSet.data());
-    }
+    // }
 }
 
 template <typename T>
@@ -275,12 +275,12 @@ CuVector<T>::two_norm(const CuVector<int>& indexSet) const
     CuVector<T> buffer(indexSet.dim());
     // TODO: [perf] Optimize this to a single call
 
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "CublasScale not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "CublasScale not supported for half precision");
+    // }
+    // else{
         return std::sqrt(this->dot(*this, indexSet, buffer));
-    }
+    // }
 }
 template <class T>
 CuVector<T>&
@@ -341,28 +341,28 @@ template <typename T>
 void
 CuVector<T>::prepareSendBuf(CuVector<T>& buffer, const CuVector<int>& indexSet) const
 {
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "prepareSendBuf not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "prepareSendBuf not supported for half precision");
+    // }
+    // else{
         return detail::prepareSendBuf(m_dataOnDevice, buffer.data(), indexSet.dim(), indexSet.data());
-    }
+    // }
 }
 template <typename T>
 void
 CuVector<T>::syncFromRecvBuf(CuVector<T>& buffer, const CuVector<int>& indexSet) const
 {
-    if constexpr (std::is_same_v<__half, T>){
-        OPM_THROW(std::runtime_error, "syncFromRecvBuf not supported for half precision");
-    }
-    else{
+    // if constexpr (std::is_same_v<__half, T>){
+    //     OPM_THROW(std::runtime_error, "syncFromRecvBuf not supported for half precision");
+    // }
+    // else{
         return detail::syncFromRecvBuf(m_dataOnDevice, buffer.data(), indexSet.dim(), indexSet.data());
-    }
+    // }
 }
 
 template class CuVector<double>;
 template class CuVector<float>;
 template class CuVector<int>;
-template class CuVector<__half>;
+// template class CuVector<__half>;
 
 } // namespace Opm::cuistl

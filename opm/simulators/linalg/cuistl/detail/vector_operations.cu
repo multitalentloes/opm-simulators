@@ -17,7 +17,7 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <config.h>
-#include <cuda_fp16.h>
+// #include <cuda_fp16.h>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/cuistl/CuVector.hpp>
 #include <opm/simulators/linalg/cuistl/detail/cublas_safe_call.hpp>
@@ -118,7 +118,7 @@ setVectorValue(T* deviceData, size_t numberOfElements, const T& value)
 template void setVectorValue(double*, size_t, const double&);
 template void setVectorValue(float*, size_t, const float&);
 template void setVectorValue(int*, size_t, const int&);
-template void setVectorValue(__half*, size_t, const __half&);
+// template void setVectorValue(__half*, size_t, const __half&);
 
 template <class T>
 void
@@ -219,6 +219,6 @@ weightedDiagMV(const T* squareBlockVector,
 
 template void weightedDiagMV(const double*, const size_t, const size_t, double, const double*, double*);
 template void weightedDiagMV(const float*, const size_t, const size_t, float, const float*, float*);
-template void weightedDiagMV(const __half*, const size_t, const size_t, __half, const __half*, __half*);
+// template void weightedDiagMV(const __half*, const size_t, const size_t, __half, const __half*, __half*);
 
 } // namespace Opm::cuistl::detail
