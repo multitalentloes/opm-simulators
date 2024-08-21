@@ -297,7 +297,6 @@ CuDILU<M, X, Y, l>::tuneThreadBlockSizes()
             }
         }
     }
-
     m_applyThreadBlockSize = bestApplyBlockSize;
     m_updateThreadBlockSize = bestUpdateBlockSize;
 }

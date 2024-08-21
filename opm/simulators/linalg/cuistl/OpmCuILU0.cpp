@@ -444,6 +444,7 @@ OpmCuILU0<M, X, Y, l>::tuneThreadBlockSizes()
         }
     }
 
+    printf("Apply Size: %d, Update Size: %d\n", bestApplyBlockSize, bestUpdateBlockSize);
     m_applyThreadBlockSize = bestApplyBlockSize;
     m_updateThreadBlockSize = bestUpdateBlockSize;
 }
