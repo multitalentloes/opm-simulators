@@ -64,6 +64,36 @@ private:
 // Static member variables need to be defined outside the class
 long long CumulativeScopeTimer::total_time_spent_2 = 0;
 int CumulativeScopeTimer::instance_count_2 = 0;
+
+class CumulativeScopeTimer2 {
+public:
+    // Constructor starts the timer
+    CumulativeScopeTimer2() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count_3;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~CumulativeScopeTimer2() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent_3 += duration;
+
+        std::cout << "Average: " << total_time_spent_3 / instance_count_3 << "us/update. This update: " << duration << "us. Total time spent: " << total_time_spent_3 / 1000.0 << " ms. " << " Applies: " << instance_count_3 << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent_3;  // Cumulative time spent in all instances
+    static int instance_count_3;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long CumulativeScopeTimer2::total_time_spent_3 = 0;
+int CumulativeScopeTimer2::instance_count_3 = 0;
 namespace Opm::cuistl
 {
 
@@ -88,13 +118,6 @@ OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels,
     , m_float_ILU_float_compute(float_ILU_float_compute)
     , m_gpuMatrixReorderedDiagfloat(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
 {
-    // only one of these may be selected at a time
-    assert(!(m_float_ILU && m_float_ILU_off_diags));
-    bool using_mixed = (m_float_ILU || m_float_ILU_off_diags || m_float_ILU_float_compute);
-    if (using_mixed){
-        assert(m_splitMatrix);
-    }
-
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
     OPM_ERROR_IF(A.N() != m_gpuMatrix.N(),
@@ -120,6 +143,17 @@ OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels,
         m_gpuReorderedLU = detail::createReorderedMatrix<M, field_type, CuSparseMatrix<field_type>>(
             m_cpuMatrix, m_reorderedToNatural);
     }
+
+    // only one of these may be selected at a time
+    assert(!(m_float_ILU && m_float_ILU_off_diags));
+    bool using_mixed = (m_float_ILU || m_float_ILU_off_diags || m_float_ILU_float_compute);
+    if (using_mixed){
+        assert(m_splitMatrix);
+        m_gpuMatrixReorderedLowerfloat = std::unique_ptr<floatMat>(new auto(floatMat(m_gpuMatrixReorderedLower->getRowIndices(), m_gpuMatrixReorderedLower->getColumnIndices(), blocksize_)));
+        m_gpuMatrixReorderedUpperfloat = std::unique_ptr<floatMat>(new auto(floatMat(m_gpuMatrixReorderedUpper->getRowIndices(), m_gpuMatrixReorderedUpper->getColumnIndices(), blocksize_)));
+        m_gpuMatrixReorderedDiagfloat.emplace(CuVector<float>(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize()));
+    }
+
     LUFactorizeAndMoveData();
 
 #ifdef USE_HIP
@@ -284,8 +318,11 @@ OpmCuILU0<M, X, Y, l>::update()
 {
     OPM_TIMEBLOCK(prec_update);
     {
+        cudaDeviceSynchronize();
+        CumulativeScopeTimer2 timer2;
         m_gpuMatrix.updateNonzeroValues(m_cpuMatrix, true); // send updated matrix to the gpu
         LUFactorizeAndMoveData();
+        cudaDeviceSynchronize();
     }
 }
 
@@ -320,9 +357,9 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
         int levelStartIdx = 0;
         for (int level = 0; level < m_levelSets.size(); ++level) {
             const int numOfRowsInLevel = m_levelSets[level].size();
-
+            bool is_mixed_precision = (m_float_ILU || m_float_ILU_off_diags || m_float_ILU_float_compute);
             if (m_splitMatrix) {
-                detail::ILU0::LUFactorizationSplit<field_type, blocksize_>(
+                detail::ILU0::LUFactorizationSplit<blocksize_, field_type, float>(
                     m_gpuMatrixReorderedLower->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLower->getRowIndices().data(),
                     m_gpuMatrixReorderedLower->getColumnIndices().data(),
@@ -330,11 +367,15 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
                     m_gpuMatrixReorderedUpper->getRowIndices().data(),
                     m_gpuMatrixReorderedUpper->getColumnIndices().data(),
                     m_gpuMatrixReorderedDiag.value().data(),
+                    is_mixed_precision ? m_gpuMatrixReorderedLowerfloat->getNonZeroValues().data() : nullptr,
+                    is_mixed_precision ? m_gpuMatrixReorderedUpperfloat->getNonZeroValues().data() : nullptr,
+                    is_mixed_precision ? m_gpuMatrixReorderedDiagfloat.value().data() : nullptr,
                     m_gpuReorderToNatural.data(),
                     m_gpuNaturalToReorder.data(),
                     levelStartIdx,
                     numOfRowsInLevel,
-                    m_updateThreadBlockSize);
+                    m_updateThreadBlockSize,
+                    is_mixed_precision);
 
             } else {
                 detail::ILU0::LUFactorization<field_type, blocksize_>(m_gpuReorderedLU->getNonZeroValues().data(),
@@ -350,48 +391,48 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
         }
     }
 
-    // mixed precision only makes sense if this is instantiated on a double
-    if constexpr(std::is_same_v<double, field_type>){
-        // cast off-diagonals to float
-        if (m_float_ILU_off_diags || m_float_ILU || m_float_ILU_float_compute){
-            {
-                auto elements = m_gpuMatrixReorderedLower->getNonZeroValues().asStdVector();
-                auto rows = m_gpuMatrixReorderedLower->getRowIndices().asStdVector();
-                auto cols = m_gpuMatrixReorderedLower->getColumnIndices().asStdVector();
+    // // mixed precision only makes sense if this is instantiated on a double
+    // if constexpr(std::is_same_v<double, field_type>){
+    //     // cast off-diagonals to float
+    //     if (m_float_ILU_off_diags || m_float_ILU || m_float_ILU_float_compute){
+    //         {
+    //             auto elements = m_gpuMatrixReorderedLower->getNonZeroValues().asStdVector();
+    //             auto rows = m_gpuMatrixReorderedLower->getRowIndices().asStdVector();
+    //             auto cols = m_gpuMatrixReorderedLower->getColumnIndices().asStdVector();
 
-                size_t idx = 0;
-                std::vector<float> floatElements(elements.size());
-                for (auto v : elements) {
-                    floatElements[idx++] = float(v);
-                }
-                m_gpuMatrixReorderedLowerfloat = std::unique_ptr<floatMat>(new auto(floatMat(floatElements.data(), rows.data(), cols.data(), m_gpuMatrixReorderedLower->nonzeroes(), blocksize_, m_gpuMatrix.N())));
-            }
-            {
-            auto elements = m_gpuMatrixReorderedUpper->getNonZeroValues().asStdVector();
-            auto rows = m_gpuMatrixReorderedUpper->getRowIndices().asStdVector();
-            auto cols = m_gpuMatrixReorderedUpper->getColumnIndices().asStdVector();
+    //             size_t idx = 0;
+    //             std::vector<float> floatElements(elements.size());
+    //             for (auto v : elements) {
+    //                 floatElements[idx++] = float(v);
+    //             }
+    //             m_gpuMatrixReorderedLowerfloat = std::unique_ptr<floatMat>(new auto(floatMat(floatElements.data(), rows.data(), cols.data(), m_gpuMatrixReorderedLower->nonzeroes(), blocksize_, m_gpuMatrix.N())));
+    //         }
+    //         {
+    //         auto elements = m_gpuMatrixReorderedUpper->getNonZeroValues().asStdVector();
+    //         auto rows = m_gpuMatrixReorderedUpper->getRowIndices().asStdVector();
+    //         auto cols = m_gpuMatrixReorderedUpper->getColumnIndices().asStdVector();
 
-            size_t idx = 0;
-            std::vector<float> floatElements(elements.size());
-            for (auto v : elements) {
-                floatElements[idx++] = float(v);
-            }
-            m_gpuMatrixReorderedUpperfloat = std::unique_ptr<floatMat>(new auto(floatMat(floatElements.data(), rows.data(), cols.data(), m_gpuMatrixReorderedUpper->nonzeroes(), blocksize_, m_gpuMatrix.N())));
-            }
-        }
-        // cast diagonal to float
-        if (m_float_ILU || m_float_ILU_float_compute){
-            auto elements = m_gpuMatrixReorderedDiag.value().asStdVector();
+    //         size_t idx = 0;
+    //         std::vector<float> floatElements(elements.size());
+    //         for (auto v : elements) {
+    //             floatElements[idx++] = float(v);
+    //         }
+    //         m_gpuMatrixReorderedUpperfloat = std::unique_ptr<floatMat>(new auto(floatMat(floatElements.data(), rows.data(), cols.data(), m_gpuMatrixReorderedUpper->nonzeroes(), blocksize_, m_gpuMatrix.N())));
+    //         }
+    //     }
+    //     // cast diagonal to float
+    //     if (m_float_ILU || m_float_ILU_float_compute){
+    //         auto elements = m_gpuMatrixReorderedDiag.value().asStdVector();
 
-            size_t idx = 0;
-            std::vector<float> floatElements(elements.size());
-            for (auto v : elements) {
-                floatElements[idx++] = float(v);
-            }
+    //         size_t idx = 0;
+    //         std::vector<float> floatElements(elements.size());
+    //         for (auto v : elements) {
+    //             floatElements[idx++] = float(v);
+    //         }
 
-            m_gpuMatrixReorderedDiagfloat.emplace(CuVector<float>(floatElements));
-        }
-    }
+    //         m_gpuMatrixReorderedDiagfloat.emplace(CuVector<float>(floatElements));
+    //     }
+    // }
 }
 
 template <class M, class X, class Y, int l>

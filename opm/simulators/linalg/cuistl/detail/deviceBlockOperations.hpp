@@ -112,6 +112,16 @@ invBlockInPlace(T* __restrict__ block)
     }
 }
 
+template<int blocksize, class ScalarInputType, class ScalarOutputType>
+__device__ __forceinline__ void
+moveBlock(const ScalarInputType* __restrict__ A, ScalarOutputType* __restrict__ B){
+    for (int i = 0; i < blocksize; ++i){
+        for (int j = 0; j < blocksize; ++j){
+            B[i * blocksize + j] = ScalarOutputType(A[i * blocksize + j]);
+        }
+    }
+}
+
 enum class MVType { SET, PLUS, MINUS };
 // SET:   c  = A*b
 // PLS:   c += A*b

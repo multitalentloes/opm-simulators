@@ -211,6 +211,7 @@ void LUFactorization(T* reorderedMat,
                      int startIdx,
                      int threadBlockSize);
 
+
 /**
  * @brief Computes the ILU0 factorization in-place of a bcsr matrix stored in a split format (lower, diagonal and upper
  * triangular part)
@@ -232,19 +233,37 @@ void LUFactorization(T* reorderedMat,
  * function
  * @param threadBlockSize The number of threads per threadblock. Leave as -1 if no blocksize is already chosen
  */
-template <class T, int blocksize>
-void LUFactorizationSplit(T* reorderedLowerMat,
+// template <class T, int blocksize>
+// void LUFactorizationSplit(T* reorderedLowerMat,
+//                           int* lowerRowIndices,
+//                           int* lowerColIndices,
+//                           T* reorderedUpperMat,
+//                           int* upperRowIndices,
+//                           int* upperColIndices,
+//                           T* diagonal,
+//                           int* reorderedToNatural,
+//                           int* naturalToReordered,
+//                           int startIdx,
+//                           int rowsInLevelSet,
+//                           int threadBlockSize);
+
+template <int blocksize, class InputScalar, class OutputScalar>
+void LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                           int* lowerRowIndices,
                           int* lowerColIndices,
-                          T* reorderedUpperMat,
+                          InputScalar* srcReorderedUpperMat,
                           int* upperRowIndices,
                           int* upperColIndices,
-                          T* diagonal,
+                          InputScalar* srcDiagonal,
+                          OutputScalar* dstReorderedLowerMat,
+                          OutputScalar* dstReorderedUpperMat,
+                          OutputScalar* dstDiagonal,
                           int* reorderedToNatural,
                           int* naturalToReordered,
                           int startIdx,
                           int rowsInLevelSet,
-                          int threadBlockSize);
+                          int threadBlockSize,
+                          bool copyResultToOtherMatrix);
 
 } // namespace Opm::cuistl::detail::ILU0
 #endif

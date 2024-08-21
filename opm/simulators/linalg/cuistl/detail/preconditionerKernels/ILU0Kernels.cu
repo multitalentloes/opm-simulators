@@ -120,18 +120,22 @@ namespace
         }
     }
 
-    template <class T, int blocksize>
-    __global__ void cuLUFactorizationSplit(T* reorderedLowerMat,
+    template <int blocksize, class InputScalar, class OutputScalar>
+    __global__ void cuLUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                                            int* lowerRowIndices,
                                            int* lowerColIndices,
-                                           T* reorderedUpperMat,
+                                           InputScalar* srcReorderedUpperMat,
                                            int* upperRowIndices,
                                            int* upperColIndices,
-                                           T* diagonal,
+                                           InputScalar* srcDiagonal,
+                                           OutputScalar* dstReorderedLowerMat,
+                                           OutputScalar* dstReorderedUpperMat,
+                                           OutputScalar* dstDiagonal,
                                            int* reorderedToNatural,
                                            int* naturalToReordered,
                                            const int startIdx,
-                                           int rowsInLevelSet)
+                                           int rowsInLevelSet,
+                                           const bool copyResultToOtherMatrix)
     {
         auto reorderedIdx = startIdx + blockDim.x * blockIdx.x + threadIdx.x;
         constexpr int scalarsInBlock = blocksize * blocksize;
@@ -155,9 +159,12 @@ namespace
 
                 // the DUNE implementation is inplace, and I need to take care to make sure
                 // this out of place implementation is equivalent
-                mmOverlap<T, blocksize>(&reorderedLowerMat[ij * scalarsInBlock],
-                                        &diagonal[j * scalarsInBlock],
-                                        &reorderedLowerMat[ij * scalarsInBlock]);
+                mmOverlap<InputScalar, blocksize>(&srcReorderedLowerMat[ij * scalarsInBlock],
+                                        &srcDiagonal[j * scalarsInBlock],
+                                        &srcReorderedLowerMat[ij * scalarsInBlock]);
+                if (copyResultToOtherMatrix){
+                    moveBlock<blocksize, InputScalar, OutputScalar>(&srcReorderedLowerMat[ij * scalarsInBlock], &dstReorderedLowerMat[ij * scalarsInBlock]);
+                }
 
                 // we have now accounted for an element under the diagonal and the diagonal element above it
                 // now iterate over the blocks that align in the
@@ -172,40 +179,51 @@ namespace
                 // the same block index might be found in the lower part of the matrix
                 while (!(ik == endOfRowIUpper && ikState == POSITION_TYPE::ABOVE_DIAG) && jk != endOfRowJ) {
 
-                    T* ikBlockPtr;
+                    InputScalar* ikBlockPtr;
+                    OutputScalar* dstIkBlockPtr;
                     int ikColumn;
                     if (ikState == POSITION_TYPE::UNDER_DIAG) {
-                        ikBlockPtr = &reorderedLowerMat[ik * scalarsInBlock];
+                        ikBlockPtr = &srcReorderedLowerMat[ik * scalarsInBlock];
+                        if (copyResultToOtherMatrix)
+                            dstIkBlockPtr = &dstReorderedLowerMat[ik * scalarsInBlock];
                         ikColumn = lowerColIndices[ik];
                     } else if (ikState == POSITION_TYPE::ON_DIAG) {
-                        ikBlockPtr = &diagonal[reorderedIdx * scalarsInBlock];
+                        ikBlockPtr = &srcDiagonal[reorderedIdx * scalarsInBlock];
+                        if (copyResultToOtherMatrix)
+                            dstIkBlockPtr = &dstDiagonal[reorderedIdx * scalarsInBlock];
                         ikColumn = naturalIdx;
                     } else { // ikState == POSITION_TYPE::ABOVE_DIAG
-                        ikBlockPtr = &reorderedUpperMat[ik * scalarsInBlock];
+                        ikBlockPtr = &srcReorderedUpperMat[ik * scalarsInBlock];
+                        if (copyResultToOtherMatrix)
+                            dstIkBlockPtr = &dstReorderedUpperMat[ik * scalarsInBlock];
                         ikColumn = upperColIndices[ik];
                     }
 
                     if (ikColumn == upperColIndices[jk]) {
                         // A_jk = A_ij * A_jk
-                        T tmp[scalarsInBlock] = {0};
+                        InputScalar tmp[scalarsInBlock] = {0};
 
-                        mmNoOverlap<T, blocksize>(
-                            &reorderedLowerMat[ij * scalarsInBlock], &reorderedUpperMat[jk * scalarsInBlock], tmp);
-                        matrixSubtraction<T, blocksize>(ikBlockPtr, tmp);
+                        mmNoOverlap<InputScalar, blocksize>(
+                            &srcReorderedLowerMat[ij * scalarsInBlock], &srcReorderedUpperMat[jk * scalarsInBlock], tmp);
+                        matrixSubtraction<InputScalar, blocksize>(ikBlockPtr, tmp);
+                        if (copyResultToOtherMatrix){
+                            moveBlock<blocksize, InputScalar, OutputScalar>(ikBlockPtr, dstIkBlockPtr);
+                        }
                         incrementAcrossSplitStructure(ik, ikState, endOfRowILower, startOfRowIUpper);
-                        ;
                         ++jk;
                     } else {
                         if (ikColumn < upperColIndices[jk]) {
                             incrementAcrossSplitStructure(ik, ikState, endOfRowILower, startOfRowIUpper);
-                            ;
                         } else {
                             ++jk;
                         }
                     }
                 }
             }
-            invBlockInPlace<T, blocksize>(&diagonal[reorderedIdx * scalarsInBlock]);
+            invBlockInPlace<InputScalar, blocksize>(&srcDiagonal[reorderedIdx * scalarsInBlock]);
+            if (copyResultToOtherMatrix){
+                moveBlock<blocksize, InputScalar, OutputScalar>(&srcDiagonal[reorderedIdx * scalarsInBlock], &dstDiagonal[reorderedIdx * scalarsInBlock]);
+            }
         }
     }
 
@@ -672,43 +690,53 @@ LUFactorization(T* srcMatrix,
         srcMatrix, srcRowIndices, srcColumnIndices, naturalToReordered, reorderedToNatual, rowsInLevelSet, startIdx);
 }
 
-template <class T, int blocksize>
+template <int blocksize, class InputScalar, class OutputScalar>
 void
-LUFactorizationSplit(T* reorderedLowerMat,
+LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                      int* lowerRowIndices,
                      int* lowerColIndices,
-                     T* reorderedUpperMat,
+                     InputScalar* srcReorderedUpperMat,
                      int* upperRowIndices,
                      int* upperColIndices,
-                     T* diagonal,
+                     InputScalar* srcDiagonal,
+                     OutputScalar* dstReorderedLowerMat,
+                     OutputScalar* dstReorderedUpperMat,
+                     OutputScalar* dstDiagonal,
                      int* reorderedToNatural,
                      int* naturalToReordered,
                      const int startIdx,
                      int rowsInLevelSet,
-                     int thrBlockSize)
+                     int thrBlockSize,
+                     bool copyResultToOtherMatrix)
 {
     int threadBlockSize
-        = ::Opm::cuistl::detail::getCudaRecomendedThreadBlockSize(cuLUFactorizationSplit<T, blocksize>, thrBlockSize);
+        = ::Opm::cuistl::detail::getCudaRecomendedThreadBlockSize(cuLUFactorizationSplit<blocksize, InputScalar, OutputScalar>, thrBlockSize);
     int nThreadBlocks = ::Opm::cuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
-    cuLUFactorizationSplit<T, blocksize><<<nThreadBlocks, threadBlockSize>>>(reorderedLowerMat,
+    cuLUFactorizationSplit<blocksize, InputScalar, OutputScalar><<<nThreadBlocks, threadBlockSize>>>(srcReorderedLowerMat,
                                                                              lowerRowIndices,
                                                                              lowerColIndices,
-                                                                             reorderedUpperMat,
+                                                                             srcReorderedUpperMat,
                                                                              upperRowIndices,
                                                                              upperColIndices,
-                                                                             diagonal,
+                                                                             srcDiagonal,
+                                                                             dstReorderedLowerMat,
+                                                                             dstReorderedUpperMat,
+                                                                             dstDiagonal,
                                                                              reorderedToNatural,
                                                                              naturalToReordered,
                                                                              startIdx,
-                                                                             rowsInLevelSet);
+                                                                             rowsInLevelSet,
+                                                                             copyResultToOtherMatrix);
 }
 
 #define INSTANTIATE_KERNEL_WRAPPERS(T, blocksize)                                                                      \
     template void solveUpperLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, T*, int);                           \
     template void solveLowerLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);                 \
     template void LUFactorization<T, blocksize>(T*, int*, int*, int*, int*, size_t, int, int);                         \
-    template void LUFactorizationSplit<T, blocksize>(                                                                  \
-        T*, int*, int*, T*, int*, int*, T*, int*, int*, const int, int, int);                                          \
+    template void LUFactorizationSplit<blocksize, T, float>(                                                                  \
+        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, int*, int*, const int, int, int, bool);                                          \
+    template void LUFactorizationSplit<blocksize, T, double>(                                                                  \
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int, bool);                                          \
     template void solveUpperLevelSetSplit<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);            \
     template void solveUpperLevelSetSplitFloatILU<T, blocksize>(float*, int*, int*, int*, int, int, const float*, T*, int);            \
     template void solveUpperLevelSetSplitFloatILUFloatCompute<T, blocksize>(float*, int*, int*, int*, int, int, const float*, T*, int);            \
