@@ -79,7 +79,8 @@ public:
     //!       restrictions in the current version of cusparse. This might change in future versions.
     CuSparseMatrix(const CuVector<int> rowIndices,
                    const CuVector<int> columnIndices,
-                   size_t blockSize);
+                   size_t blockSize,
+                   size_t numberOfRows);
 
     /**
      * We don't want to be able to copy this for now (too much hassle in copying the cusparse resources)

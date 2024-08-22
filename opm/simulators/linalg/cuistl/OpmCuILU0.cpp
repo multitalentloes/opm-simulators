@@ -116,7 +116,7 @@ OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels,
     , m_float_ILU(float_ILU)
     , m_float_ILU_off_diags(float_ILU_off_diags)
     , m_float_ILU_float_compute(float_ILU_float_compute)
-    , m_gpuMatrixReorderedDiagfloat(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
+    // , m_gpuMatrixReorderedDiagfloat(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
 {
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
@@ -149,8 +149,8 @@ OpmCuILU0<M, X, Y, l>::OpmCuILU0(const M& A, bool splitMatrix, bool tuneKernels,
     bool using_mixed = (m_float_ILU || m_float_ILU_off_diags || m_float_ILU_float_compute);
     if (using_mixed){
         assert(m_splitMatrix);
-        m_gpuMatrixReorderedLowerfloat = std::unique_ptr<floatMat>(new auto(floatMat(m_gpuMatrixReorderedLower->getRowIndices(), m_gpuMatrixReorderedLower->getColumnIndices(), blocksize_)));
-        m_gpuMatrixReorderedUpperfloat = std::unique_ptr<floatMat>(new auto(floatMat(m_gpuMatrixReorderedUpper->getRowIndices(), m_gpuMatrixReorderedUpper->getColumnIndices(), blocksize_)));
+        m_gpuMatrixReorderedLowerfloat = std::unique_ptr<floatMat>(new auto(floatMat(m_gpuMatrixReorderedLower->getRowIndices(), m_gpuMatrixReorderedLower->getColumnIndices(), blocksize_, m_cpuMatrix.N())));
+        m_gpuMatrixReorderedUpperfloat = std::unique_ptr<floatMat>(new auto(floatMat(m_gpuMatrixReorderedUpper->getRowIndices(), m_gpuMatrixReorderedUpper->getColumnIndices(), blocksize_, m_cpuMatrix.N())));
         m_gpuMatrixReorderedDiagfloat.emplace(CuVector<float>(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize()));
     }
 
@@ -180,7 +180,7 @@ OpmCuILU0<M, X, Y, l>::apply(X& v, const Y& d)
         int levelStartIdx = 0;
         for (int level = 0; level < m_levelSets.size(); ++level) {
             const int numOfRowsInLevel = m_levelSets[level].size();
-            if (m_splitMatrix || m_float_ILU_off_diags || m_float_ILU_float_compute) {
+            if (m_splitMatrix || m_float_ILU || m_float_ILU_off_diags || m_float_ILU_float_compute) {
                 if (m_float_ILU) { // use float for all ILU things
                     detail::ILU0::solveLowerLevelSetSplitMixed<field_type, blocksize_>(
                         m_gpuMatrixReorderedLowerfloat->getNonZeroValues().data(),
@@ -376,7 +376,6 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
                     numOfRowsInLevel,
                     m_updateThreadBlockSize,
                     is_mixed_precision);
-
             } else {
                 detail::ILU0::LUFactorization<field_type, blocksize_>(m_gpuReorderedLU->getNonZeroValues().data(),
                                                                       m_gpuReorderedLU->getRowIndices().data(),
@@ -390,49 +389,6 @@ OpmCuILU0<M, X, Y, l>::LUFactorizeAndMoveData()
             levelStartIdx += numOfRowsInLevel;
         }
     }
-
-    // // mixed precision only makes sense if this is instantiated on a double
-    // if constexpr(std::is_same_v<double, field_type>){
-    //     // cast off-diagonals to float
-    //     if (m_float_ILU_off_diags || m_float_ILU || m_float_ILU_float_compute){
-    //         {
-    //             auto elements = m_gpuMatrixReorderedLower->getNonZeroValues().asStdVector();
-    //             auto rows = m_gpuMatrixReorderedLower->getRowIndices().asStdVector();
-    //             auto cols = m_gpuMatrixReorderedLower->getColumnIndices().asStdVector();
-
-    //             size_t idx = 0;
-    //             std::vector<float> floatElements(elements.size());
-    //             for (auto v : elements) {
-    //                 floatElements[idx++] = float(v);
-    //             }
-    //             m_gpuMatrixReorderedLowerfloat = std::unique_ptr<floatMat>(new auto(floatMat(floatElements.data(), rows.data(), cols.data(), m_gpuMatrixReorderedLower->nonzeroes(), blocksize_, m_gpuMatrix.N())));
-    //         }
-    //         {
-    //         auto elements = m_gpuMatrixReorderedUpper->getNonZeroValues().asStdVector();
-    //         auto rows = m_gpuMatrixReorderedUpper->getRowIndices().asStdVector();
-    //         auto cols = m_gpuMatrixReorderedUpper->getColumnIndices().asStdVector();
-
-    //         size_t idx = 0;
-    //         std::vector<float> floatElements(elements.size());
-    //         for (auto v : elements) {
-    //             floatElements[idx++] = float(v);
-    //         }
-    //         m_gpuMatrixReorderedUpperfloat = std::unique_ptr<floatMat>(new auto(floatMat(floatElements.data(), rows.data(), cols.data(), m_gpuMatrixReorderedUpper->nonzeroes(), blocksize_, m_gpuMatrix.N())));
-    //         }
-    //     }
-    //     // cast diagonal to float
-    //     if (m_float_ILU || m_float_ILU_float_compute){
-    //         auto elements = m_gpuMatrixReorderedDiag.value().asStdVector();
-
-    //         size_t idx = 0;
-    //         std::vector<float> floatElements(elements.size());
-    //         for (auto v : elements) {
-    //             floatElements[idx++] = float(v);
-    //         }
-
-    //         m_gpuMatrixReorderedDiagfloat.emplace(CuVector<float>(floatElements));
-    //     }
-    // }
 }
 
 template <class M, class X, class Y, int l>

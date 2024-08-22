@@ -206,9 +206,6 @@ namespace
                         mmNoOverlap<InputScalar, blocksize>(
                             &srcReorderedLowerMat[ij * scalarsInBlock], &srcReorderedUpperMat[jk * scalarsInBlock], tmp);
                         matrixSubtraction<InputScalar, blocksize>(ikBlockPtr, tmp);
-                        if (copyResultToOtherMatrix){
-                            moveBlock<blocksize, InputScalar, OutputScalar>(ikBlockPtr, dstIkBlockPtr);
-                        }
                         incrementAcrossSplitStructure(ik, ikState, endOfRowILower, startOfRowIUpper);
                         ++jk;
                     } else {
@@ -223,6 +220,11 @@ namespace
             invBlockInPlace<InputScalar, blocksize>(&srcDiagonal[reorderedIdx * scalarsInBlock]);
             if (copyResultToOtherMatrix){
                 moveBlock<blocksize, InputScalar, OutputScalar>(&srcDiagonal[reorderedIdx * scalarsInBlock], &dstDiagonal[reorderedIdx * scalarsInBlock]);
+
+                // also move all values above the diagonal on this row
+                for (int block = startOfRowIUpper; block < endOfRowIUpper; ++block) {
+                    moveBlock<blocksize, InputScalar, OutputScalar>(&srcReorderedUpperMat[block * scalarsInBlock], &dstReorderedUpperMat[block * scalarsInBlock]);
+                }
             }
         }
     }
