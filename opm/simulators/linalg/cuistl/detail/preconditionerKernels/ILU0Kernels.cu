@@ -286,15 +286,15 @@ namespace
         }
     }
 
-    template <class T, int blocksize>
-    __global__ void cuSolveLowerLevelSetSplit(T* mat,
+    template <int blocksize, class LinearSolverScalar, class MatrixScalar, class ComputeScalar>
+    __global__ void cuSolveLowerLevelSetSplit(MatrixScalar* mat,
                                               int* rowIndices,
                                               int* colIndices,
                                               int* indexConversion,
                                               int startIdx,
                                               int rowsInLevelSet,
-                                              const T* d,
-                                              T* v)
+                                              const LinearSolverScalar* d,
+                                              LinearSolverScalar* v)
     {
         auto reorderedIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (reorderedIdx < rowsInLevelSet + startIdx) {
@@ -302,17 +302,19 @@ namespace
             const size_t nnzIdxLim = rowIndices[reorderedIdx + 1];
             const int naturalRowIdx = indexConversion[reorderedIdx];
 
-            T rhs[blocksize];
+            ComputeScalar rhs[blocksize];
             for (int i = 0; i < blocksize; i++) {
-                rhs[i] = d[naturalRowIdx * blocksize + i];
+                rhs[i] = ComputeScalar(d[naturalRowIdx * blocksize + i]);
             }
 
             for (int block = nnzIdx; block < nnzIdxLim; ++block) {
                 const int col = colIndices[block];
-                mmv<T, blocksize>(&mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+
+                mmvMixedGeneral<blocksize, MatrixScalar, LinearSolverScalar, ComputeScalar, ComputeScalar>(
+                    &mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
             }
             for (int i = 0; i < blocksize; ++i) {
-                v[naturalRowIdx * blocksize + i] = rhs[i];
+                v[naturalRowIdx * blocksize + i] = LinearSolverScalar(rhs[i]);
             }
         }
     }

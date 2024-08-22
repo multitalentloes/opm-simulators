@@ -22,6 +22,7 @@
 
 #include <config.h>
 #include <cuda_runtime.h>
+#include <type_traits>
 
 /*
     This file provides inlineable functions intended for CUDA kernels operating on block matrix elements
@@ -210,6 +211,17 @@ mmvMixed2(const float* A, const T* b, float* c)
     for (int i = 0; i < blocksize; ++i) {
         for (int j = 0; j < blocksize; ++j) {
             c[i] -= T(A[i * blocksize + j] * float(b[j]));
+        }
+    }
+}
+
+template <int blocksize, class MatrixScalar, class VectorScalar, class ResultScalar, class ComputeScalar>
+__device__ __forceinline__ void
+mmvMixedGeneral(const MatrixScalar* A, const VectorScalar* b, ResultScalar* c)
+{
+    for (int i = 0; i < blocksize; ++i) {
+        for (int j = 0; j < blocksize; ++j) {
+            c[i] -= ResultScalar(ComputeScalar(A[i * blocksize + j]) * ComputeScalar(b[j]));
         }
     }
 }
