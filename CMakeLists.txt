@@ -653,6 +653,7 @@ if(CUDA_FOUND)
                        solver_adapter
                        GpuBuffer
                        GpuView
+                       gpu_uniformxtabulated2dFunction
                        PROPERTIES LABELS ${gpu_label})
 endif()
 
