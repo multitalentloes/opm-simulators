@@ -129,7 +129,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
         const int numOfRowsInLevel = m_levelSets[level].size();
         if (m_splitMatrix) {
             if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
-                detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, float>(
+                detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, float, float>(
                     m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLowerFloat->getRowIndices().data(),
                     m_gpuMatrixReorderedLowerFloat->getColumnIndices().data(),
@@ -141,7 +141,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                     v.data(),
                     lowerSolveThreadBlockSize);
             }else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE) {
-                detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, float>(
+                detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, float, field_type>(
                     m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLowerFloat->getRowIndices().data(),
                     m_gpuMatrixReorderedLowerFloat->getColumnIndices().data(),
@@ -153,7 +153,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                     v.data(),
                     lowerSolveThreadBlockSize);
             } else {
-                detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, field_type>(
+                detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, field_type, field_type>(
                     m_gpuMatrixReorderedLower->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLower->getRowIndices().data(),
                     m_gpuMatrixReorderedLower->getColumnIndices().data(),

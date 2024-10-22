@@ -63,7 +63,7 @@ public:
     //! \param A The matrix to operate on.
     //! \param w The relaxation factor.
     //!
-    explicit GpuDILU(const M& A, bool splitMatrix, bool tuneKernels, int storeFactorizationAsFloat);
+    explicit GpuDILU(const M& A, bool splitMatrix, bool tuneKernels, int mixedPrecisionScheme);
 
     //! \brief Prepare the preconditioner.
     //! \note Does nothing at the time being.
