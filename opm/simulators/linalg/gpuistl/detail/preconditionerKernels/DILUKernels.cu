@@ -473,41 +473,19 @@ INSTANTIATE_KERNEL_WRAPPERS(double, 6);
         MatrixScalar*, int*, int*, int*, int, int, const DiagonalScalar*, const LinearSolverScalar*, LinearSolverScalar*, int);
 
 // TODO: be smarter about this... Surely this instantiates many more combinations that are actually needed
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(1, float, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(2, float, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(3, float, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(4, float, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(5, float, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(6, float, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(1, double, double, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(2, double, double, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(3, double, double, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(4, double, double, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(5, double, double, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(6, double, double, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(1, double, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(2, double, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(3, double, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(4, double, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(5, double, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(6, double, float, float);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(1, float, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(2, float, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(3, float, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(4, float, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(5, float, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(6, float, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(1, double, double, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(2, double, double, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(3, double, double, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(4, double, double, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(5, double, double, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(6, double, double, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(1, double, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(2, double, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(3, double, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(4, double, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(5, double, float, double);
-INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(6, double, float, double);
+#define INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(blocksize) \
+    INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(blocksize, float, float, float); \
+    INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(blocksize, double, double, float); \
+    INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(blocksize, double, float, float); \
+    INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(blocksize, float, float, double); \
+    INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(blocksize, double, double, double); \
+    INSTANTIATE_SOLVE_LEVEL_SET_SPLIT(blocksize, double, float, double);
+
+INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(1);
+INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(2);
+INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(3);
+INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(4);
+INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(5);
+INSTANTIATE_SOLVE_LEVEL_SET_SPLIT_ALL(6);
 
 } // namespace Opm::gpuistl::detail::DILU
