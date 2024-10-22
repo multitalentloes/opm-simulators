@@ -505,18 +505,16 @@ LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
     template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE>(                                                   \
         T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int); 
 
-INSTANTIATE_KERNEL_WRAPPERS(float, 1);
-INSTANTIATE_KERNEL_WRAPPERS(float, 2);
-INSTANTIATE_KERNEL_WRAPPERS(float, 3);
-INSTANTIATE_KERNEL_WRAPPERS(float, 4);
-INSTANTIATE_KERNEL_WRAPPERS(float, 5);
-INSTANTIATE_KERNEL_WRAPPERS(float, 6);
-INSTANTIATE_KERNEL_WRAPPERS(double, 1);
-INSTANTIATE_KERNEL_WRAPPERS(double, 2);
-INSTANTIATE_KERNEL_WRAPPERS(double, 3);
-INSTANTIATE_KERNEL_WRAPPERS(double, 4);
-INSTANTIATE_KERNEL_WRAPPERS(double, 5);
-INSTANTIATE_KERNEL_WRAPPERS(double, 6);
+#define INSTANTIATE_BLOCK_SIZED_KERNEL_WRAPPERS(T) \
+    INSTANTIATE_KERNEL_WRAPPERS(T, 1); \
+    INSTANTIATE_KERNEL_WRAPPERS(T, 2); \
+    INSTANTIATE_KERNEL_WRAPPERS(T, 3); \
+    INSTANTIATE_KERNEL_WRAPPERS(T, 4); \
+    INSTANTIATE_KERNEL_WRAPPERS(T, 5); \
+    INSTANTIATE_KERNEL_WRAPPERS(T, 6);
+
+INSTANTIATE_BLOCK_SIZED_KERNEL_WRAPPERS(float)
+INSTANTIATE_BLOCK_SIZED_KERNEL_WRAPPERS(double)
 
 #define INSTANTIATE_MIXED_PRECISION_KERNEL_WRAPPERS(blocksize)                                                         \
     /* double preconditioner */                                                                                        \

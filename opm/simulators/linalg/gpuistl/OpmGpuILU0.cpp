@@ -190,7 +190,7 @@ OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, i
                         v.data(),
                         upperSolveThreadBlockSize);
             }
-            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
+            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE) {
                     detail::ILU0::solveUpperLevelSetSplit<blocksize_, field_type, float, field_type>(
                         m_gpuMatrixReorderedUpperFloat->getNonZeroValues().data(),
                         m_gpuMatrixReorderedUpperFloat->getRowIndices().data(),
