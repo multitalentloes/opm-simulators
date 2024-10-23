@@ -89,7 +89,7 @@ OpmGpuILU0<M, X, Y, l>::OpmGpuILU0(const M& A, bool splitMatrix, bool tuneKernel
             m_cpuMatrix, m_reorderedToNatural);
     }
 
-    if (!m_mixedPrecisionScheme == MixedPrecisionScheme::DEFAULT){
+    if (m_mixedPrecisionScheme != MixedPrecisionScheme::DEFAULT){
         OPM_ERROR_IF(!m_splitMatrix, "Mixed precision GpuILU0 is currently only supported when using split_matrix=true");
 
         // initialize mixed precision datastructures
@@ -97,6 +97,7 @@ OpmGpuILU0<M, X, Y, l>::OpmGpuILU0(const M& A, bool splitMatrix, bool tuneKernel
         m_gpuMatrixReorderedUpperFloat = std::make_unique<FloatMat>(m_gpuMatrixReorderedUpper->getRowIndices(), m_gpuMatrixReorderedUpper->getColumnIndices(), blocksize_);
         // The MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE does not need to allocate this float vector
         if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
+            printf("now using m_gpuMatrixReorderedDiagFloat\n");
             m_gpuMatrixReorderedDiagFloat.emplace(GpuVector<float>(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize()));
         }
     }
@@ -190,7 +191,7 @@ OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, i
                         v.data(),
                         upperSolveThreadBlockSize);
             }
-            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE) {
+            else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE) {
                     detail::ILU0::solveUpperLevelSetSplit<blocksize_, field_type, float, field_type>(
                         m_gpuMatrixReorderedUpperFloat->getNonZeroValues().data(),
                         m_gpuMatrixReorderedUpperFloat->getRowIndices().data(),
