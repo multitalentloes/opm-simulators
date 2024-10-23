@@ -27,6 +27,7 @@
 #include <opm/simulators/linalg/gpuistl/detail/kernelEnums.hpp>
 #include <optional>
 #include <type_traits>
+#include <cuda_fp16.h>
 #include <vector>
 
 
@@ -58,6 +59,8 @@ public:
     using GpuMat = GpuSparseMatrix<field_type>;
     //! \brief The Float matrix type for mixed precision
     using FloatMat = GpuSparseMatrix<float>;
+    using FloatVec = GpuVector<float>;
+    using HalfMat = GpuSparseMatrix<__half>;
 
     //! \brief Constructor.
     //!
@@ -132,6 +135,8 @@ private:
     std::unique_ptr<FloatMat> m_gpuMatrixReorderedLowerFloat;
     std::unique_ptr<FloatMat> m_gpuMatrixReorderedUpperFloat;
     std::optional<GpuVector<float>> m_gpuMatrixReorderedDiagFloat;
+    std::unique_ptr<HalfMat> m_gpuMatrixReorderedLowerHalf;
+    std::unique_ptr<HalfMat> m_gpuMatrixReorderedUpperHalf;
     //! \brief If matrix splitting is enabled, we also store the diagonal separately
     std::optional<GpuVector<field_type>> m_gpuMatrixReorderedDiag;
     //! row conversion from natural to reordered matrix indices stored on the GPU

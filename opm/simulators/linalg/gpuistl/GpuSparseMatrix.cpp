@@ -215,105 +215,117 @@ template <typename T>
 void
 GpuSparseMatrix<T>::mv(const GpuVector<T>& x, GpuVector<T>& y) const
 {
-    assertSameSize(x);
-    assertSameSize(y);
-    if (blockSize() < 2u) {
-        OPM_THROW(
-            std::invalid_argument,
-            "GpuSparseMatrix<T>::usmv and GpuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
-    }
-    const auto nonzeroValues = getNonZeroValues().data();
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        assertSameSize(x);
+        assertSameSize(y);
+        if (blockSize() < 2u) {
+            OPM_THROW(
+                std::invalid_argument,
+                "GpuSparseMatrix<T>::usmv and GpuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
+        }
+        const auto nonzeroValues = getNonZeroValues().data();
 
-    auto rowIndices = getRowIndices().data();
-    auto columnIndices = getColumnIndices().data();
-    T alpha = 1.0;
-    T beta = 0.0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
-                                                 detail::CUSPARSE_MATRIX_ORDER,
-                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                 m_numberOfRows,
-                                                 m_numberOfRows,
-                                                 m_numberOfNonzeroBlocks,
-                                                 &alpha,
-                                                 m_matrixDescription->get(),
-                                                 nonzeroValues,
-                                                 rowIndices,
-                                                 columnIndices,
-                                                 blockSize(),
-                                                 x.data(),
-                                                 &beta,
-                                                 y.data()));
+        auto rowIndices = getRowIndices().data();
+        auto columnIndices = getColumnIndices().data();
+        T alpha = 1.0;
+        T beta = 0.0;
+        OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
+                                                    detail::CUSPARSE_MATRIX_ORDER,
+                                                    CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                    m_numberOfRows,
+                                                    m_numberOfRows,
+                                                    m_numberOfNonzeroBlocks,
+                                                    &alpha,
+                                                    m_matrixDescription->get(),
+                                                    nonzeroValues,
+                                                    rowIndices,
+                                                    columnIndices,
+                                                    blockSize(),
+                                                    x.data(),
+                                                    &beta,
+                                                    y.data()));
+    }
 }
 
 template <typename T>
 void
 GpuSparseMatrix<T>::umv(const GpuVector<T>& x, GpuVector<T>& y) const
 {
-    assertSameSize(x);
-    assertSameSize(y);
-    if (blockSize() < 2u) {
-        OPM_THROW(
-            std::invalid_argument,
-            "GpuSparseMatrix<T>::usmv and GpuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        assertSameSize(x);
+        assertSameSize(y);
+        if (blockSize() < 2u) {
+            OPM_THROW(
+                std::invalid_argument,
+                "GpuSparseMatrix<T>::usmv and GpuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
+        }
+
+        const auto nonzeroValues = getNonZeroValues().data();
+
+        auto rowIndices = getRowIndices().data();
+        auto columnIndices = getColumnIndices().data();
+        T alpha = 1.0;
+        T beta = 1.0;
+        OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
+                                                    detail::CUSPARSE_MATRIX_ORDER,
+                                                    CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                    m_numberOfRows,
+                                                    m_numberOfRows,
+                                                    m_numberOfNonzeroBlocks,
+                                                    &alpha,
+                                                    m_matrixDescription->get(),
+                                                    nonzeroValues,
+                                                    rowIndices,
+                                                    columnIndices,
+                                                    m_blockSize,
+                                                    x.data(),
+                                                    &beta,
+                                                    y.data()));
     }
-
-    const auto nonzeroValues = getNonZeroValues().data();
-
-    auto rowIndices = getRowIndices().data();
-    auto columnIndices = getColumnIndices().data();
-    T alpha = 1.0;
-    T beta = 1.0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
-                                                 detail::CUSPARSE_MATRIX_ORDER,
-                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                 m_numberOfRows,
-                                                 m_numberOfRows,
-                                                 m_numberOfNonzeroBlocks,
-                                                 &alpha,
-                                                 m_matrixDescription->get(),
-                                                 nonzeroValues,
-                                                 rowIndices,
-                                                 columnIndices,
-                                                 m_blockSize,
-                                                 x.data(),
-                                                 &beta,
-                                                 y.data()));
 }
 
 template <typename T>
 void
 GpuSparseMatrix<T>::usmv(T alpha, const GpuVector<T>& x, GpuVector<T>& y) const
 {
-    assertSameSize(x);
-    assertSameSize(y);
-    if (blockSize() < 2) {
-        OPM_THROW(
-            std::invalid_argument,
-            "GpuSparseMatrix<T>::usmv and GpuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        assertSameSize(x);
+        assertSameSize(y);
+        if (blockSize() < 2) {
+            OPM_THROW(
+                std::invalid_argument,
+                "GpuSparseMatrix<T>::usmv and GpuSparseMatrix<T>::mv are only implemented for block sizes greater than 1.");
+        }
+        const auto numberOfRows = N();
+        const auto numberOfNonzeroBlocks = nonzeroes();
+        const auto nonzeroValues = getNonZeroValues().data();
+
+        auto rowIndices = getRowIndices().data();
+        auto columnIndices = getColumnIndices().data();
+
+        T beta = 1.0;
+        OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
+                                                    detail::CUSPARSE_MATRIX_ORDER,
+                                                    CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                                    numberOfRows,
+                                                    numberOfRows,
+                                                    numberOfNonzeroBlocks,
+                                                    &alpha,
+                                                    m_matrixDescription->get(),
+                                                    nonzeroValues,
+                                                    rowIndices,
+                                                    columnIndices,
+                                                    blockSize(),
+                                                    x.data(),
+                                                    &beta,
+                                                    y.data()));
     }
-    const auto numberOfRows = N();
-    const auto numberOfNonzeroBlocks = nonzeroes();
-    const auto nonzeroValues = getNonZeroValues().data();
-
-    auto rowIndices = getRowIndices().data();
-    auto columnIndices = getColumnIndices().data();
-
-    T beta = 1.0;
-    OPM_CUSPARSE_SAFE_CALL(detail::cusparseBsrmv(m_cusparseHandle.get(),
-                                                 detail::CUSPARSE_MATRIX_ORDER,
-                                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                 numberOfRows,
-                                                 numberOfRows,
-                                                 numberOfNonzeroBlocks,
-                                                 &alpha,
-                                                 m_matrixDescription->get(),
-                                                 nonzeroValues,
-                                                 rowIndices,
-                                                 columnIndices,
-                                                 blockSize(),
-                                                 x.data(),
-                                                 &beta,
-                                                 y.data()));
 }
 
 template <class T>
@@ -343,6 +355,7 @@ GpuSparseMatrix<T>::assertSameSize(const VectorType& x) const
 
 template class GpuSparseMatrix<float>;
 template class GpuSparseMatrix<double>;
+template class GpuSparseMatrix<__half>;
 
 INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(double, 1);
 INSTANTIATE_CUSPARSE_DUNE_MATRIX_CONSTRUCTION_FUNTIONS(double, 2);

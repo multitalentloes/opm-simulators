@@ -20,6 +20,7 @@
 #define OPM_ILU0_KERNELS_HPP
 #include <cstddef>
 #include <vector>
+#include <cuda_fp16.h>
 #include <opm/simulators/linalg/gpuistl/detail/kernelEnums.hpp>
 namespace Opm::gpuistl::detail::ILU0
 {
@@ -188,6 +189,8 @@ void LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                           OutputScalar* dstReorderedLowerMat,
                           OutputScalar* dstReorderedUpperMat,
                           OutputScalar* dstDiagonal,
+                          __half *dstReorderedLowerMatHalf,
+                          __half *dstReorderedUpperMatHalf,
                           int* reorderedToNatural,
                           int* naturalToReordered,
                           int startIdx,

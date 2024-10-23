@@ -19,6 +19,7 @@
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include <fmt/core.h>
 #include <opm/simulators/linalg/gpuistl/GpuVector.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/cublas_safe_call.hpp>
@@ -125,7 +126,11 @@ template <typename T>
 void
 GpuVector<T>::setZeroAtIndexSet(const GpuVector<int>& indexSet)
 {
-    detail::setZeroAtIndexSet(m_dataOnDevice, indexSet.dim(), indexSet.data());
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        detail::setZeroAtIndexSet(m_dataOnDevice, indexSet.dim(), indexSet.data());
+    }
 }
 
 template <typename T>
@@ -165,9 +170,13 @@ template <class T>
 GpuVector<T>&
 GpuVector<T>::operator*=(const T& scalar)
 {
-    assertHasElements();
-    OPM_CUBLAS_SAFE_CALL(detail::cublasScal(m_cuBlasHandle.get(), m_numberOfElements, &scalar, data(), 1));
-    return *this;
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        assertHasElements();
+        OPM_CUBLAS_SAFE_CALL(detail::cublasScal(m_cuBlasHandle.get(), m_numberOfElements, &scalar, data(), 1));
+        return *this;
+    }
 }
 
 template <class T>
@@ -176,7 +185,11 @@ GpuVector<T>::axpy(T alpha, const GpuVector<T>& y)
 {
     assertHasElements();
     assertSameSize(y);
-    OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(), m_numberOfElements, &alpha, y.data(), 1, data(), 1));
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        OPM_CUBLAS_SAFE_CALL(detail::cublasAxpy(m_cuBlasHandle.get(), m_numberOfElements, &alpha, y.data(), 1, data(), 1));
+    }
     return *this;
 }
 
@@ -184,28 +197,40 @@ template <class T>
 T
 GpuVector<T>::dot(const GpuVector<T>& other) const
 {
-    assertHasElements();
-    assertSameSize(other);
-    T result = T(0);
-    OPM_CUBLAS_SAFE_CALL(
-        detail::cublasDot(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, other.data(), 1, &result));
-    return result;
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        assertHasElements();
+        assertSameSize(other);
+        T result = T(0);
+        OPM_CUBLAS_SAFE_CALL(
+            detail::cublasDot(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, other.data(), 1, &result));
+        return result;
+    }
 }
 template <class T>
 T
 GpuVector<T>::two_norm() const
 {
-    assertHasElements();
-    T result = T(0);
-    OPM_CUBLAS_SAFE_CALL(detail::cublasNrm2(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, &result));
-    return result;
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        assertHasElements();
+        T result = T(0);
+        OPM_CUBLAS_SAFE_CALL(detail::cublasNrm2(m_cuBlasHandle.get(), m_numberOfElements, data(), 1, &result));
+        return result;
+    }
 }
 
 template <typename T>
 T
 GpuVector<T>::dot(const GpuVector<T>& other, const GpuVector<int>& indexSet, GpuVector<T>& buffer) const
 {
-    return detail::innerProductAtIndices(m_cuBlasHandle.get(), m_dataOnDevice, other.data(), buffer.data(), indexSet.dim(), indexSet.data());
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        return detail::innerProductAtIndices(m_cuBlasHandle.get(), m_dataOnDevice, other.data(), buffer.data(), indexSet.dim(), indexSet.data());
+    }
 }
 
 template <typename T>
@@ -220,8 +245,12 @@ template <typename T>
 T
 GpuVector<T>::dot(const GpuVector<T>& other, const GpuVector<int>& indexSet) const
 {
-    GpuVector<T> buffer(indexSet.dim());
-    return detail::innerProductAtIndices(m_cuBlasHandle.get(), m_dataOnDevice, other.data(), buffer.data(), indexSet.dim(), indexSet.data());
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        GpuVector<T> buffer(indexSet.dim());
+        return detail::innerProductAtIndices(m_cuBlasHandle.get(), m_dataOnDevice, other.data(), buffer.data(), indexSet.dim(), indexSet.data());
+    }
 }
 
 template <typename T>
@@ -291,17 +320,26 @@ template <typename T>
 void
 GpuVector<T>::prepareSendBuf(GpuVector<T>& buffer, const GpuVector<int>& indexSet) const
 {
-    return detail::prepareSendBuf(m_dataOnDevice, buffer.data(), indexSet.dim(), indexSet.data());
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        return detail::prepareSendBuf(m_dataOnDevice, buffer.data(), indexSet.dim(), indexSet.data());
+    }
 }
 template <typename T>
 void
 GpuVector<T>::syncFromRecvBuf(GpuVector<T>& buffer, const GpuVector<int>& indexSet) const
 {
-    return detail::syncFromRecvBuf(m_dataOnDevice, buffer.data(), indexSet.dim(), indexSet.data());
+    if constexpr (std::is_same<T, __half>::value) {
+        OPM_THROW(std::invalid_argument, "Operation not supported for __half type");
+    } else {
+        return detail::syncFromRecvBuf(m_dataOnDevice, buffer.data(), indexSet.dim(), indexSet.data());
+    }
 }
 
 template class GpuVector<double>;
 template class GpuVector<float>;
 template class GpuVector<int>;
+template class GpuVector<__half>;
 
 } // namespace Opm::gpuistl

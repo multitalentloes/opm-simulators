@@ -91,8 +91,8 @@ GpuDILU<M, X, Y, l>::GpuDILU(const M& A, bool splitMatrix, bool tuneKernels, int
         }
         m_gpuMatrixReorderedLowerFloat = std::make_unique<FloatMat>(m_gpuMatrixReorderedLower->getRowIndices(), m_gpuMatrixReorderedLower->getColumnIndices(), blocksize_);
         m_gpuMatrixReorderedUpperFloat = std::make_unique<FloatMat>(m_gpuMatrixReorderedUpper->getRowIndices(), m_gpuMatrixReorderedUpper->getColumnIndices(), blocksize_);
-        // The MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE does not need to allocate this float vector
-        if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
+        // The MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE does not need to allocate this float vector
+        if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT) {
             m_gpuDInvFloat = std::make_unique<FloatVec>(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize());
         }
     }
@@ -128,7 +128,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
         if (m_splitMatrix) {
-            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
+            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT) {
                 detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, float, float>(
                     m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLowerFloat->getRowIndices().data(),
@@ -140,7 +140,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                     d.data(),
                     v.data(),
                     lowerSolveThreadBlockSize);
-            }else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE) {
+            }else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE) {
                 detail::DILU::solveLowerLevelSetSplit<blocksize_, field_type, float, field_type>(
                     m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLowerFloat->getRowIndices().data(),
@@ -187,7 +187,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
         const int numOfRowsInLevel = m_levelSets[level].size();
         levelStartIdx -= numOfRowsInLevel;
         if (m_splitMatrix) {
-            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT){
+            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT){
                 detail::DILU::solveUpperLevelSetSplit<blocksize_, field_type, float>(
                     m_gpuMatrixReorderedUpperFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedUpperFloat->getRowIndices().data(),
@@ -198,7 +198,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                     m_gpuDInvFloat->data(),
                     v.data(),
                     upperSolveThreadBlockSize);
-            } else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE){
+            } else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE){
                 detail::DILU::solveUpperLevelSetSplit<blocksize_, field_type, float>(
                     m_gpuMatrixReorderedUpperFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedUpperFloat->getRowIndices().data(),
@@ -299,9 +299,9 @@ GpuDILU<M, X, Y, l>::computeDiagAndMoveReorderedData(int moveThreadBlockSize, in
     for (int level = 0; level < m_levelSets.size(); ++level) {
         const int numOfRowsInLevel = m_levelSets[level].size();
         if (m_splitMatrix) {
-            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
-                // printf("update: MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT\n");
-                detail::DILU::computeDiluDiagonalSplit<blocksize_, field_type, float, MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT>(
+            if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT) {
+                // printf("update: MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT\n");
+                detail::DILU::computeDiluDiagonalSplit<blocksize_, field_type, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT>(
                     m_gpuMatrixReorderedLower->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLower->getRowIndices().data(),
                     m_gpuMatrixReorderedLower->getColumnIndices().data(),
@@ -318,9 +318,9 @@ GpuDILU<M, X, Y, l>::computeDiagAndMoveReorderedData(int moveThreadBlockSize, in
                     m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
                     m_gpuMatrixReorderedUpperFloat->getNonZeroValues().data(),
                     factorizationBlockSize);
-            } else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE) {
-                // printf("update: MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE\n");
-                detail::DILU::computeDiluDiagonalSplit<blocksize_, field_type, float, MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE>(
+            } else if (m_mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE) {
+                // printf("update: MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE\n");
+                detail::DILU::computeDiluDiagonalSplit<blocksize_, field_type, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE>(
                     m_gpuMatrixReorderedLower->getNonZeroValues().data(),
                     m_gpuMatrixReorderedLower->getRowIndices().data(),
                     m_gpuMatrixReorderedLower->getColumnIndices().data(),

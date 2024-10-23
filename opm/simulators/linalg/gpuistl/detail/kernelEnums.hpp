@@ -20,25 +20,85 @@
 #ifndef OPM_GPUISTL_PRECONDITIONER_STORAGE_OPTION_HPP
 #define OPM_GPUISTL_PRECONDITIONER_STORAGE_OPTION_HPP
 
+#include <opm/common/ErrorMacros.hpp>
+
 /*
     This file is here to organize a growing amount of different mixed precision options for the preconditioners.
+    TODO: if this file should be merged then rename to PrecisionEnums maybe?
 */
 
 namespace Opm::gpuistl {
     enum MixedPrecisionScheme {
         DEFAULT,
-        STORE_ENTIRE_FACTORIZATION_AS_FLOAT,
-        STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE
+        STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT,
+        STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE,
+        STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT,
+        STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE
     };
 
+    enum Precision {
+        HALF,
+        FLOAT,
+        DOUBLE
+    };
+
+/**
+ * @brief Checks if the given scheme is a valid MixedPrecisionScheme.
+ *
+ * @param scheme The integer representation of the MixedPrecisionScheme.
+ * @return true if the scheme is valid, false otherwise.
+ */
     inline bool isValidMixedPrecisionScheme(int scheme) {
         switch (scheme) {
             case DEFAULT:
-            case STORE_ENTIRE_FACTORIZATION_AS_FLOAT:
-            case STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE:
+            case STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT:
+            case STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE:
+            case STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT:
+            case STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE:
                 return true;
             default:
                 return false;
+        }
+    }
+
+/**
+ * @brief Gets the precision type for the diagonal elements based on the given MixedPrecisionScheme.
+ *
+ * @param scheme The MixedPrecisionScheme to evaluate.
+ * @return The Precision type for the diagonal elements.
+ */
+    inline Precision getDiagonalPrecision(MixedPrecisionScheme scheme) {
+        switch (scheme) {
+            case DEFAULT:
+            case STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE:
+            case STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE:
+                return DOUBLE;
+            case STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT:
+            case STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT:
+                return FLOAT;
+            default:
+                OPM_THROW(std::runtime_error, "Invalid mixed precision scheme provided.");
+        }
+    }
+
+/**
+ * @brief Gets the precision type for the off-diagonal elements based on the given MixedPrecisionScheme.
+ *
+ * @param scheme The MixedPrecisionScheme to evaluate.
+ * @return The Precision type for the off-diagonal elements.
+ */
+    inline Precision getOffDiagonalPrecision(MixedPrecisionScheme scheme) {
+        switch (scheme) {
+            case DEFAULT:
+                return DOUBLE;
+            case STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT:
+            case STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE:
+                return FLOAT;
+            case STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE:
+            case STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT:
+                return HALF;
+            default:
+                OPM_THROW(std::runtime_error, "Invalid mixed precision scheme provided.");
         }
     }
 }

@@ -20,6 +20,7 @@
 #define OPM_CUISTL_VECTOR_OPERATIONS_HPP
 #include <cstddef>
 #include <cublas_v2.h>
+#include <cuda_fp16.h>
 namespace Opm::gpuistl::detail
 {
 

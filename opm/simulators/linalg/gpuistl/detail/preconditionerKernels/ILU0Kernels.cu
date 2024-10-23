@@ -17,10 +17,10 @@
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <config.h>
+#include <opm/simulators/linalg/gpuistl/detail/preconditionerKernels/ILU0Kernels.hpp>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/deviceBlockOperations.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpuThreadUtils.hpp>
-#include <opm/simulators/linalg/gpuistl/detail/preconditionerKernels/ILU0Kernels.hpp>
 #include <stdexcept>
 
 /*
@@ -120,6 +120,7 @@ namespace
         }
     }
 
+// TODO: reduce the amount of ifs and buffers by expanding the amount of templates
     template <int blocksize, class InputScalar, class OutputScalar, MixedPrecisionScheme mixedPrecisionScheme>
     __global__ void cuLUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                                            int* lowerRowIndices,
@@ -128,9 +129,11 @@ namespace
                                            int* upperRowIndices,
                                            int* upperColIndices,
                                            InputScalar* srcDiagonal,
-                                           OutputScalar* dstReorderedLowerMat,
-                                           OutputScalar* dstReorderedUpperMat,
-                                           OutputScalar* dstDiagonal,
+                                           OutputScalar* floatDstReorderedLowerMat,
+                                           OutputScalar* floatDstReorderedUpperMat,
+                                           OutputScalar* floatDstDiagonal,
+                                           __half* halfDstReorderedLowerMat,
+                                           __half* halfDstReorderedUpperMat,
                                            int* reorderedToNatural,
                                            int* naturalToReordered,
                                            const int startIdx,
@@ -161,9 +164,13 @@ namespace
                 mmOverlap<InputScalar, blocksize>(&srcReorderedLowerMat[ij * scalarsInBlock],
                                                   &srcDiagonal[j * scalarsInBlock],
                                                   &srcReorderedLowerMat[ij * scalarsInBlock]);
-                if constexpr (mixedPrecisionScheme != MixedPrecisionScheme::DEFAULT) {
+                if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT || mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE) {
                     moveBlock<blocksize, InputScalar, OutputScalar>(&srcReorderedLowerMat[ij * scalarsInBlock],
-                                                                    &dstReorderedLowerMat[ij * scalarsInBlock]);
+                                                                    &floatDstReorderedLowerMat[ij * scalarsInBlock]);
+                }
+                if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE || mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT) {
+                    moveBlock<blocksize, InputScalar, __half>(&srcReorderedLowerMat[ij * scalarsInBlock],
+                                                                    &halfDstReorderedLowerMat[ij * scalarsInBlock]);
                 }
 
                 // we have now accounted for an element under the diagonal and the diagonal element above it
@@ -185,17 +192,17 @@ namespace
                     if (ikState == POSITION_TYPE::UNDER_DIAG) {
                         ikBlockPtr = &srcReorderedLowerMat[ik * scalarsInBlock];
                         if (mixedPrecisionScheme != MixedPrecisionScheme::DEFAULT)
-                            dstIkBlockPtr = &dstReorderedLowerMat[ik * scalarsInBlock];
+                            dstIkBlockPtr = &floatDstReorderedLowerMat[ik * scalarsInBlock];
                         ikColumn = lowerColIndices[ik];
                     } else if (ikState == POSITION_TYPE::ON_DIAG) {
                         ikBlockPtr = &srcDiagonal[reorderedIdx * scalarsInBlock];
                         if (mixedPrecisionScheme != MixedPrecisionScheme::DEFAULT)
-                            dstIkBlockPtr = &dstDiagonal[reorderedIdx * scalarsInBlock];
+                            dstIkBlockPtr = &floatDstDiagonal[reorderedIdx * scalarsInBlock];
                         ikColumn = naturalIdx;
                     } else { // ikState == POSITION_TYPE::ABOVE_DIAG
                         ikBlockPtr = &srcReorderedUpperMat[ik * scalarsInBlock];
                         if (mixedPrecisionScheme != MixedPrecisionScheme::DEFAULT)
-                            dstIkBlockPtr = &dstReorderedUpperMat[ik * scalarsInBlock];
+                            dstIkBlockPtr = &floatDstReorderedUpperMat[ik * scalarsInBlock];
                         ikColumn = upperColIndices[ik];
                     }
 
@@ -222,14 +229,23 @@ namespace
             if constexpr (mixedPrecisionScheme != MixedPrecisionScheme::DEFAULT) {
                 // if we are want to store the entire matrix as a float then we must also move the diagonal block from double to float
                 // if not then we just use the double diagonal that is already now stored in srcDiagonal
-                if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT){
+                if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT || mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT){
                     moveBlock<blocksize, InputScalar, OutputScalar>(&srcDiagonal[reorderedIdx * scalarsInBlock],
-                                                                    &dstDiagonal[reorderedIdx * scalarsInBlock]);
+                                                                    &floatDstDiagonal[reorderedIdx * scalarsInBlock]);
                 }
+
                 // also move all values above the diagonal on this row
-                for (int block = startOfRowIUpper; block < endOfRowIUpper; ++block) {
-                    moveBlock<blocksize, InputScalar, OutputScalar>(&srcReorderedUpperMat[block * scalarsInBlock],
-                                                                    &dstReorderedUpperMat[block * scalarsInBlock]);
+                if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT || mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE){
+                    for (int block = startOfRowIUpper; block < endOfRowIUpper; ++block) {
+                        moveBlock<blocksize, InputScalar, OutputScalar>(&srcReorderedUpperMat[block * scalarsInBlock],
+                                                                        &floatDstReorderedUpperMat[block * scalarsInBlock]);
+                    }
+                }
+                if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE || mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT){
+                    for (int block = startOfRowIUpper; block < endOfRowIUpper; ++block) {
+                        moveBlock<blocksize, InputScalar, __half>(&srcReorderedUpperMat[block * scalarsInBlock],
+                                                                        &halfDstReorderedUpperMat[block * scalarsInBlock]);
+                    }
                 }
             }
         }
@@ -459,9 +475,11 @@ LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                      int* upperRowIndices,
                      int* upperColIndices,
                      InputScalar* srcDiagonal,
-                     OutputScalar* dstReorderedLowerMat,
-                     OutputScalar* dstReorderedUpperMat,
-                     OutputScalar* dstDiagonal,
+                     OutputScalar* floatDstReorderedLowerMat,
+                     OutputScalar* floatDstReorderedUpperMat,
+                     OutputScalar* floatDstDiagonal,
+                     __half* halfDstReorderedLowerMat,
+                     __half* halfDstReorderedUpperMat,
                      int* reorderedToNatural,
                      int* naturalToReordered,
                      const int startIdx,
@@ -479,9 +497,11 @@ LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
                                              upperRowIndices,
                                              upperColIndices,
                                              srcDiagonal,
-                                             dstReorderedLowerMat,
-                                             dstReorderedUpperMat,
-                                             dstDiagonal,
+                                             floatDstReorderedLowerMat,
+                                             floatDstReorderedUpperMat,
+                                             floatDstDiagonal,
+                                             halfDstReorderedLowerMat,
+                                             halfDstReorderedUpperMat,
                                              reorderedToNatural,
                                              naturalToReordered,
                                              startIdx,
@@ -493,17 +513,25 @@ LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
     template void solveLowerLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);                 \
     template void LUFactorization<T, blocksize>(T*, int*, int*, int*, int*, size_t, int, int);                         \
     template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::DEFAULT>(                                                     \
-        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, int*, int*, const int, int, int);                  \
+        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, __half*, __half*, int*, int*, const int, int, int);                  \
     template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::DEFAULT>(                                                    \
-        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int);               \
-    template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT>(                                                    \
-        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, int*, int*, const int, int, int);                  \
-    template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT>(                                                   \
-        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int); \
-    template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE>(                                                    \
-        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, int*, int*, const int, int, int);                  \
-    template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE>(                                                   \
-        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int); 
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, __half*, __half*, int*, int*, const int, int, int);               \
+    template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT>(                                                    \
+        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, __half*, __half*, int*, int*, const int, int, int);                  \
+    template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT>(                                                   \
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, __half*, __half*, int*, int*, const int, int, int); \
+    template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE>(                                                    \
+        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, __half*, __half*, int*, int*, const int, int, int);                  \
+    template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_DOUBLE>(                                                   \
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, __half*, __half*, int*, int*, const int, int, int); \
+    template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT>(                                                    \
+        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, __half*, __half*, int*, int*, const int, int, int);                  \
+    template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_HALF_DIAGONAL_AS_FLOAT>(                                                   \
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, __half*, __half*, int*, int*, const int, int, int); \
+    template void LUFactorizationSplit<blocksize, T, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE>(                                                    \
+        T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, __half*, __half*, int*, int*, const int, int, int);                  \
+    template void LUFactorizationSplit<blocksize, T, double, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE>(                                                   \
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, __half*, __half*, int*, int*, const int, int, int); 
 
 #define INSTANTIATE_BLOCK_SIZED_KERNEL_WRAPPERS(T) \
     INSTANTIATE_KERNEL_WRAPPERS(T, 1); \
@@ -523,6 +551,11 @@ INSTANTIATE_BLOCK_SIZED_KERNEL_WRAPPERS(double)
     /* float matrix, double compute preconditioner */                                                                  \
     template void solveLowerLevelSetSplit<blocksize, double, float>(                                                   \
         float*, int*, int*, int*, int, int, const double*, double*, int);                                              \
+    /* half matrix, double compute preconditioner */                                                                  \
+    template void solveLowerLevelSetSplit<blocksize, double, __half>(                                                   \
+        __half*, int*, int*, int*, int, int, const double*, double*, int);                                              \
+    template void solveLowerLevelSetSplit<blocksize, float, __half>(                                                   \
+        __half*, int*, int*, int*, int, int, const float*, float*, int);                                              \
     /* float preconditioner */                                                                                         \
     template void solveLowerLevelSetSplit<blocksize, float, float>(                                                    \
         float*, int*, int*, int*, int, int, const float*, float*, int);                                                \
@@ -539,6 +572,14 @@ INSTANTIATE_BLOCK_SIZED_KERNEL_WRAPPERS(double)
     /* double preconditioner */                                                                                        \
     template void solveUpperLevelSetSplit<blocksize, double, double, float>(                                                  \
         double*, int*, int*, int*, int, int, const float*, double*, int);                                             \
+    /*__half matrix, double diagonal*/ \
+    template void solveUpperLevelSetSplit<blocksize, double, __half, double>(                                                  \
+        __half*, int*, int*, int*, int, int, const double*, double*, int);                                             \
+    /*__half matrix, float diagonal*/ \
+    template void solveUpperLevelSetSplit<blocksize, double, __half, float>(                                                  \
+        __half*, int*, int*, int*, int, int, const float*, double*, int);                                             \
+    template void solveUpperLevelSetSplit<blocksize, float, __half, float>(                                                  \
+        __half*, int*, int*, int*, int, int, const float*, float*, int);                                             \
     /* float matrix, double compute preconditioner */                                                                  \
     template void solveUpperLevelSetSplit<blocksize, double, float, float>(                                                   \
         float*, int*, int*, int*, int, int, const float*, double*, int);                                               \

@@ -115,6 +115,7 @@ setVectorValue(T* deviceData, size_t numberOfElements, const T& value)
 
 template void setVectorValue(double*, size_t, const double&);
 template void setVectorValue(float*, size_t, const float&);
+template void setVectorValue(__half*, size_t, const __half&);
 template void setVectorValue(int*, size_t, const int&);
 
 template <class T>

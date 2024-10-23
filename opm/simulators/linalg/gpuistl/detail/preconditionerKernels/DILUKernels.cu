@@ -276,7 +276,7 @@ namespace
             // }
             moveBlock<blocksize, InputScalar, InputScalar>(dInvTmp, &dInv[reorderedRowIdx * blocksize * blocksize]);
             // only if we store the entire matrix as a float should we be moving the block to the float diagonal
-            if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT) {
+            if constexpr (mixedPrecisionScheme == MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT) {
                 moveBlock<blocksize, InputScalar, OutputScalar>(dInvTmp, &dstDiag[reorderedRowIdx * blocksize * blocksize]); // important!
             }
         }
@@ -442,13 +442,13 @@ computeDiluDiagonalSplit(const InputScalar* srcReorderedLowerMat,
         const T*, int*, int*, const T*, int*, int*, const T*, int*, int*, const int, int, T*, double*, double*, double*, int);                                      \
     template void computeDiluDiagonalSplit<blocksize, T, float, MixedPrecisionScheme::DEFAULT>(                                                              \
         const T*, int*, int*, const T*, int*, int*, const T*, int*, int*, const int, int, T*, float*, float*, float*, int);                                      \
-    template void computeDiluDiagonalSplit<blocksize, T, float, MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT>(                                                              \
+    template void computeDiluDiagonalSplit<blocksize, T, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT>(                                                              \
         const T*, int*, int*, const T*, int*, int*, const T*, int*, int*, const int, int, T*, float*, float*, float*, int);                                      \
-    template void computeDiluDiagonalSplit<blocksize, T, double, MixedPrecisionScheme::STORE_ENTIRE_FACTORIZATION_AS_FLOAT>(                                                              \
+    template void computeDiluDiagonalSplit<blocksize, T, double, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_FLOAT>(                                                              \
         const T*, int*, int*, const T*, int*, int*, const T*, int*, int*, const int, int, T*, double*, double*, double*, int);                                      \
-    template void computeDiluDiagonalSplit<blocksize, T, float, MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE>(                                                              \
+    template void computeDiluDiagonalSplit<blocksize, T, float, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE>(                                                              \
         const T*, int*, int*, const T*, int*, int*, const T*, int*, int*, const int, int, T*, float*, float*, float*, int);                                      \
-    template void computeDiluDiagonalSplit<blocksize, T, double, MixedPrecisionScheme::STORE_ONLY_FACTORIZED_DIAGONAL_AS_DOUBLE>(                                                              \
+    template void computeDiluDiagonalSplit<blocksize, T, double, MixedPrecisionScheme::STORE_OFF_DIAGS_IN_FLOAT_DIAGONAL_AS_DOUBLE>(                                                              \
         const T*, int*, int*, const T*, int*, int*, const T*, int*, int*, const int, int, T*, double*, double*, double*, int);                                      \
     template void solveUpperLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, T*, int);                 \
     template void solveLowerLevelSet<T, blocksize>(T*, int*, int*, int*, int, int, const T*, const T*, T*, int);

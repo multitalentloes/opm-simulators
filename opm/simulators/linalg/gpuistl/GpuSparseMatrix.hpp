@@ -19,6 +19,7 @@
 #ifndef OPM_GPUSPARSEMATRIX_HPP
 #define OPM_GPUSPARSEMATRIX_HPP
 #include <cusparse.h>
+#include <cuda_fp16.h>
 #include <iostream>
 #include <memory>
 #include <opm/common/ErrorMacros.hpp>
