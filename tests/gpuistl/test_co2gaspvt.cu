@@ -43,10 +43,10 @@ using CpuBrine_CO2 = Opm::BinaryCoeff::Brine_CO2<double, HuDuan, Opm::CO2<double
 using GpuBrine_CO2 = Opm::BinaryCoeff::Brine_CO2<double, HuDuan, GpuCO2>;
 
 using CpuCo2Pvt = Opm::Co2GasPvt<double>;
-using GpuBufCo2Pvt = Opm::Co2GasPvt<double, GpuViewCO2Tables, GpuB>;
+using GpuBufCo2Pvt = Opm::Co2GasPvt<double, GpuBufCo2Tables, GpuB>;
 using GpuViewCo2Pvt = Opm::Co2GasPvt<double, GpuViewCO2Tables, GpuV>;
 
-template GpuBufCo2Pvt::Co2GasPvt(GpuViewCO2Tables, GpuB, GpuB, GpuB, bool, bool, int, Co2StoreConfig::GasMixingType);
+template GpuBufCo2Pvt::Co2GasPvt(GpuBufCo2Tables, GpuB, GpuB, GpuB, bool, bool, int, Co2StoreConfig::GasMixingType);
 template GpuViewCo2Pvt::Co2GasPvt(GpuViewCO2Tables, GpuV, GpuV, GpuV, bool, bool, int, Co2StoreConfig::GasMixingType);
 namespace {
 
@@ -313,18 +313,6 @@ BOOST_AUTO_TEST_CASE(TestBrine_CO2OnGPU) {
     // use the CO2 tables to aquire the enthalpyReference at 290[K] and 2e5[Pa]
     double enthalpyReference = CpuBrine_CO2::gasDiffCoeff<Evaluation>(co2Tables, temp, pressure, true).value();
 
-    // make a nonstatic version of the CPU CO2
-    // Opm::CO2NonStatic<double> CO2(Opm::CO2<double>::getEnthalpy(), Opm::CO2<double>::getDensity());
-
-    // const auto gpuEnthalpyBuffer = Opm::gpuistl::move_to_gpu<double, GpuB>(CO2.getEnthalpy());
-    // const auto gpuDensityBuffer = Opm::gpuistl::move_to_gpu<double, GpuB>(CO2.getDensity());
-
-    // const auto gpuEnthalpyView = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuEnthalpyBuffer);
-    // const auto gpuDensityView = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuDensityBuffer);
-
-    // GpuCO2 gpuCo2(gpuEnthalpyView, gpuDensityView);
-
-
     // use the CO2 tables to aquire the viscosity at 290[K] and 2e5[Pa]
     double viscosity = Opm::CO2<double, Opm::CO2Tables<double, std::vector<double>>>::gasViscosity<Evaluation>(co2Tables, temp, pressure, true).value();
 
@@ -363,85 +351,76 @@ BOOST_AUTO_TEST_CASE(TestBrine_CO2OnGPU) {
     BOOST_CHECK(std::fabs(resultOnCpu - enthalpyReference) < tolerance);
 }
 
-// namespace {
+namespace {
 
-// // Kernel to use a BrineDynamic object on a GPU
-// __global__ void pvtInternalEnergy(GpuViewCo2Pvt gpuViewCo2Pvt, GpuCO2 co2, Evaluation* temp, Evaluation* pressure, double* result) {
-//     *result = gpuViewCo2Pvt.internalEnergy<Evaluation>(co2, 1, *temp, *pressure, Evaluation(0.4), Evaluation(0.0)).value();
-// }
+// Kernel to use a BrineDynamic object on a GPU
+__global__ void pvtInternalEnergy(GpuViewCo2Pvt gpuViewCo2Pvt, Evaluation* temp, Evaluation* pressure, double* result) {
+    *result = gpuViewCo2Pvt.internalEnergy<Evaluation>(1, *temp, *pressure, Evaluation(0.4), Evaluation(0.0)).value();
+}
 
-// bool compareSignificantDigits(double a, double b, int significantDigits) {
-//     // Handle the case where both values are exactly zero
-//     if (a == b) {
-//         return true;
-//     }
+bool compareSignificantDigits(double a, double b, int significantDigits) {
+    // Handle the case where both values are exactly zero
+    if (a == b) {
+        return true;
+    }
 
-//     // Calculate the relative error
-//     double relativeError = std::abs(a - b) / std::max(std::abs(a), std::abs(b));
+    // Calculate the relative error
+    double relativeError = std::abs(a - b) / std::max(std::abs(a), std::abs(b));
 
-//     // Compute the number of matching digits
-//     double digitsMatched = -std::log10(relativeError);
+    // Compute the number of matching digits
+    double digitsMatched = -std::log10(relativeError);
 
-//     // Return true if they match the required number of significant digits
-//     return digitsMatched >= significantDigits;
-// }
+    // Return true if they match the required number of significant digits
+    return digitsMatched >= significantDigits;
+}
 
-// } // END EMPTY NAMESPACE
+} // END EMPTY NAMESPACE
 
-// // Test case evaluating pvt values for BrineDynamic on a GPU and CPU
-// BOOST_AUTO_TEST_CASE(TestCo2GasPvt) {
-//     Evaluation temp(290.5); // [K]
-//     Evaluation pressure(200000.0); // [Pa]
-//     std::vector<double> salinities = {0.2, 0.3, 0.4};
+// Test case evaluating pvt values for BrineDynamic on a GPU and CPU
+BOOST_AUTO_TEST_CASE(TestCo2GasPvt) {
+    Evaluation temp(290.5); // [K]
+    Evaluation pressure(200000.0); // [Pa]
+    std::vector<double> salinities = {0.2, 0.3, 0.4};
+    // make a nonstatic version of the CPU CO2tables
+    Opm::CO2Tables<double, std::vector<double>> co2Tables;
 
-//     CpuCo2Pvt cpuCo2Pvt(salinities);
-//     double internalEnergyReference = cpuCo2Pvt.internalEnergy<Evaluation>(1, temp, pressure, Evaluation(0.4), Evaluation(0.0)).value();
+    CpuCo2Pvt cpuCo2Pvt(salinities);
+    double internalEnergyReference = cpuCo2Pvt.internalEnergy<Evaluation>(1, temp, pressure, Evaluation(0.4), Evaluation(0.0)).value();
 
-//     const auto gpuBufCo2Pvt = Opm::gpuistl::move_to_gpu<double, GpuB>(cpuCo2Pvt);
-//     const auto brineReferenceDensityCPUCopy = gpuBufCo2Pvt.getBrineReferenceDensity().asStdVector();
-//     const auto gpuViewCo2Pvt = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuBufCo2Pvt);
+    const GpuBufCo2Pvt gpuBufCo2Pvt = Opm::gpuistl::move_to_gpu<double, GpuBufCo2Tables, GpuB>(cpuCo2Pvt);
+    const auto brineReferenceDensityCPUCopy = gpuBufCo2Pvt.getBrineReferenceDensity().asStdVector();
+    const GpuViewCo2Pvt gpuViewCo2Pvt = Opm::gpuistl::make_view<double, GpuBufCo2Tables, GpuViewCO2Tables, GpuB, GpuV>(gpuBufCo2Pvt);
 
-//     // make a nonstatic version of the CPU CO2
-//     Opm::CO2NonStatic<double> CO2(Opm::CO2<double>::getEnthalpy(), Opm::CO2<double>::getDensity());
+    // Allocate memory for the result on the GPU
+    double* resultOnGpu = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&resultOnGpu, sizeof(double)));
 
-//     const auto gpuEnthalpyBuffer = Opm::gpuistl::move_to_gpu<double, GpuB>(CO2.getEnthalpy());
-//     const auto gpuDensityBuffer = Opm::gpuistl::move_to_gpu<double, GpuB>(CO2.getDensity());
+    // Allocate GPU memory for the Evaluation inputs
+    Evaluation* gpuTemp = nullptr;
+    Evaluation* gpuPressure = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuTemp, sizeof(Evaluation)));
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuTemp, &temp, sizeof(Evaluation), cudaMemcpyHostToDevice));
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuPressure, sizeof(Evaluation)));
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuPressure, &pressure, sizeof(Evaluation), cudaMemcpyHostToDevice));
 
-//     const auto gpuEnthalpyView = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuEnthalpyBuffer);
-//     const auto gpuDensityView = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuDensityBuffer);
+    pvtInternalEnergy<<<1,1>>>(gpuViewCo2Pvt, gpuTemp, gpuPressure, resultOnGpu);
 
-//     GpuCO2 gpuCo2(gpuEnthalpyView, gpuDensityView);
+    // Check for any errors in kernel launch
+    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
 
-//     // Allocate memory for the result on the GPU
-//     double* resultOnGpu = nullptr;
-//     OPM_GPU_SAFE_CALL(cudaMalloc(&resultOnGpu, sizeof(double)));
+    // Retrieve the result from the GPU to the CPU
+    double resultOnCpu = 0.0;
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
 
-//     // Allocate GPU memory for the Evaluation inputs
-//     Evaluation* gpuTemp = nullptr;
-//     Evaluation* gpuPressure = nullptr;
-//     OPM_GPU_SAFE_CALL(cudaMalloc(&gpuTemp, sizeof(Evaluation)));
-//     OPM_GPU_SAFE_CALL(cudaMemcpy(gpuTemp, &temp, sizeof(Evaluation), cudaMemcpyHostToDevice));
-//     OPM_GPU_SAFE_CALL(cudaMalloc(&gpuPressure, sizeof(Evaluation)));
-//     OPM_GPU_SAFE_CALL(cudaMemcpy(gpuPressure, &pressure, sizeof(Evaluation), cudaMemcpyHostToDevice));
+    // Free allocated GPU memory
+    OPM_GPU_SAFE_CALL(cudaFree(resultOnGpu));
+    OPM_GPU_SAFE_CALL(cudaFree(gpuTemp));
+    OPM_GPU_SAFE_CALL(cudaFree(gpuPressure));
 
-//     pvtInternalEnergy<<<1,1>>>(gpuViewCo2Pvt, gpuCo2, gpuTemp, gpuPressure, resultOnGpu);
-
-//     // Check for any errors in kernel launch
-//     OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-//     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-//     // Retrieve the result from the GPU to the CPU
-//     double resultOnCpu = 0.0;
-//     OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
-
-//     // Free allocated GPU memory
-//     OPM_GPU_SAFE_CALL(cudaFree(resultOnGpu));
-//     OPM_GPU_SAFE_CALL(cudaFree(gpuTemp));
-//     OPM_GPU_SAFE_CALL(cudaFree(gpuPressure));
-
-//     // Verify that the CPU and GPU results match within a reasonable tolerance
-//     const double tolerance = 1e-6; // Tolerance for floating-point comparison
-//     printf("%lf %lf\n", resultOnCpu, internalEnergyReference);
-//     // BOOST_CHECK(std::fabs(resultOnCpu - internalEnergyReference) < tolerance);
-//     BOOST_CHECK(compareSignificantDigits(resultOnCpu, internalEnergyReference, 6));
-// }
+    // Verify that the CPU and GPU results match within a reasonable tolerance
+    const double tolerance = 1e-6; // Tolerance for floating-point comparison
+    printf("%lf %lf\n", resultOnCpu, internalEnergyReference);
+    // BOOST_CHECK(std::fabs(resultOnCpu - internalEnergyReference) < tolerance);
+    BOOST_CHECK(compareSignificantDigits(resultOnCpu, internalEnergyReference, 6));
+}
