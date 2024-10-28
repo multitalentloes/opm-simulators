@@ -32,6 +32,8 @@ using GpuTab = Opm::UniformTabulated2DFunction<double, GpuV>;
 
 using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
 using GpuViewCO2Tables = Opm::CO2Tables<double, GpuV>;
+template Opm::CO2Tables<double, GpuB>::CO2Tables(const Opm::UniformTabulated2DFunction<double, GpuB>&, const Opm::UniformTabulated2DFunction<double, GpuB>&);
+template Opm::CO2Tables<double, GpuV>::CO2Tables(const Opm::UniformTabulated2DFunction<double, GpuV>&, const Opm::UniformTabulated2DFunction<double, GpuV>&);
 using GpuCO2 = Opm::CO2<double, GpuViewCO2Tables>;
 
 using HuDuan = Opm::SimpleHuDuanH2O<double>;
@@ -44,8 +46,8 @@ using CpuCo2Pvt = Opm::Co2GasPvt<double>;
 using GpuBufCo2Pvt = Opm::Co2GasPvt<double, GpuViewCO2Tables, GpuB>;
 using GpuViewCo2Pvt = Opm::Co2GasPvt<double, GpuViewCO2Tables, GpuV>;
 
-template GpuBufCo2Pvt::Co2GasPvt(GpuB, GpuB, GpuB, bool, bool, int, Co2StoreConfig::GasMixingType);
-template GpuViewCo2Pvt::Co2GasPvt(GpuV, GpuV, GpuV, bool, bool, int, Co2StoreConfig::GasMixingType);
+template GpuBufCo2Pvt::Co2GasPvt(GpuViewCO2Tables, GpuB, GpuB, GpuB, bool, bool, int, Co2StoreConfig::GasMixingType);
+template GpuViewCo2Pvt::Co2GasPvt(GpuViewCO2Tables, GpuV, GpuV, GpuV, bool, bool, int, Co2StoreConfig::GasMixingType);
 namespace {
 
 /*
