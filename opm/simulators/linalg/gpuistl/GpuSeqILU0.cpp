@@ -32,6 +32,37 @@
 #include <opm/simulators/linalg/gpuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
+#include <chrono>
+
+class CumulativeScopeTimer {
+public:
+    // Constructor starts the timer
+    CumulativeScopeTimer() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~CumulativeScopeTimer() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/apply. This apply: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Applies: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long CumulativeScopeTimer::total_time_spent = 0;
+int CumulativeScopeTimer::instance_count = 0;
 
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
@@ -78,7 +109,8 @@ template <class M, class X, class Y, int l>
 void
 GpuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
 {
-
+    cudaDeviceSynchronize();
+    CumulativeScopeTimer timer;
     // We need to pass the solve routine a scalar to multiply.
     // In our case this scalar is 1.0
     const field_type one = 1.0;
@@ -129,6 +161,7 @@ GpuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
 
 
     v *= m_w;
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>

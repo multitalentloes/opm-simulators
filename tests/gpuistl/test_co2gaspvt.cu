@@ -13,6 +13,7 @@
 #include <opm/material/components/BrineDynamic.hpp>
 #include <opm/material/binarycoefficients/Brine_CO2.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/Co2GasPvt.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/BrineCo2Pvt.hpp>
 #include <opm/input/eclipse/EclipseState/Co2StoreConfig.hpp>
 
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
@@ -48,6 +49,13 @@ using GpuViewCo2Pvt = Opm::Co2GasPvt<double, GpuViewCO2Tables, GpuV>;
 
 template GpuBufCo2Pvt::Co2GasPvt(GpuBufCo2Tables, GpuB, GpuB, GpuB, bool, bool, int, Co2StoreConfig::GasMixingType);
 template GpuViewCo2Pvt::Co2GasPvt(GpuViewCO2Tables, GpuV, GpuV, GpuV, bool, bool, int, Co2StoreConfig::GasMixingType);
+
+using CpuBrineCo2Pvt = Opm::BrineCo2Pvt<double>;
+using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
+using GpuViewBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuViewCO2Tables, GpuV>;
+
+template GpuBufBrineCo2Pvt::BrineCo2Pvt(GpuB, GpuB, GpuB, int, int, int, GpuBufCo2Tables);
+template GpuViewBrineCo2Pvt::BrineCo2Pvt(GpuV, GpuV, GpuV, int, int, int, GpuViewCO2Tables);
 namespace {
 
 /*
@@ -404,6 +412,73 @@ BOOST_AUTO_TEST_CASE(TestCo2GasPvt) {
     OPM_GPU_SAFE_CALL(cudaMemcpy(gpuPressure, &pressure, sizeof(Evaluation), cudaMemcpyHostToDevice));
 
     pvtInternalEnergy<<<1,1>>>(gpuViewCo2Pvt, gpuTemp, gpuPressure, resultOnGpu);
+
+    // Check for any errors in kernel launch
+    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+
+    // Retrieve the result from the GPU to the CPU
+    double resultOnCpu = 0.0;
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+
+    // Free allocated GPU memory
+    OPM_GPU_SAFE_CALL(cudaFree(resultOnGpu));
+    OPM_GPU_SAFE_CALL(cudaFree(gpuTemp));
+    OPM_GPU_SAFE_CALL(cudaFree(gpuPressure));
+
+    // Verify that the CPU and GPU results match within a reasonable tolerance
+    const double tolerance = 1e-6; // Tolerance for floating-point comparison
+    printf("%lf %lf\n", resultOnCpu, internalEnergyReference);
+    // BOOST_CHECK(std::fabs(resultOnCpu - internalEnergyReference) < tolerance);
+    BOOST_CHECK(compareSignificantDigits(resultOnCpu, internalEnergyReference, 6));
+}
+
+
+namespace {
+
+// Kernel to use a BrineDynamic object on a GPU
+__global__ void brineCo2PvtInternalEnergy(GpuViewBrineCo2Pvt gpuViewBrineCo2Pvt, Evaluation* temp, Evaluation* pressure, Evaluation* rs, Evaluation saltConcentration, double* result) {
+    *result = gpuViewBrineCo2Pvt.internalEnergy<Evaluation>(1, *temp, *pressure, rs, saltConcentration).value();
+}
+
+} // END EMPTY NAMESPACE
+
+// Test case evaluating pvt values for BrineDynamic on a GPU and CPU
+BOOST_AUTO_TEST_CASE(TestBrineCo2Pvt) {
+    Evaluation temp(290.5); // [K]
+    Evaluation pressure(200000.0); // [Pa]
+    Evaluation rs(0.3);
+    Evaluation saltConcentration(0.1);
+
+    std::vector<double> salinities = {0.2, 0.3, 0.4};
+    // make a nonstatic version of the CPU CO2tables
+    Opm::CO2Tables<double, std::vector<double>> co2Tables;
+
+    CpuBrineCo2Pvt cpuBrineCo2Pvt(salinities);
+    double internalEnergyReference = cpuBrineCo2Pvt.internalEnergy<Evaluation>(1, temp, pressure, rs, saltConcentration).value();
+
+    const GpuViewBrineCo2Pvt gpuBufBrineCo2Pvt = Opm::gpuistl::move_to_gpu<double, GpuBufCo2Tables, GpuB>(cpuBrineCo2Pvt);
+    const GpuViewBrineCo2Pvt gpuViewBrineCo2Pvt = Opm::gpuistl::make_view<double, GpuBufCo2Tables, GpuViewCO2Tables, GpuB, GpuV>(gpuBufCo2Pvt);
+
+    // Allocate memory for the result on the GPU
+    double* resultOnGpu = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&resultOnGpu, sizeof(double)));
+
+    // Allocate GPU memory for the Evaluation inputs
+    Evaluation* gpuRs = nullptr;
+    Evaluation* gpuSaltConcentration = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuRs, sizeof(Evaluation)));
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuRs, &rs, sizeof(Evaluation), cudaMemcpyHostToDevice));
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuSaltConcentration, sizeof(Evaluation)));
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuSaltConcentration, &saltConcentration, sizeof(Evaluation), cudaMemcpyHostToDevice));
+    Evaluation* gpuTemp = nullptr;
+    Evaluation* gpuPressure = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuTemp, sizeof(Evaluation)));
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuTemp, &temp, sizeof(Evaluation), cudaMemcpyHostToDevice));
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuPressure, sizeof(Evaluation)));
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuPressure, &pressure, sizeof(Evaluation), cudaMemcpyHostToDevice));
+
+    brineCo2PvtInternalEnergy<<<1,1>>>(gpuViewBrineCo2Pvt, gpuTemp, gpuPressure, gpuRs, gpuSaltConcentration, resultOnGpu);
 
     // Check for any errors in kernel launch
     OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
