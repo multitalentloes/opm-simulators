@@ -176,7 +176,8 @@ struct StandardPreconditioners {
         });
         F::addCreator("DILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
             const bool split_matrix = prm.get<bool>("split_matrix", false);
-            return wrapBlockPreconditioner<MultithreadDILU<M, V, V>>(comm, op.getmat(), split_matrix);
+            const bool store_factorization_as_float = prm.get<bool>("store_factorization_as_float", false);
+            return wrapBlockPreconditioner<MultithreadDILU<M, V, V>>(comm, op.getmat(), split_matrix, store_factorization_as_float);
         });
         F::addCreator("Jac", [](const O& op, const P& prm, const std::function<V()>&, std::size_t, const C& comm) {
             const int n = prm.get<int>("repeats", 1);
@@ -454,7 +455,8 @@ struct StandardPreconditioners<Operator, Dune::Amg::SequentialInformation> {
         });
         F::addCreator("DILU", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const bool split_matrix = prm.get<bool>("split_matrix", false);
-            return std::make_shared<MultithreadDILU<M, V, V>>(op.getmat(), split_matrix);
+            const bool store_factorization_as_float = prm.get<bool>("store_factorization_as_float", false);
+            return std::make_shared<MultithreadDILU<M, V, V>>(op.getmat(), split_matrix, store_factorization_as_float);
         });
         F::addCreator("Jac", [](const O& op, const P& prm, const std::function<V()>&, std::size_t) {
             const int n = prm.get<int>("repeats", 1);
