@@ -16,10 +16,11 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 #include "config.h"
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/material/fluidmatrixinteractions/EclMaterialLawManagerSimple.hpp>
-
+#include <opm/models/discretization/common/tpfalinearizer.hh>
 // do I need these?
 #include <opm/simulators/flow/equil/EquilibrationHelpers.hpp>
 #include <opm/simulators/flow/equil/InitStateEquil.hpp>
@@ -32,6 +33,7 @@ namespace Opm {
             };
         }
 
+        // Indices for two-phase gas-water.
         template<class TypeTag>
         struct Indices<TypeTag, TTag::FlowSimpleProblem>
         {
@@ -60,14 +62,13 @@ namespace Opm {
             static constexpr bool value = true;
         };
 
-
-        // Skipping for now
         // SPE11C requires dispersion
-        // template<class TypeTag>
-        // struct EnableDispersion<TypeTag, TTag::FlowSimpleProblem> {
-        //     static constexpr bool value = true;
-        // };
+        template<class TypeTag>
+        struct EnableDispersion<TypeTag, TTag::FlowSimpleProblem> {
+            static constexpr bool value = true;
+        };
 
+        // Use the simple material law.
         template<class TypeTag>
         struct MaterialLaw<TypeTag, TTag::FlowSimpleProblem>
         {
@@ -83,6 +84,23 @@ namespace Opm {
             using EclMaterialLawManager = ::Opm::EclMaterialLawManagerSimple<Traits>;
             using type = typename EclMaterialLawManager::MaterialLaw;
         };
+
+        // Use the TPFA linearizer.
+        template<class TypeTag>
+        struct Linearizer<TypeTag, TTag::FlowSimpleProblem> { using type = TpfaLinearizer<TypeTag>; };
+
+        template<class TypeTag>
+        struct LocalResidual<TypeTag, TTag::FlowSimpleProblem> { using type = BlackOilLocalResidualTPFA<TypeTag>; };
+
+        // Diffusion.
+        template<class TypeTag>
+        struct EnableDiffusion<TypeTag, TTag::FlowSimpleProblem> { static constexpr bool value = true; };
+
+        template<class TypeTag>
+        struct EnableDisgasInWater<TypeTag, TTag::FlowSimpleProblem> { static constexpr bool value = true; };
+
+        template<class TypeTag>
+        struct EnableVapwat<TypeTag, TTag::FlowSimpleProblem> { static constexpr bool value = true; };
 
     };
 
