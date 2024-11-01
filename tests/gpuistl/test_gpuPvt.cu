@@ -61,17 +61,15 @@ struct Fixture {
         temp = Evaluation(290.5);
         pressure = Evaluation(200000.0);
 
+        gpuComputedResultOnCpu = 0.0;
+
         // move pvt evaluations to gpu
         OPM_GPU_SAFE_CALL(cudaMalloc(&gpuTemp, sizeof(Evaluation)));
         OPM_GPU_SAFE_CALL(cudaMemcpy(gpuTemp, &temp, sizeof(Evaluation), cudaMemcpyHostToDevice));
         OPM_GPU_SAFE_CALL(cudaMalloc(&gpuPressure, sizeof(Evaluation)));
         OPM_GPU_SAFE_CALL(cudaMemcpy(gpuPressure, &pressure, sizeof(Evaluation), cudaMemcpyHostToDevice));
-
-        // allocate memory for the result on the GPU
-        OPM_GPU_SAFE_CALL(cudaMalloc(&resultOnGpu, sizeof(double)));
     }
     ~Fixture(){
-        OPM_GPU_SAFE_CALL(cudaFree(resultOnGpu));
         OPM_GPU_SAFE_CALL(cudaFree(gpuTemp));
         OPM_GPU_SAFE_CALL(cudaFree(gpuPressure));
     }
@@ -80,42 +78,69 @@ struct Fixture {
     Evaluation pressure; // [Pa]
     Evaluation* gpuTemp; // [K]
     Evaluation* gpuPressure; // [Pa]
-    double* resultOnGpu;
+
+    double gpuComputedResultOnCpu;
+
     Opm::CO2Tables<double, std::vector<double>> co2Tables;
 };
 
 // Kernel to evaluate a 2D function on the GPU
-__global__ void gpuEvaluateUniformTabulated2DFunction(GpuTab gpuTab, Evaluation* inputX, Evaluation* inputY, double* res) {
-    *res = gpuTab.eval(*inputX, *inputY, true).value();
+__global__ void gpuEvaluateUniformTabulated2DFunction(GpuTab gpuTab, Evaluation* inputX, Evaluation* inputY, double* result) {
+    *result = gpuTab.eval(*inputX, *inputY, true).value();
 }
 
-// Kernel to use a CO2 object on the GPU
-__global__ void gpuCO2GasViscosity(GpuViewCO2Tables gpuViewCo2Tables, Evaluation* temp, Evaluation* pressure, double* resultViscosity) {
-    *resultViscosity = GpuCO2::gasViscosity<Evaluation>(gpuViewCo2Tables, *temp, *pressure, true).value();
+// Kernel using a CO2 object on the GPU
+__global__ void gpuCO2GasViscosity(GpuViewCO2Tables gpuViewCo2Tables, Evaluation* temp, Evaluation* pressure, double* result) {
+    *result = GpuCO2::gasViscosity<Evaluation>(gpuViewCo2Tables, *temp, *pressure, true).value();
 }
 
-// Kernel to use a SimpleHuDuanH20 object on a GPU
-__global__ void huDuanLiquidDensity(Evaluation* temp, Evaluation* pressure, double* resultDensity) {
-    *resultDensity = HuDuan::liquidDensity<Evaluation>(*temp, *pressure, true).value();
+// Kernel using a SimpleHuDuanH20 object on a GPU
+__global__ void huDuanLiquidDensity(Evaluation* temp, Evaluation* pressure, double* result) {
+    *result = HuDuan::liquidDensity<Evaluation>(*temp, *pressure, true).value();
 }
 
-// Kernel to use a BrineDynamic object on a GPU
-__global__ void brineDynamicLiquidEnthalpy(Evaluation* temp, Evaluation* pressure, Evaluation* salinity, double* resultEnthalpy) {
-    *resultEnthalpy = BrineDyn::liquidEnthalpy<Evaluation>(*temp, *pressure, *salinity).value();
+// Kernel using a BrineDynamic object on a GPU
+__global__ void brineDynamicLiquidEnthalpy(Evaluation* temp, Evaluation* pressure, Evaluation* salinity, double* result) {
+    *result = BrineDyn::liquidEnthalpy<Evaluation>(*temp, *pressure, *salinity).value();
 }
 
-// Kernel to use a BrineDynamic object on a GPU
+// Kernel using a Brine_CO2 object on a GPU
 __global__ void brineCO2GasDiffCoeff(GpuViewCO2Tables co2tables, Evaluation* temp, Evaluation* pressure, double* result) {
     *result = GpuBrine_CO2::gasDiffCoeff<Evaluation, GpuViewCO2Tables>(co2tables, *temp, *pressure, true).value();
 }
 
-// Kernel to use a BrineDynamic object on a GPU
+// Kernel using a Co2GasPvt object on a GPU
 __global__ void co2GasPvtInternalEnergy(GpuViewCo2Pvt gpuViewCo2Pvt, Evaluation* temp, Evaluation* pressure, double* result) {
     *result = gpuViewCo2Pvt.internalEnergy<Evaluation>(1, *temp, *pressure, Evaluation(0.4), Evaluation(0.0)).value();
 }
 
+// Helper function to launch a kernel and retrieve the result on the CPU to reduce code duplicatoin
+template <typename KernelFunc, typename... Args>
+double launchKernelAndRetrieveResult(KernelFunc kernel, Args... args) {
+    double* resultOnGpu;
+    double gpuComputedResultOnCpu;
+
+    // Allocate memory for the result on the GPU
+    OPM_GPU_SAFE_CALL(cudaMalloc(&resultOnGpu, sizeof(double)));
+
+    // Launch the kernel
+    kernel<<<1, 1>>>(args..., resultOnGpu);
+
+    // Check for any errors in kernel launch
+    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+
+    // Retrieve the result from the GPU to the CPU
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuComputedResultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+
+    // Free allocated GPU memory
+    OPM_GPU_SAFE_CALL(cudaFree(resultOnGpu));
+
+    return gpuComputedResultOnCpu;
+}
+
 bool compareSignificantDigits(double a, double b, int significantDigits) {
-    // Handle the case where both values are exactly zero
+    // Handle the case where both values are exactly equal
     if (a == b) {
         return true;
     }
@@ -156,49 +181,30 @@ BOOST_FIXTURE_TEST_CASE(TestEvaluateUniformTabulated2DFunctionOnGpu, Fixture) {
     OPM_GPU_SAFE_CALL(cudaMalloc(&gpuB, sizeof(Evaluation)));
     OPM_GPU_SAFE_CALL(cudaMemcpy(gpuB, &b, sizeof(Evaluation), cudaMemcpyHostToDevice));
 
-    // Launch kernel to evaluate the function on the GPU
-    gpuEvaluateUniformTabulated2DFunction<<<1, 1>>>(gpuViewTab, gpuA, gpuB, resultOnGpu);
-
-    // Check for any errors in kernel launch
-    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // Retrieve the result from the GPU to the CPU
-    double resultOnCpu = 0.0;
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+    gpuComputedResultOnCpu = launchKernelAndRetrieveResult(gpuEvaluateUniformTabulated2DFunction, gpuViewTab, gpuA, gpuB);
 
     // Free allocated GPU memory
-    // OPM_GPU_SAFE_CALL(cudaFree(resultOnGpu));
     OPM_GPU_SAFE_CALL(cudaFree(gpuA));
     OPM_GPU_SAFE_CALL(cudaFree(gpuB));
 
     // Verify that the CPU and GPU results match within a reasonable tolerance
-    const double cpuResult = cpuTab.eval(a, b, true).value();
-    BOOST_CHECK(std::fabs(resultOnCpu - cpuResult) < ABS_TOL);
+    const double cpuComputedResult = cpuTab.eval(a, b, true).value();
+    BOOST_CHECK(std::fabs(gpuComputedResultOnCpu - cpuComputedResult) < ABS_TOL);
 }
 
 // Test case evaluating CO2 pvt properties on CPU and GPU
 BOOST_FIXTURE_TEST_CASE(TestUseCO2OnGpu, Fixture) {
 
     // use the CO2 tables to aquire the viscosity at 290[K] and 2e5[Pa]
-    double viscosity = Opm::CO2<double, Opm::CO2Tables<double, std::vector<double>>>::gasViscosity<Evaluation>(co2Tables, temp, pressure, true).value();
+    double viscosityReference = Opm::CO2<double, Opm::CO2Tables<double, std::vector<double>>>::gasViscosity<Evaluation>(co2Tables, temp, pressure, true).value();
 
     GpuBufCo2Tables gpuBufCo2Table = Opm::gpuistl::move_to_gpu<double, std::vector<double>, GpuB>(co2Tables);
     GpuViewCO2Tables gpuViewCo2Table = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuBufCo2Table);
-    // GpuCO2 gpuCo2(gpuEnthalpyView, gpuDensityView);
 
-    gpuCO2GasViscosity<<<1,1>>>(gpuViewCo2Table, gpuTemp, gpuPressure, resultOnGpu);
-
-    // Check for any errors in kernel launch
-    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // Retrieve the result from the GPU to the CPU
-    double resultOnCpu = 0.0;
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+    gpuComputedResultOnCpu = launchKernelAndRetrieveResult(gpuCO2GasViscosity, gpuViewCo2Table, gpuTemp, gpuPressure);
 
     // Verify that the CPU and GPU results match within a reasonable tolerance
-    BOOST_CHECK(std::fabs(resultOnCpu - viscosity) < ABS_TOL);
+    BOOST_CHECK(std::fabs(gpuComputedResultOnCpu - viscosityReference) < ABS_TOL);
 }
 
 // Test case evaluating pvt values for SimpleHuDuanH20 on a GPU and CPU
@@ -207,18 +213,10 @@ BOOST_FIXTURE_TEST_CASE(TestUseH2OOnGpu, Fixture) {
     // use the CO2 tables to aquire the densityReference at 290[K] and 2e5[Pa]
     double densityReference = HuDuan::liquidDensity<Evaluation>(temp, pressure, true).value();
 
-    huDuanLiquidDensity<<<1,1>>>(gpuTemp, gpuPressure, resultOnGpu);
-
-    // Check for any errors in kernel launch
-    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // Retrieve the result from the GPU to the CPU
-    double resultOnCpu = 0.0;
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+    gpuComputedResultOnCpu = launchKernelAndRetrieveResult(huDuanLiquidDensity, gpuTemp, gpuPressure);
 
     // Verify that the CPU and GPU results match within a reasonable tolerance
-    BOOST_CHECK(std::fabs(resultOnCpu - densityReference) < ABS_TOL);
+    BOOST_CHECK(std::fabs(gpuComputedResultOnCpu - densityReference) < ABS_TOL);
 }
 
 // Test case evaluating pvt values for BrineDynamic on a GPU and CPU
@@ -233,25 +231,17 @@ BOOST_FIXTURE_TEST_CASE(TestUseBrineDynamicOnGpu, Fixture) {
     OPM_GPU_SAFE_CALL(cudaMalloc(&gpuSalinity, sizeof(Evaluation)));
     OPM_GPU_SAFE_CALL(cudaMemcpy(gpuSalinity, &salinity, sizeof(Evaluation), cudaMemcpyHostToDevice));
 
-    brineDynamicLiquidEnthalpy<<<1,1>>>(gpuTemp, gpuPressure, gpuSalinity, resultOnGpu);
-
-    // Check for any errors in kernel launch
-    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // Retrieve the result from the GPU to the CPU
-    double resultOnCpu = 0.0;
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+    gpuComputedResultOnCpu = launchKernelAndRetrieveResult(brineDynamicLiquidEnthalpy, gpuTemp, gpuPressure, gpuSalinity);
 
     // Verify that the CPU and GPU results match within a reasonable tolerance
-    BOOST_CHECK(std::fabs(resultOnCpu - enthalpyReference) < ABS_TOL);
+    BOOST_CHECK(std::fabs(gpuComputedResultOnCpu - enthalpyReference) < ABS_TOL);
 }
 
 // Test case evaluating pvt values for BrineDynamic on a GPU and CPU
 BOOST_FIXTURE_TEST_CASE(TestBrine_CO2OnGPU, Fixture) {
 
-    // use the CO2 tables to aquire the enthalpyReference at 290[K] and 2e5[Pa]
-    double enthalpyReference = CpuBrine_CO2::gasDiffCoeff<Evaluation>(co2Tables, temp, pressure, true).value();
+    // use the CO2 tables to aquire the gasDiffCoeffReference at 290[K] and 2e5[Pa]
+    double gasDiffCoeffReference = CpuBrine_CO2::gasDiffCoeff<Evaluation>(co2Tables, temp, pressure, true).value();
 
     // use the CO2 tables to aquire the viscosity at 290[K] and 2e5[Pa]
     double viscosity = Opm::CO2<double, Opm::CO2Tables<double, std::vector<double>>>::gasViscosity<Evaluation>(co2Tables, temp, pressure, true).value();
@@ -259,18 +249,10 @@ BOOST_FIXTURE_TEST_CASE(TestBrine_CO2OnGPU, Fixture) {
     GpuBufCo2Tables gpuBufCo2Table = Opm::gpuistl::move_to_gpu<double, std::vector<double>, GpuB>(co2Tables);
     GpuViewCO2Tables gpuViewCo2Table = Opm::gpuistl::make_view<double, GpuB, GpuV>(gpuBufCo2Table);
 
-    brineCO2GasDiffCoeff<<<1,1>>>(gpuViewCo2Table, gpuTemp, gpuPressure, resultOnGpu);
-
-    // Check for any errors in kernel launch
-    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // Retrieve the result from the GPU to the CPU
-    double resultOnCpu = 0.0;
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+    gpuComputedResultOnCpu = launchKernelAndRetrieveResult(brineCO2GasDiffCoeff, gpuViewCo2Table, gpuTemp, gpuPressure);
 
     // Verify that the CPU and GPU results match within a reasonable tolerance
-    BOOST_CHECK(std::fabs(resultOnCpu - enthalpyReference) < ABS_TOL);
+    BOOST_CHECK(std::fabs(gpuComputedResultOnCpu - gasDiffCoeffReference) < ABS_TOL);
 }
 
 // Test case evaluating pvt values for BrineDynamic on a GPU and CPU
@@ -284,16 +266,8 @@ BOOST_FIXTURE_TEST_CASE(TestCo2GasPvt, Fixture) {
     const auto brineReferenceDensityCPUCopy = gpuBufCo2Pvt.getBrineReferenceDensity().asStdVector();
     const GpuViewCo2Pvt gpuViewCo2Pvt = Opm::gpuistl::make_view<double, GpuBufCo2Tables, GpuViewCO2Tables, GpuB, GpuV>(gpuBufCo2Pvt);
 
-    co2GasPvtInternalEnergy<<<1,1>>>(gpuViewCo2Pvt, gpuTemp, gpuPressure, resultOnGpu);
-
-    // Check for any errors in kernel launch
-    OPM_GPU_SAFE_CALL(cudaPeekAtLastError());
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // Retrieve the result from the GPU to the CPU
-    double resultOnCpu = 0.0;
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&resultOnCpu, resultOnGpu, sizeof(double), cudaMemcpyDeviceToHost));
+    gpuComputedResultOnCpu = launchKernelAndRetrieveResult(co2GasPvtInternalEnergy, gpuViewCo2Pvt, gpuTemp, gpuPressure);
 
     // Verify that the CPU and GPU results match within a reasonable tolerance
-    BOOST_CHECK(compareSignificantDigits(resultOnCpu, internalEnergyReference, 6));
+    BOOST_CHECK(compareSignificantDigits(gpuComputedResultOnCpu, internalEnergyReference, 6));
 }
