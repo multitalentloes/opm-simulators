@@ -51,9 +51,6 @@ using CpuBrineCo2Pvt = Opm::BrineCo2Pvt<double>;
 using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
 using GpuViewBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuViewCO2Tables, GpuV>;
 
-template GpuBufBrineCo2Pvt::BrineCo2Pvt(GpuB, GpuB, GpuB, int, Co2StoreConfig::SaltMixingType, Co2StoreConfig::LiquidMixingType, GpuBufCo2Tables);
-template GpuViewBrineCo2Pvt::BrineCo2Pvt(GpuV, GpuV, GpuV, int, Co2StoreConfig::SaltMixingType, Co2StoreConfig::LiquidMixingType, GpuViewCO2Tables);
-
 namespace {
 
 /*
@@ -292,7 +289,7 @@ BOOST_FIXTURE_TEST_CASE(TestBrineCo2Pvt, Fixture) {
     double internalEnergyReference = cpuBrineCo2Pvt.internalEnergy<Evaluation>(1, temp, pressure, rs, saltConcentration).value();
 
     const GpuBufBrineCo2Pvt gpuBufBrineCo2Pvt = Opm::gpuistl::move_to_gpu<double, GpuBufCo2Tables, GpuB>(cpuBrineCo2Pvt);
-    const GpuViewBrineCo2Pvt gpuViewBrineCo2Pvt = Opm::gpuistl::make_view<double, GpuBufCo2Tables, GpuViewCO2Tables, GpuB, GpuV>(gpuBufBrineCo2Pvt);
+    const GpuViewBrineCo2Pvt gpuViewBrineCo2Pvt = Opm::gpuistl::make_view<GpuV, GpuViewCO2Tables>(gpuBufBrineCo2Pvt);
 
     // Allocate memory for the result on the GPU
     double* resultOnGpu = nullptr;
