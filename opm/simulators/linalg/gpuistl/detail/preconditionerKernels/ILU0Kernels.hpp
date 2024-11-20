@@ -128,6 +128,19 @@ void solveLowerLevelSetSplit(MatrixScalar* reorderedLowerMat,
                              LinearSolverScalar* v,
                              int threadBlockSize);
 
+template <int blocksize, class Scalar>
+void solveLowerLevelSetSplitPersistent(Scalar* reorderedLowerMat,
+                             int* rowIndices,
+                             int* colIndices,
+                             int* indexConversion,
+                             int* levelSetSizes,
+                             int* nLevels,
+                             int* largestLevelSetSize,
+                             int largestLevelSetSizeCPU,
+                             const Scalar* d,
+                             Scalar* v,
+                             int threadBlockSize);
+
 /**
  * @brief Computes the ILU Factorization of the input bcsr matrix, which is stored in a reordered way. The diagonal
  * elements store the inverse of the diagonal entries

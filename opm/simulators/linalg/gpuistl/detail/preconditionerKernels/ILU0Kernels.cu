@@ -22,6 +22,8 @@
 #include <opm/simulators/linalg/gpuistl/detail/gpuThreadUtils.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/preconditionerKernels/ILU0Kernels.hpp>
 #include <stdexcept>
+#include <cooperative_groups.h>
+#include <iostream>
 
 /*
     The LU factorization and apply step is written based on the Dune implementations
@@ -321,6 +323,45 @@ namespace
         }
     }
 
+    template <int blocksize, class Scalar>
+    __global__ void cuSolveLowerLevelSetSplitPersistent(Scalar* mat,
+                                              int* rowIndices,
+                                              int* colIndices,
+                                              int* indexConversion,
+                                              int* levelSetSizes,
+                                              int* nLevels,
+                                              const Scalar* d,
+                                              Scalar* v)
+    {
+        cooperative_groups::grid_group grid = cooperative_groups::this_grid();
+        int levelStartIdx = 0;
+        for (int level = 0; level < *nLevels; ++level) {
+            const int numOfRowsInLevel = levelSetSizes[level];
+            auto reorderedIdx = levelStartIdx + (blockDim.x * blockIdx.x + threadIdx.x);
+            if (reorderedIdx < numOfRowsInLevel + levelStartIdx) {
+                const size_t nnzIdx = rowIndices[reorderedIdx];
+                const size_t nnzIdxLim = rowIndices[reorderedIdx + 1];
+                const int naturalRowIdx = indexConversion[reorderedIdx];
+
+                Scalar rhs[blocksize];
+                for (int i = 0; i < blocksize; i++) {
+                    rhs[i] = d[naturalRowIdx * blocksize + i];
+                }
+
+                for (int block = nnzIdx; block < nnzIdxLim; ++block) {
+                    const int col = colIndices[block];
+                    mmvMixedGeneral<blocksize, Scalar, Scalar, Scalar, Scalar>(
+                        &mat[block * blocksize * blocksize], &v[col * blocksize], rhs);
+                }
+                for (int i = 0; i < blocksize; ++i) {
+                    v[naturalRowIdx * blocksize + i] = Scalar(rhs[i]);
+                }
+            }
+            levelStartIdx += numOfRowsInLevel;
+            grid.sync(); // all levels must be computed in-order
+        }
+    }
+
     template <int blocksize, class LinearSolverScalar, class MatrixScalar>
     __global__ void cuSolveUpperLevelSetSplit(MatrixScalar* mat,
                                               int* rowIndices,
@@ -409,6 +450,32 @@ solveLowerLevelSetSplit(MatrixScalar* reorderedMat,
     cuSolveLowerLevelSetSplit<blocksize, LinearSolverScalar, MatrixScalar><<<nThreadBlocks, threadBlockSize>>>(
         reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, d, v);
 }
+
+template <int blocksize, class Scalar>
+void
+solveLowerLevelSetSplitPersistent(Scalar* reorderedMat,
+                        int* rowIndices,
+                        int* colIndices,
+                        int* indexConversion,
+                        int* levelSetSizes,
+                        int* nLevels,
+                        int* largestLevelSetSize,
+                        int largestLevelSetSizeCPU,
+                        const Scalar* d,
+                        Scalar* v,
+                        int thrBlockSize)
+{
+    int nThreadBlocks = ::Opm::gpuistl::detail::getNumberOfBlocks(largestLevelSetSizeCPU, thrBlockSize);
+    void* kernelArgs[] = {
+        (void*)&reorderedMat, (void*)&rowIndices, (void*)&colIndices, (void*)&indexConversion,
+        (void*)&levelSetSizes, (void*)&nLevels, (void*)&d, (void*)&v
+    };
+
+    cudaLaunchCooperativeKernel(
+        (void*)cuSolveLowerLevelSetSplitPersistent<blocksize, Scalar>,
+        nThreadBlocks, thrBlockSize, kernelArgs);
+}
+
 // perform the upper solve for all rows in the same level set
 template <int blocksize, class LinearSolverScalar, class MatrixScalar>
 void
@@ -496,7 +563,8 @@ LUFactorizationSplit(InputScalar* srcReorderedLowerMat,
     template void LUFactorizationSplit<blocksize, T, float, false>(                                                    \
         T*, int*, int*, T*, int*, int*, T*, float*, float*, float*, int*, int*, const int, int, int);                  \
     template void LUFactorizationSplit<blocksize, T, double, false>(                                                   \
-        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int);
+        T*, int*, int*, T*, int*, int*, T*, double*, double*, double*, int*, int*, const int, int, int); \
+    template void solveLowerLevelSetSplitPersistent<blocksize, T>(T*, int*, int*, int*, int*, int*, int*, int, const T*, T*, int);
 
 INSTANTIATE_KERNEL_WRAPPERS(float, 1);
 INSTANTIATE_KERNEL_WRAPPERS(float, 2);

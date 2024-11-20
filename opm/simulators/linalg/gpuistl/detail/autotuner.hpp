@@ -69,7 +69,8 @@ tuneThreadBlockSize(func& f, std::string descriptionOfFunction)
         OPM_GPU_SAFE_CALL(cudaEventSynchronize(events[runs]));
 
         // kernel launch was valid
-        if (cudaSuccess == cudaGetLastError()) {
+        cudaError_t error = cudaGetLastError();
+        if (cudaSuccess == error) {
             // check if we beat the record for the fastest kernel
             for (int i = 0; i < runs; ++i) {
                 float candidateBlockSizeTime;
@@ -79,6 +80,21 @@ tuneThreadBlockSize(func& f, std::string descriptionOfFunction)
                     bestBlockSize = thrBlockSize;
                 }
             }
+        }
+        else{
+            // Print all possible debugging info about the kernel that failed
+            OpmLog::warning(fmt::format("CUDA Error: {}", cudaGetErrorString(error)));
+
+            cudaDeviceProp deviceProp;
+            int device;
+            cudaGetDevice(&device);
+            cudaGetDeviceProperties(&deviceProp, device);
+            OpmLog::warning(fmt::format("Device Name: {}", deviceProp.name));
+            OpmLog::warning(fmt::format("Compute Capability: {}.{}", deviceProp.major, deviceProp.minor));
+            OpmLog::warning(fmt::format("Max Threads Per Block: {}", deviceProp.maxThreadsPerBlock));
+            OpmLog::warning(fmt::format("Max Threads Dim: {} {} {}", deviceProp.maxThreadsDim[0], deviceProp.maxThreadsDim[1], deviceProp.maxThreadsDim[2]));
+            OpmLog::warning(fmt::format("Max Grid Size: {} {} {}", deviceProp.maxGridSize[0], deviceProp.maxGridSize[1], deviceProp.maxGridSize[2]));
+            OpmLog::warning(fmt::format("{}: Kernel launch failed for blocksize: {}", descriptionOfFunction, thrBlockSize));
         }
     }
 

@@ -37,6 +37,38 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <chrono>
+
+class CumulativeScopeTimer {
+public:
+    // Constructor starts the timer
+    CumulativeScopeTimer() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~CumulativeScopeTimer() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/lower solve. This lower solve: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Applies: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long CumulativeScopeTimer::total_time_spent = 0;
+int CumulativeScopeTimer::instance_count = 0;
+
 namespace Opm::gpuistl
 {
 
@@ -57,6 +89,7 @@ OpmGpuILU0<M, X, Y, l>::OpmGpuILU0(const M& A, bool splitMatrix, bool tuneKernel
     , m_splitMatrix(splitMatrix)
     , m_tuneThreadBlockSizes(tuneKernels)
     , m_storeFactorizationAsFloat(storeFactorizationAsFloat)
+    , m_gpuLevelSetSizes(m_levelSets.size())
 {
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
@@ -94,6 +127,20 @@ OpmGpuILU0<M, X, Y, l>::OpmGpuILU0(const M& A, bool splitMatrix, bool tuneKernel
         m_gpuMatrixReorderedDiagFloat.emplace(GpuVector<float>(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize()));
     }
 
+    std::vector<int> levelSetSizes(m_levelSets.size());
+    for (int i = 0; i < m_levelSets.size(); ++i) {
+        levelSetSizes[i] = m_levelSets[i].size();
+    }
+
+    m_cpuLargestLevelSetSize = *std::max_element(levelSetSizes.begin(), levelSetSizes.end());
+    OpmLog::info(fmt::format("Largest level set size: {}", m_cpuLargestLevelSetSize));
+    cudaMalloc(&m_gpuLargestLevelSetSize, sizeof(int)); // allocate space for largest level set size on the GPU
+    cudaMemcpy(m_gpuLargestLevelSetSize, &m_cpuLargestLevelSetSize, sizeof(int), cudaMemcpyHostToDevice); // move largest level set size to the gpu
+    int numLevels = m_levelSets.size();
+    cudaMalloc(&m_gpuNLevels, sizeof(int)); // allocate space for number of levels on the GPU
+    cudaMemcpy(m_gpuNLevels, &numLevels, sizeof(int), cudaMemcpyHostToDevice); // move number of levels to the gpu
+    m_gpuLevelSetSizes.copyFromHost(levelSetSizes); // move the level set sizes to the gpu
+
     LUFactorizeAndMoveData(m_moveThreadBlockSize, m_ILU0FactorizationThreadBlockSize);
 
     if (m_tuneThreadBlockSizes) {
@@ -124,47 +171,66 @@ OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, i
     // perform a lower solve and then an upper solve to apply the approximate inverse using ILU factorization
     // for the lower and upper solve we have some if's that determine which underlying implementation to use
 
-    int levelStartIdx = 0;
-    for (int level = 0; level < m_levelSets.size(); ++level) {
-        const int numOfRowsInLevel = m_levelSets[level].size();
-        if (m_splitMatrix) {
-            if (m_storeFactorizationAsFloat){
-                detail::ILU0::solveLowerLevelSetSplit<blocksize_, field_type, float>(
-                    m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
-                    m_gpuMatrixReorderedLowerFloat->getRowIndices().data(),
-                    m_gpuMatrixReorderedLowerFloat->getColumnIndices().data(),
-                    m_gpuReorderToNatural.data(),
-                    levelStartIdx,
-                    numOfRowsInLevel,
-                    d.data(),
-                    v.data(),
-                    lowerSolveThreadBlockSize);
-            }
-            else{
-                detail::ILU0::solveLowerLevelSetSplit<blocksize_, field_type, field_type>(
-                    m_gpuMatrixReorderedLower->getNonZeroValues().data(),
-                    m_gpuMatrixReorderedLower->getRowIndices().data(),
-                    m_gpuMatrixReorderedLower->getColumnIndices().data(),
-                    m_gpuReorderToNatural.data(),
-                    levelStartIdx,
-                    numOfRowsInLevel,
-                    d.data(),
-                    v.data(),
-                    lowerSolveThreadBlockSize);
-            }
-        } else {
-            detail::ILU0::solveLowerLevelSet<field_type, blocksize_>(m_gpuReorderedLU->getNonZeroValues().data(),
-                                                                     m_gpuReorderedLU->getRowIndices().data(),
-                                                                     m_gpuReorderedLU->getColumnIndices().data(),
-                                                                     m_gpuReorderToNatural.data(),
-                                                                     levelStartIdx,
-                                                                     numOfRowsInLevel,
-                                                                     d.data(),
-                                                                     v.data(),
-                                                                     lowerSolveThreadBlockSize);
-        }
-        levelStartIdx += numOfRowsInLevel;
-    }
+    cudaDeviceSynchronize();
+    CumulativeScopeTimer timer;
+
+    detail::ILU0::solveLowerLevelSetSplitPersistent<blocksize_, field_type>(
+        m_gpuMatrixReorderedLower->getNonZeroValues().data(),
+        m_gpuMatrixReorderedLower->getRowIndices().data(),
+        m_gpuMatrixReorderedLower->getColumnIndices().data(),
+        m_gpuReorderToNatural.data(),
+        m_gpuLevelSetSizes.data(),
+        m_gpuNLevels,
+        m_gpuLargestLevelSetSize,
+        m_cpuLargestLevelSetSize,
+        d.data(),
+        v.data(),
+        lowerSolveThreadBlockSize);
+
+    // int levelStartIdx = 0;
+    // for (int level = 0; level < m_levelSets.size(); ++level) {
+    //     const int numOfRowsInLevel = m_levelSets[level].size();
+    //     if (m_splitMatrix) {
+    //         if (m_storeFactorizationAsFloat){
+    //             detail::ILU0::solveLowerLevelSetSplit<blocksize_, field_type, float>(
+    //                 m_gpuMatrixReorderedLowerFloat->getNonZeroValues().data(),
+    //                 m_gpuMatrixReorderedLowerFloat->getRowIndices().data(),
+    //                 m_gpuMatrixReorderedLowerFloat->getColumnIndices().data(),
+    //                 m_gpuReorderToNatural.data(),
+    //                 levelStartIdx,
+    //                 numOfRowsInLevel,
+    //                 d.data(),
+    //                 v.data(),
+    //                 lowerSolveThreadBlockSize);
+    //         }
+    //         else{
+
+    //             // detail::ILU0::solveLowerLevelSetSplit<blocksize_, field_type, field_type>(
+    //             //     m_gpuMatrixReorderedLower->getNonZeroValues().data(),
+    //             //     m_gpuMatrixReorderedLower->getRowIndices().data(),
+    //             //     m_gpuMatrixReorderedLower->getColumnIndices().data(),
+    //             //     m_gpuReorderToNatural.data(),
+    //             //     levelStartIdx,
+    //             //     numOfRowsInLevel,
+    //             //     d.data(),
+    //             //     v.data(),
+    //             //     lowerSolveThreadBlockSize);
+    //         }
+    //     } else {
+    //         detail::ILU0::solveLowerLevelSet<field_type, blocksize_>(m_gpuReorderedLU->getNonZeroValues().data(),
+    //                                                                  m_gpuReorderedLU->getRowIndices().data(),
+    //                                                                  m_gpuReorderedLU->getColumnIndices().data(),
+    //                                                                  m_gpuReorderToNatural.data(),
+    //                                                                  levelStartIdx,
+    //                                                                  numOfRowsInLevel,
+    //                                                                  d.data(),
+    //                                                                  v.data(),
+    //                                                                  lowerSolveThreadBlockSize);
+    //     }
+    //     levelStartIdx += numOfRowsInLevel;
+    // }
+
+    int levelStartIdx = m_cpuMatrix.N();
 
     levelStartIdx = m_cpuMatrix.N();
     for (int level = m_levelSets.size() - 1; level >= 0; --level) {
@@ -206,6 +272,7 @@ OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, i
                                                                      upperSolveThreadBlockSize);
         }
     }
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>

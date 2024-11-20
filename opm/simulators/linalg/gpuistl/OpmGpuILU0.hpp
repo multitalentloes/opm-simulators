@@ -152,6 +152,11 @@ private:
     int m_lowerSolveThreadBlockSize = -1;
     int m_moveThreadBlockSize = -1;
     int m_ILU0FactorizationThreadBlockSize = -1;
+
+    GpuVector<int> m_gpuLevelSetSizes;
+    int* m_gpuLargestLevelSetSize;
+    int* m_gpuNLevels;
+    int m_cpuLargestLevelSetSize;
 };
 } // end namespace Opm::gpuistl
 
