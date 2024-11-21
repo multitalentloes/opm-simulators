@@ -37,6 +37,65 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <chrono>
+
+class OPMILUAPPLY {
+public:
+    // Constructor starts the timer
+    OPMILUAPPLY() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~OPMILUAPPLY() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+        std::cout << "apply: " << duration << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long OPMILUAPPLY::total_time_spent = 0;
+int OPMILUAPPLY::instance_count = 0;
+
+class OPMILUUPDATE {
+public:
+    // Constructor starts the timer
+    OPMILUUPDATE() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~OPMILUUPDATE() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+        std::cout << "update: " << duration << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long OPMILUUPDATE::total_time_spent = 0;
+int OPMILUUPDATE::instance_count = 0;
 namespace Opm::gpuistl
 {
 
@@ -119,10 +178,13 @@ template <class M, class X, class Y, int l>
 void
 OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    cudaDeviceSynchronize();
+    OPMILUAPPLY opm_ilu_apply;
     OPM_TIMEBLOCK(prec_apply);
     {
         apply(v, d, m_lowerSolveThreadBlockSize, m_upperSolveThreadBlockSize);
     }
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>
@@ -245,10 +307,13 @@ template <class M, class X, class Y, int l>
 void
 OpmGpuILU0<M, X, Y, l>::update()
 {
+    cudaDeviceSynchronize();
+    OPMILUUPDATE opm_ilu_update;
     OPM_TIMEBLOCK(prec_update);
     {
         update(m_moveThreadBlockSize, m_ILU0FactorizationThreadBlockSize);
     }
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>

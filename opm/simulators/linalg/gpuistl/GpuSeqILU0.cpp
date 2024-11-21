@@ -32,7 +32,64 @@
 #include <opm/simulators/linalg/gpuistl/detail/fix_zero_diagonal.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/matrixblock.hh>
+#include <chrono>
+class VENDORILUAPPLY {
+public:
+    // Constructor starts the timer
+    VENDORILUAPPLY() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
 
+    // Destructor stops the timer and accumulates the time
+    ~VENDORILUAPPLY() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+        std::cout << "apply: " << duration << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long VENDORILUAPPLY::total_time_spent = 0;
+int VENDORILUAPPLY::instance_count = 0;
+
+class VENDORILUUPDATE {
+public:
+    // Constructor starts the timer
+    VENDORILUUPDATE() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~VENDORILUUPDATE() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+        std::cout << "update: " << duration << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long VENDORILUUPDATE::total_time_spent = 0;
+int VENDORILUUPDATE::instance_count = 0;
 // This file is based on the guide at https://docs.nvidia.com/cuda/cusparse/index.html#csrilu02_solve ,
 // it highly recommended to read that before proceeding.
 
@@ -79,6 +136,8 @@ void
 GpuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
 {
 
+    cudaDeviceSynchronize();
+    VENDORILUAPPLY timer;
     // We need to pass the solve routine a scalar to multiply.
     // In our case this scalar is 1.0
     const field_type one = 1.0;
@@ -129,6 +188,7 @@ GpuSeqILU0<M, X, Y, l>::apply(X& v, const Y& d)
 
 
     v *= m_w;
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>
@@ -148,8 +208,11 @@ template <class M, class X, class Y, int l>
 void
 GpuSeqILU0<M, X, Y, l>::update()
 {
+    cudaDeviceSynchronize();
+    VENDORILUUPDATE timer;
     m_LU.updateNonzeroValues(detail::makeMatrixWithNonzeroDiagonal(m_underlyingMatrix));
     createILU();
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>
