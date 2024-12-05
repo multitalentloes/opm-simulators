@@ -81,7 +81,8 @@ void solveLowerLevelSetSplit(T* reorderedUpperMat,
                              const T* dInv,
                              const T* d,
                              T* v,
-                             int threadBlockSize);
+                             int threadBlockSize,
+                             cudaStream_t stream);
 
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel
@@ -133,7 +134,8 @@ void solveUpperLevelSetSplit(T* reorderedUpperMat,
                              int rowsInLevelSet,
                              const T* dInv,
                              T* v,
-                             int threadBlockSize);
+                             int threadBlockSize,
+                             cudaStream_t stream);
 
 /**
  * @brief Computes the ILU0 of the diagonal elements of the reordered matrix and stores it in a reordered vector

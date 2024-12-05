@@ -143,6 +143,16 @@ private:
     int m_lowerSolveThreadBlockSize = -1;
     int m_moveThreadBlockSize = -1;
     int m_DILUFactorizationThreadBlockSize = -1;
+
+    GpuVector<field_type> m_v_copy;
+    GpuVector<field_type> m_d_copy;
+
+
+    cudaStream_t stream;
+    cudaGraph_t graph;
+    cudaGraphExec_t instance;
+    bool m_cudagraphInitialized {false};
+    cudaGraph_t m_cudagraphInstance;
 };
 } // end namespace Opm::gpuistl
 

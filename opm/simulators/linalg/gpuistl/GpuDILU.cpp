@@ -37,6 +37,38 @@
 #include <functional>
 #include <utility>
 #include <string>
+#include <chrono>
+
+class CumulativeScopeTimer {
+public:
+    // Constructor starts the timer
+    CumulativeScopeTimer() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~CumulativeScopeTimer() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/apply. This apply: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Applies: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long CumulativeScopeTimer::total_time_spent = 0;
+int CumulativeScopeTimer::instance_count = 0;
+
 namespace Opm::gpuistl
 {
 
@@ -52,8 +84,12 @@ GpuDILU<M, X, Y, l>::GpuDILU(const M& A, bool splitMatrix, bool tuneKernels)
     , m_gpuDInv(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
     , m_splitMatrix(splitMatrix)
     , m_tuneThreadBlockSizes(tuneKernels)
+    , m_v_copy(m_gpuMatrix.N() * m_gpuMatrix.blockSize())
+    , m_d_copy(m_gpuMatrix.N() * m_gpuMatrix.blockSize())
 
 {
+    cudaStreamCreate(&stream);
+
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
     OPM_ERROR_IF(A.N() != m_gpuMatrix.N(),
@@ -97,10 +133,36 @@ template <class M, class X, class Y, int l>
 void
 GpuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    // the cuda graph will not work if the data does not always come in the same buffers
+    // because the actual pointers are stored in the nodes of the graph
+    // this extra copy will make sure that the data is always in the same buffer
+
+    // this can be improved upon as the input usually will come in the same buffer
+    // we can store a graph for each set of input pointers. I think that would work,
+    // but I have not tested it.
+    m_v_copy = v;
+    m_d_copy = d;
+
     OPM_TIMEBLOCK(prec_apply);
     {
-        apply(v, d, m_lowerSolveThreadBlockSize, m_upperSolveThreadBlockSize);
+        cudaDeviceSynchronize();
+        CumulativeScopeTimer timer;
+        if (!m_cudagraphInitialized) {
+            OPM_GPU_SAFE_CALL(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
+
+            // The apply functions contains lots of small function calls which call a kernel each
+            apply(m_v_copy, m_d_copy, m_lowerSolveThreadBlockSize, m_upperSolveThreadBlockSize);
+
+            OPM_GPU_SAFE_CALL(cudaStreamEndCapture(stream, &graph));
+            OPM_GPU_SAFE_CALL(cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0));
+            m_cudagraphInitialized = true;
+        }
+        OPM_GPU_SAFE_CALL(cudaGraphLaunch(instance, 0));
+        cudaDeviceSynchronize();
     }
+
+    v = m_v_copy;
+
 }
 
 template <class M, class X, class Y, int l>
@@ -121,7 +183,8 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                 m_gpuDInv.data(),
                 d.data(),
                 v.data(),
-                lowerSolveThreadBlockSize);
+                lowerSolveThreadBlockSize,
+                stream);
         } else {
             detail::DILU::solveLowerLevelSet<field_type, blocksize_>(
                 m_gpuMatrixReordered->getNonZeroValues().data(),
@@ -153,7 +216,8 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                 numOfRowsInLevel,
                 m_gpuDInv.data(),
                 v.data(),
-                upperSolveThreadBlockSize);
+                upperSolveThreadBlockSize,
+                stream);
         } else {
             detail::DILU::solveUpperLevelSet<field_type, blocksize_>(
                 m_gpuMatrixReordered->getNonZeroValues().data(),
