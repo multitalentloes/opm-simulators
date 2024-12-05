@@ -84,8 +84,6 @@ GpuDILU<M, X, Y, l>::GpuDILU(const M& A, bool splitMatrix, bool tuneKernels)
     , m_gpuDInv(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
     , m_splitMatrix(splitMatrix)
     , m_tuneThreadBlockSizes(tuneKernels)
-    , m_v_copy(m_gpuMatrix.N() * m_gpuMatrix.blockSize())
-    , m_d_copy(m_gpuMatrix.N() * m_gpuMatrix.blockSize())
 
 {
     cudaStreamCreate(&stream);
@@ -140,28 +138,40 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     // this can be improved upon as the input usually will come in the same buffer
     // we can store a graph for each set of input pointers. I think that would work,
     // but I have not tested it.
-    m_v_copy = v;
-    m_d_copy = d;
+    // m_v_copy = v;
+    // m_d_copy = d;
+
+
 
     OPM_TIMEBLOCK(prec_apply);
     {
-        cudaDeviceSynchronize();
-        CumulativeScopeTimer timer;
-        if (!m_cudagraphInitialized) {
+        cudaDeviceSynchronize(); // only for timing
+        CumulativeScopeTimer timer; // only for timing
+
+        const auto ptrs = std::make_pair(v.data(), d.data());
+
+        auto it = m_graphs.find(ptrs);
+
+        if (it == m_graphs.end()) {
+            m_graphs[ptrs] = cudaGraph_t();
+            m_executableGraphs[ptrs] = cudaGraphExec_t();
             OPM_GPU_SAFE_CALL(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
 
             // The apply functions contains lots of small function calls which call a kernel each
-            apply(m_v_copy, m_d_copy, m_lowerSolveThreadBlockSize, m_upperSolveThreadBlockSize);
+            apply(v, d, m_lowerSolveThreadBlockSize, m_upperSolveThreadBlockSize);
 
-            OPM_GPU_SAFE_CALL(cudaStreamEndCapture(stream, &graph));
-            OPM_GPU_SAFE_CALL(cudaGraphInstantiate(&instance, graph, nullptr, nullptr, 0));
-            m_cudagraphInitialized = true;
+            OPM_GPU_SAFE_CALL(cudaStreamEndCapture(stream, &m_graphs[ptrs]));
+            OPM_GPU_SAFE_CALL(cudaGraphInstantiate(&m_executableGraphs[ptrs], m_graphs[ptrs], nullptr, nullptr, 0));
+            // m_cudagraphInitialized = true;
         }
-        OPM_GPU_SAFE_CALL(cudaGraphLaunch(instance, 0));
-        cudaDeviceSynchronize();
+        // assert(false);
+        // assert(m_executableGraphs[ptrs] != nullptr);
+        OPM_GPU_SAFE_CALL(cudaGraphLaunch(m_executableGraphs[ptrs], 0));
+
+        cudaDeviceSynchronize(); // only for timing
     }
 
-    v = m_v_copy;
+    // v = m_v_copy;
 
 }
 

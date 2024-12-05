@@ -24,7 +24,8 @@
 #include <opm/simulators/linalg/PreconditionerWithUpdate.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuSparseMatrix.hpp>
 #include <vector>
-
+#include <map>
+#include <utility>
 
 
 namespace Opm::gpuistl
@@ -144,10 +145,8 @@ private:
     int m_moveThreadBlockSize = -1;
     int m_DILUFactorizationThreadBlockSize = -1;
 
-    GpuVector<field_type> m_v_copy;
-    GpuVector<field_type> m_d_copy;
-
-
+    std::map<std::pair<field_type*, const field_type*>, cudaGraph_t> m_graphs;
+    std::map<std::pair<field_type*, const field_type*>, cudaGraphExec_t> m_executableGraphs;
     cudaStream_t stream;
     cudaGraph_t graph;
     cudaGraphExec_t instance;
