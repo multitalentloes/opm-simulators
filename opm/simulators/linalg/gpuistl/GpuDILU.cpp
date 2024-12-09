@@ -131,22 +131,10 @@ template <class M, class X, class Y, int l>
 void
 GpuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
-    // the cuda graph will not work if the data does not always come in the same buffers
-    // because the actual pointers are stored in the nodes of the graph
-    // this extra copy will make sure that the data is always in the same buffer
-
-    // this can be improved upon as the input usually will come in the same buffer
-    // we can store a graph for each set of input pointers. I think that would work,
-    // but I have not tested it.
-    // m_v_copy = v;
-    // m_d_copy = d;
-
-
-
     OPM_TIMEBLOCK(prec_apply);
     {
-        cudaDeviceSynchronize(); // only for timing
-        CumulativeScopeTimer timer; // only for timing
+        // cudaDeviceSynchronize(); // only for timing
+        // CumulativeScopeTimer timer; // only for timing
 
         const auto ptrs = std::make_pair(v.data(), d.data());
 
@@ -162,17 +150,11 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 
             OPM_GPU_SAFE_CALL(cudaStreamEndCapture(stream, &m_graphs[ptrs]));
             OPM_GPU_SAFE_CALL(cudaGraphInstantiate(&m_executableGraphs[ptrs], m_graphs[ptrs], nullptr, nullptr, 0));
-            // m_cudagraphInitialized = true;
         }
-        // assert(false);
-        // assert(m_executableGraphs[ptrs] != nullptr);
         OPM_GPU_SAFE_CALL(cudaGraphLaunch(m_executableGraphs[ptrs], 0));
 
-        cudaDeviceSynchronize(); // only for timing
+        // cudaDeviceSynchronize(); // only for timing
     }
-
-    // v = m_v_copy;
-
 }
 
 template <class M, class X, class Y, int l>
