@@ -48,6 +48,7 @@ class FIBlackOilModel : public BlackOilModel<TypeTag>
     using ElementContext = GetPropType<TypeTag, Properties::ElementContext>;
     using ThreadManager = GetPropType<TypeTag, Properties::ThreadManager>;
     using GridView = GetPropType<TypeTag, Properties::GridView>;
+    using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
     using Element = typename GridView::template Codim<0>::Entity;
     using ElementIterator = typename GridView::template Codim<0>::Iterator;
     enum {
@@ -64,6 +65,11 @@ public:
     void invalidateAndUpdateIntensiveQuantities(unsigned timeIdx) const
     {
 
+        // TODO: add something here so that the existing code will not be made any slower or cause copies
+        // maybe through a static assert on the type of the fluidsystem
+        // TODO: ensure that this will be an updated version if the static version has changed
+        const auto& FSystem = FluidSystem::getNonStaticInstance();
+
         this->invalidateIntensiveQuantitiesCache(timeIdx);
         OPM_BEGIN_PARALLEL_TRY_CATCH()
         // loop over all elements...
@@ -79,7 +85,7 @@ public:
             for (; !threadedElemIt.isFinished(elemIt); elemIt = threadedElemIt.increment()) {
                 const Element& elem = *elemIt;
                 elemCtx.updatePrimaryStencil(elem);
-                elemCtx.updatePrimaryIntensiveQuantities(timeIdx);
+                elemCtx.updatePrimaryIntensiveQuantities(timeIdx, FSystem);
             }
         }
         OPM_END_PARALLEL_TRY_CATCH("InvalideAndUpdateIntensiveQuantities: state error", this->simulator_.vanguard().grid().comm());
