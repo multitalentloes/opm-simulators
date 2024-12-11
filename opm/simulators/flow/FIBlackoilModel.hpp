@@ -68,6 +68,8 @@ public:
         OPM_BEGIN_PARALLEL_TRY_CATCH()
         // loop over all elements...
         ThreadedEntityIterator<GridView, /*codim=*/0> threadedElemIt(this->gridView_);
+
+        //const auto& fluidSystemInstance = FluidSystem::getNonStaticInstance();
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
