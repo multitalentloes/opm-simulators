@@ -182,10 +182,30 @@ public:
         }
     }
 
+    void updateTempSalt(const Problem& problem,
+                        const PrimaryVariables& priVars,
+                        const unsigned globalDofIdx,
+                        const unsigned timeIdx,
+                        const LinearizationType& lintype)
+    {
+        if constexpr (enableTemperature || enableEnergy) {
+            asImp_().updateTemperature_(problem, priVars, globalDofIdx, timeIdx, lintype);
+        }
+
+        if constexpr (enableBrine) {
+            asImp_().updateSaltConcentration_(priVars, timeIdx, lintype);
+        }
+    }
+
     void updateSaturations(const ElementContext& elemCtx, unsigned dofIdx, unsigned timeIdx)
     {
         const auto& priVars = elemCtx.primaryVars(dofIdx, timeIdx);
+        const LinearizationType lintype = elemCtx.problem().model().linearizer().getLinearizationType();
+        this->updateSaturations(priVars, timeIdx, lintype);
+    }
 
+    void updateSaturations(const PrimaryVariables& priVars, const unsigned timeIdx, const LinearizationType lintype)
+    {
         // extract the water and the gas saturations for convenience
         Evaluation Sw = 0.0;
         if constexpr (waterEnabled) {
@@ -228,9 +248,9 @@ public:
         if constexpr (enableSolvent) {
             if(priVars.primaryVarsMeaningSolvent() == PrimaryVariables::SolventMeaning::Ss) {
                 if (FluidSystem::phaseIsActive(oilPhaseIdx)) {
-                    So -= priVars.makeEvaluation(Indices::solventSaturationIdx, timeIdx);
+                    So -= priVars.makeEvaluation(Indices::solventSaturationIdx, timeIdx, lintype);
                 } else if (FluidSystem::phaseIsActive(gasPhaseIdx)) {
-                    Sg -= priVars.makeEvaluation(Indices::solventSaturationIdx, timeIdx);
+                    Sg -= priVars.makeEvaluation(Indices::solventSaturationIdx, timeIdx, lintype);
                 }
             }
         }
@@ -480,8 +500,8 @@ public:
     {
         const auto& problem = elemCtx.problem();
         const auto& priVars = elemCtx.primaryVars(dofIdx, timeIdx);
-        const auto& linearizationType = problem.model().linearizer().getLinearizationType();
         const unsigned globalSpaceIdx = elemCtx.globalSpaceIndex(dofIdx, timeIdx);
+        const auto& linearizationType = problem.model().linearizer().getLinearizationType();
 
         // retrieve the porosity from the problem
         referencePorosity_ = problem.porosity(elemCtx, dofIdx, timeIdx);
@@ -540,6 +560,18 @@ public:
     /*!
      * \copydoc IntensiveQuantities::update
      */
+    // void update(const ElementContext& elemCtx, unsigned dofIdx, unsigned timeIdx)
+    // {
+    //     ParentType::update(elemCtx, dofIdx, timeIdx);
+    //     const auto& problem = elemCtx.problem();
+    //     const auto& priVars = elemCtx.primaryVars(dofIdx, timeIdx);
+    //     const unsigned globalSpaceIdx = elemCtx.globalSpaceIndex(dofIdx, timeIdx);
+    //     this->update(problem, priVars, globalSpaceIdx, timeIdx);
+    // }
+
+    /*!
+     * \copydoc IntensiveQuantities::update
+     */
     void update(const ElementContext& elemCtx, unsigned dofIdx, unsigned timeIdx)
     {
         ParentType::update(elemCtx, dofIdx, timeIdx);
@@ -549,12 +581,15 @@ public:
         const auto& problem = elemCtx.problem();
         const auto& priVars = elemCtx.primaryVars(dofIdx, timeIdx);
         const unsigned globalSpaceIdx = elemCtx.globalSpaceIndex(dofIdx, timeIdx);
+        const auto& linearizationType = problem.model().linearizer().getLinearizationType();
         const unsigned pvtRegionIdx = priVars.pvtRegionIndex();
 
         fluidState_.setPvtRegionIndex(pvtRegionIdx);
 
-        updateTempSalt(elemCtx, dofIdx, timeIdx);
-        updateSaturations(elemCtx, dofIdx, timeIdx);
+        // updateTempSalt(elemCtx, dofIdx, timeIdx);
+        updateTempSalt(problem, priVars, globalSpaceIdx, timeIdx, linearizationType);
+        // updateSaturations(elemCtx, dofIdx, timeIdx);
+        updateSaturations(priVars, timeIdx, linearizationType);
         updateRelpermAndPressures(elemCtx, dofIdx, timeIdx);
 
         // update extBO parameters
