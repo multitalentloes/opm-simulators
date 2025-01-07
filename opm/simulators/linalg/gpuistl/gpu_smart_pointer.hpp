@@ -225,6 +225,7 @@ copyToGPU(const T& value, const std::unique_ptr<T, Deleter>& ptr)
  * being compatible with the requirements of the GPU kernels. This is useful when we want to pass
  * a smart pointer to a GPU kernel, but we do not want to transfer the ownership of the memory.
  */
+
 template <class T>
 class PointerView
 {
@@ -252,7 +253,12 @@ public:
         return ptr_;
     }
 
-    OPM_HOST_DEVICE T& operator*() const
+    OPM_HOST_DEVICE const T& operator*() const
+    {
+        return *ptr_;
+    }
+
+    OPM_HOST_DEVICE T& operator*()
     {
         return *ptr_;
     }
@@ -264,6 +270,43 @@ public:
 
 private:
     T* ptr_;
+};
+
+
+template <>
+class PointerView<void>
+{
+public:
+    PointerView(const PointerView& other) = default;
+
+    PointerView(const std::shared_ptr<void>& ptr)
+        : ptr_(ptr.get())
+    {
+    }
+
+    template <class Deleter>
+    PointerView(const std::unique_ptr<void, Deleter>& ptr)
+        : ptr_(ptr.get())
+    {
+    }
+
+    PointerView(void* ptr)
+        : ptr_(ptr)
+    {
+    }
+
+    OPM_HOST_DEVICE void* get() const
+    {
+        return ptr_;
+    }
+
+    OPM_HOST_DEVICE void* operator->() const
+    {
+        return ptr_;
+    }
+
+private:
+    void* ptr_;
 };
 
 template <class T>
@@ -279,5 +322,42 @@ make_view(const std::unique_ptr<T, Deleter>& ptr)
 {
     return PointerView<T>(ptr);
 }
+
+// This class is used to store objects directly that are typically stored as pointers in the CPU code
+// This  should contain a view, and the key purpose is to look like a pointer from the outside
+template<class T>
+class ValueAsPointer {
+public:
+    using element_type = T;
+
+    ValueAsPointer(const T& t) : value(t) {}
+
+    OPM_HOST_DEVICE T* operator->() {
+        return &value;
+    }
+
+    OPM_HOST_DEVICE T* get() {
+        return &value;
+    }
+
+
+    OPM_HOST_DEVICE const T* operator->() const {
+        return &value;
+    }
+
+    OPM_HOST_DEVICE const T* get() const {
+        return &value;
+    }
+
+    OPM_HOST_DEVICE T& operator*() {
+        return value;
+    }
+
+    OPM_HOST_DEVICE const T& operator*() const {
+        return value;
+    }
+private:
+    T value;
+};
 } // namespace Opm::gpuistl
 #endif

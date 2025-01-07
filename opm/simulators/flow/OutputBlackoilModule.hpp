@@ -207,7 +207,7 @@ public:
                              substep,
                              log,
                              isRestart,
-                             &problem.materialLawManager()->hysteresisConfig(),
+                             problem.materialLawManager()->hysteresisConfig(),
                              problem.eclWriter().getOutputNnc().size());
     }
 

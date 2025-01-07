@@ -611,6 +611,18 @@ opm_add_test(flow
   $<TARGET_OBJECTS:MainDispatchDynamic>
   )
 
+opm_add_test(flow_simple
+  ONLY_COMPILE
+  ALWAYS_ENABLE
+  DEFAULT_ENABLE_IF ${FLOW_DEFAULT_ENABLE_IF}
+  DEPENDS opmsimulators
+  LIBRARIES opmsimulators
+  SOURCES
+  flow/flow_simple.cpp
+  ${FLOW_TGTS}
+  $<TARGET_OBJECTS:moduleVersion>
+)
+
 opm_add_test(flow_blackoil_polyhedralgrid
   ONLY_COMPILE
   ALWAYS_ENABLE
@@ -757,6 +769,7 @@ if(CUDA_FOUND)
                        is_gpu_pointer
                        throw_macros_on_gpu
                        preconditioner_factory_gpu
+                       gpuBlackOilFluidSystem
                        PROPERTIES LABELS ${gpu_label})
   if(MPI_FOUND)
     set_tests_properties(GpuOwnerOverlapCopy PROPERTIES LABELS ${gpu_label})
