@@ -41,6 +41,7 @@
 #include <opm/input/eclipse/EclipseState/Tables/SaltpvdTable.hpp>
 
 #include <opm/material/fluidmatrixinteractions/EclMaterialLawManager.hpp>
+#include <opm/material/fluidmatrixinteractions/EclMaterialLawManagerSimple.hpp>
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 
 #include <opm/simulators/flow/equil/EquilibrationHelpers.hpp>
@@ -600,6 +601,7 @@ deriveSaturations(const Position& x,
     this->setEvaluationPoint(x, reg, ptable);
     this->initializePhaseQuantities();
 
+    printf("DOING SOME THINGS IN INITSTATEEQUIL\n");
     if (ptable.gasActive())   { this->deriveGasSat();   }
 
     if (ptable.waterActive()) { this->deriveWaterSat(); }

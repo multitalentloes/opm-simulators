@@ -30,6 +30,8 @@
 
 #include <opm/models/blackoil/blackoilenergymodules.hh>
 
+#include <opm/common/utility/gpuDecorators.hpp>
+
 namespace Opm {
 
 /*!
@@ -57,7 +59,7 @@ class BlackOilEnergyIntensiveQuantitiesGlobalIndex
     static constexpr unsigned numPhases = FluidSystem::numPhases;
 
 public:
-    void updateTemperature_([[maybe_unused]] const Problem& problem,
+    OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const Problem& problem,
                             const PrimaryVariables& priVars,
                             [[maybe_unused]] unsigned globalSpaceIndex,
                             unsigned timeIdx)
@@ -113,7 +115,7 @@ class BlackOilEnergyIntensiveQuantitiesGlobalIndex<TypeTag, false>
     static constexpr bool enableTemperature = getPropValue<TypeTag, Properties::EnableTemperature>();
 
 public:
-    void updateTemperature_([[maybe_unused]] const Problem& problem,
+OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const Problem& problem,
                             [[maybe_unused]] const PrimaryVariables& priVars,
                             [[maybe_unused]] unsigned globalSpaceIdx,
                             [[maybe_unused]] unsigned timeIdx)

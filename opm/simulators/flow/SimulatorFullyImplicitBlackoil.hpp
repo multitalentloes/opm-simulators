@@ -542,6 +542,10 @@ public:
     const Model& model() const
     { return solver_->model(); }
 
+public:
+    auto& getSimulator()
+    { return simulator_; }
+
 protected:
     //! \brief Load simulator state from hdf5 serializer.
     void loadState([[maybe_unused]] HDF5Serializer& serializer,

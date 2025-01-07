@@ -25,6 +25,7 @@
 
 #include <opm/common/utility/gpuDecorators.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 
 #include <stdexcept>
 #include <vector>
@@ -61,7 +62,10 @@ public:
     //TODO: we probably dont need anything like this or is it useful to have views also be able to handle things on CPU?
     /// @brief constructor based on std::vectors, this will make a view on the CPU
     /// @param data std vector to pr
-    GpuView(std::vector<T>& data);
+    GpuView(std::vector<T>& data)
+        : GpuView(data.data(), data.size())
+    {
+    }
 
     /**
      * @brief operator[] to retrieve a reference to an item in the buffer
@@ -172,7 +176,16 @@ public:
      * @note This does synchronous transfer.
      * @note assumes that this view has numberOfElements elements
      */
-    void copyFromHost(const T* dataPointer, size_t numberOfElements);
+    void copyFromHost(const T* dataPointer, size_t numberOfElements)
+    {
+        if (numberOfElements > size()) {
+            OPM_THROW(std::runtime_error,
+                      fmt::format("Requesting to copy too many elements. View has {} elements, while {} was requested.",
+                                  size(),
+                                  numberOfElements));
+        }
+        OPM_GPU_SAFE_CALL(cudaMemcpy(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+    }
 
     /**
      * @brief copyFromHost copies numberOfElements to the CPU memory dataPointer
@@ -181,7 +194,11 @@ public:
      * @note This does synchronous transfer.
      * @note assumes that this view has numberOfElements elements
      */
-    void copyToHost(T* dataPointer, size_t numberOfElements) const;
+    void copyToHost(T* dataPointer, size_t numberOfElements) const
+    {
+        assertSameSize(numberOfElements);
+        OPM_GPU_SAFE_CALL(cudaMemcpy(dataPointer, data(), numberOfElements * sizeof(T), cudaMemcpyDeviceToHost));
+    }
 
     /**
      * @brief copyToHost copies data from an std::vector
@@ -190,7 +207,10 @@ public:
      * @note This does synchronous transfer.
      * @note This assumes that the size of this view is equal to the size of the input vector.
      */
-    void copyFromHost(const std::vector<T>& data);
+    void copyFromHost(const std::vector<T>& data)
+    {
+        copyFromHost(data.data(), data.size());
+    }
 
     /**
      * @brief copyToHost copies data to an std::vector
@@ -199,7 +219,10 @@ public:
      * @note This does synchronous transfer.
      * @note This assumes that the size of this view is equal to the size of the input vector.
      */
-    void copyToHost(std::vector<T>& data) const;
+    void copyToHost(std::vector<T>& data) const
+    {
+        copyToHost(data.data(), data.size());
+    }
 
     /**
      * @brief size returns the size (number of T elements) in the vector
@@ -213,7 +236,13 @@ public:
      * @brief creates an std::vector of the same size and copies the GPU data to this std::vector
      * @return an std::vector containing the elements copied from the GPU.
      */
-    std::vector<T> asStdVector() const;
+    std::vector<T> asStdVector() const
+    {
+        std::vector<T> temporary(m_numberOfElements);
+        copyToHost(temporary);
+        return temporary;
+    }
+
     /// @brief Iterator class to make GpuViews more similar to std containers
     class iterator {
     public:

@@ -337,6 +337,7 @@ protected:
         exitCode = EXIT_SUCCESS;
         return true;
     }
+public:
 
     void setupVanguard();
 

@@ -361,7 +361,7 @@ public:
      * \brief Update the temperature of the intensive quantity's fluid state
      *
      */
-    void updateTemperature_(const ElementContext& elemCtx,
+    OPM_HOST_DEVICE void updateTemperature_(const ElementContext& elemCtx,
                             unsigned dofIdx,
                             unsigned timeIdx)
     {
@@ -376,7 +376,7 @@ public:
      * \brief Update the temperature of the intensive quantity's fluid state
      *
      */
-    void updateTemperature_([[maybe_unused]] const Problem& problem,
+    OPM_HOST_DEVICE OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const Problem& problem,
                             const PrimaryVariables& priVars,
                             [[maybe_unused]] unsigned globalDofIdx,
                             const unsigned timeIdx,
@@ -392,8 +392,14 @@ public:
      */
     void updateEnergyQuantities_(const ElementContext& elemCtx,
                                  unsigned dofIdx,
-                                 unsigned timeIdx,
-                                 const typename FluidSystem::template ParameterCache<Evaluation>& paramCache)
+                                 unsigned timeIdx)
+    {
+        updateEnergyQuantities_(elemCtx.problem(), elemCtx.globalSpaceIndex(dofIdx, timeIdx), timeIdx);
+    }
+
+    void updateEnergyQuantities_(const Problem& problem,
+                                 const unsigned globalSpaceIdx,
+                                 const unsigned timeIdx)
     {
         auto& fs = asImp_().fluidState_;
 
@@ -404,14 +410,14 @@ public:
                 continue;
             }
 
-            const auto& h = FluidSystem::enthalpy(fs, paramCache, phaseIdx);
+            const auto& h = FluidSystem::enthalpy(fs, phaseIdx, problem.pvtRegionIndex(globalSpaceIdx));
             fs.setEnthalpy(phaseIdx, h);
         }
 
-        const auto& solidEnergyLawParams = elemCtx.problem().solidEnergyLawParams(elemCtx, dofIdx, timeIdx);
+        const auto& solidEnergyLawParams = problem.solidEnergyLawParams(globalSpaceIdx, timeIdx);
         rockInternalEnergy_ = SolidEnergyLaw::solidInternalEnergy(solidEnergyLawParams, fs);
 
-        const auto& thermalConductionLawParams = elemCtx.problem().thermalConductionLawParams(elemCtx, dofIdx, timeIdx);
+        const auto& thermalConductionLawParams = problem.thermalConductionLawParams(globalSpaceIdx, timeIdx);
         totalThermalConductivity_ = ThermalConductionLaw::thermalConductivity(thermalConductionLawParams, fs);
 
         // Retrieve the rock fraction from the problem
@@ -419,8 +425,7 @@ public:
         // we will apply the same multiplier to the rock fraction
         // i.e. pvmult*(1 - porosity) and thus interpret multpv as a volume
         // multiplier. This is to avoid negative rock volume for pvmult*porosity > 1
-        const unsigned cell_idx = elemCtx.globalSpaceIndex(dofIdx, timeIdx);
-        rockFraction_ = elemCtx.problem().rockFraction(cell_idx, timeIdx);
+        rockFraction_ = problem.rockFraction(globalSpaceIdx, timeIdx);
     }
 
     const Evaluation& rockInternalEnergy() const
@@ -433,7 +438,7 @@ public:
     { return rockFraction_; }
 
 protected:
-    Implementation& asImp_()
+    OPM_HOST_DEVICE Implementation& asImp_()
     { return *static_cast<Implementation*>(this); }
 
     Evaluation rockInternalEnergy_;
@@ -455,7 +460,7 @@ class BlackOilEnergyIntensiveQuantities<TypeTag, false>
     static constexpr bool enableTemperature = getPropValue<TypeTag, Properties::EnableTemperature>();
 
 public:
-    void updateTemperature_([[maybe_unused]] const ElementContext& elemCtx,
+    OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const ElementContext& elemCtx,
                             [[maybe_unused]] unsigned dofIdx,
                             [[maybe_unused]] unsigned timeIdx)
     {
@@ -469,7 +474,7 @@ public:
     }
 
     template<class Problem>
-    void updateTemperature_([[maybe_unused]] const Problem& problem,
+    OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const Problem& problem,
                             [[maybe_unused]] const PrimaryVariables& priVars,
                             [[maybe_unused]] unsigned globalDofIdx,
                             [[maybe_unused]] unsigned timeIdx,
@@ -504,7 +509,7 @@ public:
     }
 
 protected:
-    Implementation& asImp_()
+OPM_HOST_DEVICE Implementation& asImp_()
     { return *static_cast<Implementation*>(this); }
 };
 
@@ -685,7 +690,7 @@ public:
     { return energyFlux_; }
 
 private:
-    Implementation& asImp_()
+OPM_HOST_DEVICE Implementation& asImp_()
     { return *static_cast<Implementation*>(this); }
 
     Evaluation energyFlux_;

@@ -1,0 +1,772 @@
+============ Building release =============
+-DCONVERT_CUDA_TO_HIP=ON -DCMAKE_HIP_PLATFORM=amd -DCMAKE_CXX_FLAGS=-D__HIP_PLATFORM_AMD__ -D__HIP_PLATFORM_HIPCC__ -DCMAKE_C_FLAGS=-D__HIP_PLATFORM_AMD__ -D__HIP_PLATFORM_HIPCC__ -DCMAKE_HIP_FLAGS=-D__HIP_PLATFORM_AMD__ -D__HIP_PLATFORM_HIPCC__ -DCMAKE_DISABLE_FIND_PACKAGE_CUDA=ON -Dhip_DIR=/opt/rocm-6.1.0/lib/cmake/hip -DAMDDeviceLibs_DIR=/opt/rocm-6.1.0/lib/cmake/AMDDeviceLibs -Damd_comgr_DIR=/opt/rocm-6.1.0/lib/cmake/amd_comgr -Dhsa-runtime64_DIR=/opt/rocm-6.1.0/lib/cmake/hsa-runtime64 -DCMAKE_PREFIX_PATH=/opt/rocm-6.1.0/lib/cmake -DCMAKE_HIP_ARCHITECTURES=gfx1100
+CMake Warning (dev) at CMakeLists.txt:1 (project):
+  cmake_minimum_required() should be called prior to this top-level project()
+  call.  Please see the cmake-commands(7) manual for usage documentation of
+  both commands.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- The C compiler identification is Clang 17.0.6
+-- The CXX compiler identification is Clang 17.0.6
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /home/tobias/Downloads/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04/bin/clang - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/tobias/Downloads/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- ccache found, using it
+CMake Warning (dev) at opm-common/CMakeLists.txt:4 (option):
+  Policy CMP0077 is not set: option() honors normal variables.  Run "cmake
+  --help-policy CMP0077" for policy details.  Use the cmake_policy command to
+  set the policy and suppress this warning.
+
+  For compatibility with older versions of CMake, option is clearing the
+  normal variable 'SIBLING_SEARCH'.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Setting OPM_TESTS_ROOT: /home/tobias/opm/src/opm-common/../opm-tests
+-- Performing Test HAVE_C99
+-- Performing Test HAVE_C99 - Success
+-- Found C99: -std=c99
+-- Found Valgrind: /usr/include
+-- Found Boost: /usr/lib/x86_64-linux-gnu/cmake/Boost-1.74.0/BoostConfig.cmake (found suitable version "1.74.0", minimum required is "1.44.0") found components: system unit_test_framework
+-- Performing Test HAVE_CJSON
+-- Performing Test HAVE_CJSON - Failed
+-- Could NOT find cjson (missing: cjson_INCLUDE_DIRS cjson_LIBRARIES HAVE_CJSON) 
+-- Performing Test QuadMath_COMPILES
+-- Performing Test QuadMath_COMPILES - Failed
+-- Could NOT find QuadMath (missing: QuadMath_VAR QuadMath_COMPILES) 
+-- Performing Test HAVE_ATTRIBUTE_ALWAYS_INLINE
+-- Performing Test HAVE_ATTRIBUTE_ALWAYS_INLINE - Success
+-- Performing Test HAS_ATTRIBUTE_UNUSED
+-- Performing Test HAS_ATTRIBUTE_UNUSED - Success
+-- Performing Test HAS_ATTRIBUTE_DEPRECATED
+-- Performing Test HAS_ATTRIBUTE_DEPRECATED - Success
+-- Performing Test HAS_ATTRIBUTE_DEPRECATED_MSG
+-- Performing Test HAS_ATTRIBUTE_DEPRECATED_MSG - Success
+-- CMake version: 3.29.0-rc2
+-- Linux distribution: Ubuntu 22.04.5 LTS
+-- Target architecture: x86_64
+-- Found Git: /usr/bin/git (found version "2.34.1")
+-- Source code repository: git 9750c80ab
+-- Linker: LLD 17.0.6 (compatible with GNU linkers)
+
+Processing opm_defaults opm-common
+-- Checking to see if CXX compiler accepts flag -Wl,--enable-new-dtags
+-- Checking to see if CXX compiler accepts flag -Wl,--enable-new-dtags - yes
+-- Precompiled headers: disabled
+-- Build type: Release
+-- Checking to see if CXX compiler accepts flag -mtune=native
+-- Checking to see if CXX compiler accepts flag -mtune=native - yes
+-- All warnings enabled: -Wall -Wextra -Wshadow
+-- Found OpenMP_C: -fopenmp=libomp (found version "5.1")
+-- Found OpenMP_CXX: -fopenmp=libomp (found version "5.1")
+-- Found OpenMP: TRUE (found version "5.1")
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Checking to see if CXX compiler accepts flag -pthread
+-- Checking to see if CXX compiler accepts flag -pthread - yes
+-- Could NOT find CppCheck (missing: CPPCHECK_PROGRAM) 
+-- Found ClangCheck: /home/tobias/Downloads/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04/bin/clang-check
+-- Could NOT find cjson (missing: cjson_INCLUDE_DIRS cjson_LIBRARIES HAVE_CJSON) 
+-- Could NOT find QuadMath (missing: QuadMath_VAR QuadMath_COMPILES) 
+-- Generating debug symbols: -ggdb3
+-- Looking for strip utility
+-- Looking for strip utility - found
+-- Performing Test HAVE_DYNAMIC_BOOST_TEST
+-- Performing Test HAVE_DYNAMIC_BOOST_TEST - Success
+-- Looking for fnmatch.h
+-- Looking for fnmatch.h - found
+-- Looking for sgemm_
+-- Looking for sgemm_ - not found
+-- Looking for dgemm_
+-- Looking for dgemm_ - found
+-- Found BLAS: /usr/lib/x86_64-linux-gnu/libblas.so;/usr/lib/x86_64-linux-gnu/libf77blas.so;/usr/lib/x86_64-linux-gnu/libatlas.so
+-- Looking for cheev_
+-- Looking for cheev_ - not found
+-- Looking for cheev_
+-- Looking for cheev_ - found
+-- Found LAPACK: /usr/lib/x86_64-linux-gnu/liblapack.so;/usr/lib/x86_64-linux-gnu/libblas.so;/usr/lib/x86_64-linux-gnu/libf77blas.so;/usr/lib/x86_64-linux-gnu/libatlas.so
+-- Performing Test HAVE_CXA_DEMANGLE
+-- Performing Test HAVE_CXA_DEMANGLE - Success
+-- Found MPI_C: /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so (found version "3.1")
+-- Found MPI_CXX: /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_cxx.so (found version "3.1")
+-- Found MPI: TRUE (found version "3.1")
+-- Found TBB library using config mode
+-- Could NOT find GMP (missing: GMPXX_LIBRARY GMPXX_INCLUDE_DIR GMP_INCLUDE_DIR GMP_LIBRARY) 
+-- Found dune-common: /usr/include;/usr/lib/x86_64-linux-gnu/openmpi/include;/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi
+-- Looking for MPI_Finalized
+-- Looking for MPI_Finalized - found
+-- Version 2.9.1 of dune-common from /usr/lib/x86_64-linux-gnu/cmake/dune-common
+-- Writing config file "/home/tobias/opm/super_build_release/opm-common/config.h"...
+-- This build defaults to installing in /usr/local
+-- Checking whether the file system is case-sensitive
+-- File system is case-sensitive
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+-- Writing version information to local header project-version.h
+-- Could NOT find cjson (missing: cjson_INCLUDE_DIRS cjson_LIBRARIES HAVE_CJSON) 
+-- Could NOT find QuadMath (missing: QuadMath_VAR QuadMath_COMPILES) 
+-- Found TBB library using config mode
+-- Could NOT find GMP (missing: GMPXX_LIBRARY GMPXX_INCLUDE_DIR GMP_INCLUDE_DIR GMP_LIBRARY) 
+-- Version 2.9.1 of dune-common from /usr/lib/x86_64-linux-gnu/cmake/dune-common
+-- Found dune-geometry: /usr/include;/usr/lib/x86_64-linux-gnu/openmpi/include;/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi
+-- Version 2.9.0 of dune-geometry from /usr/lib/x86_64-linux-gnu/cmake/dune-geometry
+-- Found dune-uggrid: /usr/include;/usr/lib/x86_64-linux-gnu/openmpi/include;/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi
+-- Version 2.9.0 of dune-uggrid from /usr/lib/x86_64-linux-gnu/cmake/dune-uggrid
+-- Could not find UG. It seems to be not installed.
+-- Found PkgConfig: /usr/bin/pkg-config (found version "0.29.2")
+-- Checking for module 'alberta-grid_1d'
+--   Found alberta-grid_1d, version 3.0.3
+-- Checking for module 'alberta-grid_2d'
+--   Found alberta-grid_2d, version 3.0.3
+-- Checking for module 'alberta-grid_3d'
+--   Found alberta-grid_3d, version 3.0.3
+-- Found dune-grid: /usr/include;/usr/lib/x86_64-linux-gnu/openmpi/include;/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi
+-- Version 2.9.0 of dune-grid from /usr/lib/x86_64-linux-gnu/cmake/dune-grid
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Looking for parmetis.h
+-- Looking for parmetis.h - not found
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Looking for parmetis.h
+-- Looking for parmetis.h - not found
+-- Could NOT find ParMETIS (missing: PARMETIS_INCLUDE_DIR PARMETIS_LIBRARY METIS_LIBRARIES PARMETIS_FOUND METIS_FOUND) 
+-- Found SuperLU: /usr/include/superlu
+-- Performing Test HAVE_UMFPACK_WITHOUT_CHOLMOD
+-- Performing Test HAVE_UMFPACK_WITHOUT_CHOLMOD - Success
+-- Creating target SuiteSparse::UMFPACK
+-- Found SuiteSparse: /usr/lib/x86_64-linux-gnu/libumfpack.so;/usr/lib/x86_64-linux-gnu/libamd.so
+-- Found dune-istl: /usr/include;/usr/lib/x86_64-linux-gnu/openmpi/include;/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi;/usr/include/superlu;/usr/include/suitesparse
+-- Version 2.9.0 of dune-istl from /usr/lib/cmake/dune-istl
+-- Found opm-common: $<TARGET_FILE:opmcommon>
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Found ZOLTAN: /usr/lib/x86_64-linux-gnu/libtrilinos_zoltan.so
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find Scotch (missing: SCOTCH_INCLUDE_DIRS SCOTCH_LIBRARIES) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Setting OPM_TESTS_ROOT: /home/tobias/opm/src/opm-grid/../opm-tests
+-- CMake version: 3.29.0-rc2
+-- Linux distribution: Ubuntu 22.04.5 LTS
+-- Target architecture: x86_64
+-- Source code repository: git 14e65dbc
+-- Linker: LLD 17.0.6 (compatible with GNU linkers)
+
+Processing opm_defaults opm-grid
+-- Precompiled headers: disabled
+-- Build type: Release
+-- Could NOT find CppCheck (missing: CPPCHECK_PROGRAM) 
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find Scotch (missing: SCOTCH_INCLUDE_DIRS SCOTCH_LIBRARIES) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Generating debug symbols: -ggdb3
+-- Looking for strip utility
+-- Looking for strip utility - found
+-- Performing Test HAVE_DYNAMIC_BOOST_TEST
+-- Performing Test HAVE_DYNAMIC_BOOST_TEST - Success
+-- Writing config file "/home/tobias/opm/super_build_release/opm-grid/config.h"...
+-- This build defaults to installing in /usr/local
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+-- Writing version information to local header project-version.h
+-- The HIP compiler identification is Clang 17.0.0
+-- Detecting HIP compiler ABI info
+-- Detecting HIP compiler ABI info - done
+-- Check for working HIP compiler: /opt/rocm-6.1.0/llvm/bin/clang++ - skipped
+-- Detecting HIP compile features
+-- Detecting HIP compile features - done
+CUDA code will be hipified
+-- Performing Test HIP_CLANG_SUPPORTS_PARALLEL_JOBS
+-- Performing Test HIP_CLANG_SUPPORTS_PARALLEL_JOBS - Failed
+-- Could NOT find cjson (missing: cjson_INCLUDE_DIRS cjson_LIBRARIES HAVE_CJSON) 
+-- Could NOT find QuadMath (missing: QuadMath_VAR QuadMath_COMPILES) 
+-- Setting OPM_TESTS_ROOT: /home/tobias/opm/src/opm-simulators/../opm-tests
+-- Found TBB library using config mode
+-- Could NOT find GMP (missing: GMPXX_LIBRARY GMPXX_INCLUDE_DIR GMP_INCLUDE_DIR GMP_LIBRARY) 
+-- Version 2.9.1 of dune-common from /usr/lib/x86_64-linux-gnu/cmake/dune-common
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Looking for parmetis.h
+-- Looking for parmetis.h - not found
+-- Could NOT find ParMETIS (missing: PARMETIS_INCLUDE_DIR PARMETIS_LIBRARY METIS_LIBRARIES PARMETIS_FOUND METIS_FOUND) 
+-- Version 2.9.0 of dune-istl from /usr/lib/cmake/dune-istl
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Version 2.9.0 of dune-geometry from /usr/lib/x86_64-linux-gnu/cmake/dune-geometry
+-- Version 2.9.0 of dune-uggrid from /usr/lib/x86_64-linux-gnu/cmake/dune-uggrid
+-- Could not find UG. It seems to be not installed.
+-- Version 2.9.0 of dune-grid from /usr/lib/x86_64-linux-gnu/cmake/dune-grid
+-- Found ZLIB: /usr/lib/x86_64-linux-gnu/libz.so (found version "1.2.11")
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-fem (missing: dune-fem_DIR)
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-polygongrid (missing: dune-polygongrid_DIR)
+-- Could NOT find dune-polygongrid (missing: dune-polygongrid_FOUND HAVE_DUNE_POLYGONGRID) 
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find QuadMath (missing: QuadMath_VAR QuadMath_COMPILES) 
+-- Could NOT find dune-fem (missing: dune-fem_FOUND HAVE_DUNE_FEM) 
+-- Found SuiteSparse: /usr/lib/x86_64-linux-gnu/liblapack.so;/usr/lib/x86_64-linux-gnu/libblas.so;/usr/lib/x86_64-linux-gnu/libf77blas.so;/usr/lib/x86_64-linux-gnu/libatlas.so;/usr/lib/x86_64-linux-gnu/libm.so;/usr/lib/x86_64-linux-gnu/libsuitesparseconfig.so;-lrt;/usr/lib/x86_64-linux-gnu/libumfpack.so;/usr/lib/x86_64-linux-gnu/libamd.so
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find Scotch (missing: SCOTCH_INCLUDE_DIRS SCOTCH_LIBRARIES) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Found opm-grid: $<TARGET_FILE:opmgrid>
+CMake Warning at opm-common/cmake/Modules/OpmFind.cmake:142 (find_package):
+  By not providing "FindDamaris.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "Damaris", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "Damaris"
+  (requested version 1.9) with any of the following names:
+
+    DamarisConfig.cmake
+    damaris-config.cmake
+
+  Add the installation prefix of "Damaris" to CMAKE_PREFIX_PATH or set
+  "Damaris_DIR" to a directory containing one of the above files.  If
+  "Damaris" provides a separate development package or SDK, be sure it has
+  been installed.
+Call Stack (most recent call first):
+  opm-common/cmake/Modules/OpmPackage.cmake:195 (find_and_append_package_to)
+  opm-simulators/opm-simulators-prereqs.cmake:69 (find_package_deps)
+  opm-simulators/CMakeLists.txt:167 (include)
+
+
+-- Found HDF5: /usr/lib/x86_64-linux-gnu/hdf5/openmpi/libhdf5.so;/usr/lib/x86_64-linux-gnu/libcrypto.so;/usr/lib/x86_64-linux-gnu/libcurl.so;/usr/lib/x86_64-linux-gnu/libsz.so;/usr/lib/x86_64-linux-gnu/libz.so;/usr/lib/x86_64-linux-gnu/libdl.a;/usr/lib/x86_64-linux-gnu/libm.so (found version "1.10.7")
+-- Found CUDAToolkit: /usr/local/cuda/targets/x86_64-linux/include (found version "12.6.85")
+-- Looking for CL_VERSION_3_0
+-- Looking for CL_VERSION_3_0 - found
+-- Found OpenCL: /usr/lib/x86_64-linux-gnu/libOpenCL.so (found version "3.0")
+-- Found amgcl
+CMake Warning at opm-simulators/CMakeLists.txt:278 (find_package):
+  By not providing "FindVexCL.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "VexCL", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "VexCL" with any of
+  the following names:
+
+    VexCLConfig.cmake
+    vexcl-config.cmake
+
+  Add the installation prefix of "VexCL" to CMAKE_PREFIX_PATH or set
+  "VexCL_DIR" to a directory containing one of the above files.  If "VexCL"
+  provides a separate development package or SDK, be sure it has been
+  installed.
+
+
+-- CMake version: 3.29.0-rc2
+-- Linux distribution: Ubuntu 22.04.5 LTS
+-- Target architecture: x86_64
+-- Source code repository: git 153d1ba21*%
+-- Linker: LLD 17.0.6 (compatible with GNU linkers)
+
+Processing opm_defaults opm-simulators
+-- Precompiled headers: disabled
+-- Build type: Release
+-- Found OpenMP_C: -fopenmp=libomp (found version "5.1")
+-- Found OpenMP_CXX: -fopenmp=libomp (found version "5.1")
+-- Could NOT find CppCheck (missing: CPPCHECK_PROGRAM) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-fem (missing: dune-fem_DIR)
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_DIR)
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find dune-alugrid (missing: dune-alugrid_FOUND HAVE_DUNE_ALUGRID) 
+-- Could NOT find dune-polygongrid (missing: dune-polygongrid_DIR)
+-- Could NOT find dune-polygongrid (missing: dune-polygongrid_FOUND HAVE_DUNE_POLYGONGRID) 
+-- Could NOT find PTScotch (missing: PTSCOTCH_INCLUDE_DIR SCOTCH_LIBRARY PTSCOTCH_LIBRARY PTSCOTCHERR_LIBRARY) 
+-- Could NOT find METIS (missing: METIS_LIBRARY METIS_INCLUDE_DIRS) 
+-- Could NOT find QuadMath (missing: QuadMath_VAR QuadMath_COMPILES) 
+-- Could NOT find dune-fem (missing: dune-fem_FOUND HAVE_DUNE_FEM) 
+CMake Warning at opm-common/cmake/Modules/OpmFind.cmake:142 (find_package):
+  By not providing "FindDamaris.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "Damaris", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "Damaris"
+  (requested version 1.9) with any of the following names:
+
+    DamarisConfig.cmake
+    damaris-config.cmake
+
+  Add the installation prefix of "Damaris" to CMAKE_PREFIX_PATH or set
+  "Damaris_DIR" to a directory containing one of the above files.  If
+  "Damaris" provides a separate development package or SDK, be sure it has
+  been installed.
+Call Stack (most recent call first):
+  opm-common/cmake/Modules/OpmFind.cmake:242 (find_and_append_package_to)
+  opm-common/cmake/Modules/OpmLibMain.cmake:80 (find_and_append_package_list_to)
+  opm-simulators/CMakeLists.txt:442 (include)
+
+
+-- Generating debug symbols: -ggdb3
+-- Looking for strip utility
+-- Looking for strip utility - found
+-- Performing Test HAVE_DYNAMIC_BOOST_TEST
+-- Performing Test HAVE_DYNAMIC_BOOST_TEST - Success
+-- Writing config file "/home/tobias/opm/super_build_release/opm-simulators/config.h"...
+-- This build defaults to installing in /usr/local
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+-- Writing version information to local header project-version.h
+-- Configuring done (7.9s)
+-- Generating done (1.0s)
+-- Build files have been written to: /home/tobias/opm/super_build_release
+====== Starting compilation ======
+[1/7] Updating version information
+[2/7] Updating version information
+[3/7] Updating version information
+[4/7] Building CXX object opm-simulators/CMakeFiles/opmsimulators.dir/clSources.cpp.o
+[5/7] Building CXX object opm-simulators/CMakeFiles/moduleVersion.dir/opm/simulators/utils/moduleVersion.cpp.o
+[6/7] Linking HIP static library opm-simulators/lib/libopmsimulators.a
+[7/7] Linking HIP executable opm-simulators/bin/test_gpuflowproblem
+============ Done building release =============
+/home/tobias/opm
+/home/tobias/opm/src/opm-simulators/tests
+**********************************************************************
+*                                                                    *
+*                      This is flow 2025.10-pre                      *
+*                                                                    *
+* Flow is a simulator for fully implicit three-phase black-oil flow, *
+*             including solvent and polymer capabilities.            *
+*          For more information, see https://opm-project.org         *
+*                                                                    *
+**********************************************************************
+
+Using 1 MPI processes with 1 OMP threads on each 
+
+Reading deck file 'very_simple_deck.DATA'
+    0 Reading RUNSPEC  in very_simple_deck.DATA line 2
+    1 Reading DIMENS   in very_simple_deck.DATA line 3
+    2 Reading EQLDIMS  in very_simple_deck.DATA line 5
+    3 Reading TABDIMS  in very_simple_deck.DATA line 7
+    4 Reading WATER    in very_simple_deck.DATA line 9
+    5 Reading GAS      in very_simple_deck.DATA line 10
+    6 Reading CO2STORE in very_simple_deck.DATA line 11
+    7 Reading METRIC   in very_simple_deck.DATA line 12
+    8 Reading GRID     in very_simple_deck.DATA line 15
+    9 Reading GRIDFILE in very_simple_deck.DATA line 16
+   10 Reading DX       in very_simple_deck.DATA line 18
+   11 Reading DY       in very_simple_deck.DATA line 20
+   12 Reading DZ       in very_simple_deck.DATA line 22
+   13 Reading TOPS     in very_simple_deck.DATA line 24
+   14 Reading PERMX    in very_simple_deck.DATA line 26
+   15 Reading PORO     in very_simple_deck.DATA line 28
+   16 Reading COPY     in very_simple_deck.DATA line 30
+   17 Reading PROPS    in very_simple_deck.DATA line 36
+   18 Reading SGWFN    in very_simple_deck.DATA line 37
+   19 Reading SOLUTION in very_simple_deck.DATA line 42
+   20 Reading RPTRST   in very_simple_deck.DATA line 43
+   21 Reading EQUIL    in very_simple_deck.DATA line 45
+   22 Reading SCHEDULE in very_simple_deck.DATA line 49
+   23 Reading RPTRST   in very_simple_deck.DATA line 50
+   24 Reading TSTEP    in very_simple_deck.DATA line 52
+
+Creating grid from keywords DX, DY, DZ and TOPS
+2 fluid phases are active
+
+Processing dynamic information from
+very_simple_deck.DATA line 49
+Initializing report step 0/1 at 1983-01-01 0 DAYS line 49
+Processing keyword RPTRST at line 50
+Complete report step 1 (1 DAYS) at 1983-01-02 (0 DAYS)
+
+rank: 0, GPU: Radeon RX 7900 XTX, Compute Capability: 11.0 (device 0 out of 2)
+
+entering execute_()
+==================Simulator constructor===================
+
+Processing grid
+Total number of active cells: 27 / total pore volume: 7 RM3
+
+===============Saturation Functions Diagnostics===============
+
+System: Water-Gas system.
+Relative permeability input format: Saturation Family II.
+Number of saturation regions: 1
+
+CO2STORE/CO2SOL is enabled.
+The surface density of CO2 is 1.868433 KG/M3.
+The surface density of brine is 998.107723 KG/M3.
+The surface densities are computed using the reference pressure (1.013 BARSA) and reference temperature (15.56 C).
+SwValues.size() = 2
+I MADE IT TO THE EQUILIBRIUM INITIALIZATION
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+DOING SOME THINGS IN INITSTATEEQUIL
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+CALLING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+RETURNING CAP PRESSURE
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+START OF CAPILLARY PRESSURE IN ECL
+EVALUATION FETCHED
+Simulation aborted as program threw an unexpected exception: InvalideAndUpdateIntensiveQuantities: state errorNot implemented: relativePermeabilities() option for unknown EclMultiplexerApproach (=44544)

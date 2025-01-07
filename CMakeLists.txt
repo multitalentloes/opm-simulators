@@ -491,6 +491,10 @@ target_sources(test_outputdir PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_equil PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_RestartSerialization PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_glift1 PRIVATE $<TARGET_OBJECTS:moduleVersion>)
+target_sources(test_blackoilintensivequantities_gpu PRIVATE $<TARGET_OBJECTS:moduleVersion>)
+target_sources(test_gpuflowproblem PRIVATE $<TARGET_OBJECTS:moduleVersion> ${FLOW_TGTS})
+target_sources(test_flow_simple PRIVATE $<TARGET_OBJECTS:moduleVersion> ${FLOW_TGTS})
+
 if(MPI_FOUND)
   target_sources(test_chopstep PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 endif()
@@ -627,6 +631,18 @@ opm_add_test(flow
   $<TARGET_OBJECTS:moduleVersion>
   $<TARGET_OBJECTS:MainDispatchDynamic>
   )
+
+opm_add_test(flow_simple
+  ONLY_COMPILE
+  ALWAYS_ENABLE
+  DEFAULT_ENABLE_IF ${FLOW_DEFAULT_ENABLE_IF}
+  DEPENDS opmsimulators
+  LIBRARIES opmsimulators
+  SOURCES
+  flow/flow_simple.cpp
+  ${FLOW_TGTS}
+  $<TARGET_OBJECTS:moduleVersion>
+)
 
 opm_add_test(flow_blackoil_polyhedralgrid
   ONLY_COMPILE
@@ -774,6 +790,12 @@ if(CUDA_FOUND)
                        is_gpu_pointer
                        throw_macros_on_gpu
                        preconditioner_factory_gpu
+                       gpuBlackOilFluidSystem
+                       gpuflowproblem
+                       primary_variables_gpu
+                       blackoilintensivequantities_gpu
+                       gpumateriallaw
+                       benchmark_prop_eval
                        PROPERTIES LABELS ${gpu_label})
   if(MPI_FOUND)
     set_tests_properties(GpuOwnerOverlapCopy PROPERTIES LABELS ${gpu_label})

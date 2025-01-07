@@ -106,6 +106,7 @@ public:
 
     explicit Simulator(Communication comm, bool verbose = true)
     {
+        printf("==================Simulator constructor===================\n");
         TimerGuard setupTimerGuard(setupTimer_);
 
         setupTimer_.start();
@@ -823,6 +824,10 @@ public:
             OPM_END_PARALLEL_TRY_CATCH("Finalize failed: ",
                                         Dune::MPIHelper::getCommunication());
         }
+        // auto& problem = simulator_.problem();
+        // auto& matLawParams = problem_.materialLawParams(0);
+        // auto& gasWaterParams = matLawParams.gasWaterParams();
+        // gasWaterParams.printme();
     }
 
 #ifdef RESERVOIR_COUPLING_ENABLED

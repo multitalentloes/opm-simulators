@@ -31,6 +31,8 @@
 #ifndef OPM_FLOW_PROBLEM_BLACK_HPP
 #define OPM_FLOW_PROBLEM_BLACK_HPP
 
+#include <opm/common/utility/gpuDecorators.hpp>
+
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/DryGasPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/WetGasPvt.hpp>
@@ -1242,6 +1244,7 @@ protected:
         const auto& simulator = this->simulator();
 
         // initial condition corresponds to hydrostatic conditions.
+        printf("I MADE IT TO THE EQUILIBRIUM INITIALIZATION\n");
         EquilInitializer<TypeTag> equilInitializer(simulator, *(this->materialLawManager_));
 
         std::size_t numElems = this->model().numGridDof();
