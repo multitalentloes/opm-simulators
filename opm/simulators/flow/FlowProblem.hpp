@@ -43,7 +43,6 @@
 #include <opm/material/common/ConditionalStorage.hpp>
 #include <opm/material/common/Valgrind.hpp>
 #include <opm/material/densead/Evaluation.hpp>
-#include <opm/material/fluidmatrixinteractions/EclMaterialLawManager.hpp>
 #include <opm/material/thermal/EclThermalLawManager.hpp>
 
 #include <opm/models/common/directionalmobility.hh>
