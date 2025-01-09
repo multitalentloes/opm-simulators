@@ -340,15 +340,15 @@ public:
 
     }
 
-    Evaluation updateRsRvRsw(const ElementContext& elemCtx, unsigned dofIdx, unsigned timeIdx)
+    void updateRsRvRsw(const ElementContext& elemCtx, unsigned dofIdx, unsigned timeIdx)
     {
         const auto& problem = elemCtx.problem();
         const auto& priVars = elemCtx.primaryVars(dofIdx, timeIdx);
         const unsigned globalSpaceIdx = elemCtx.globalSpaceIndex(dofIdx, timeIdx);
-        return this->updateRsRvRsw(problem, priVars, globalSpaceIdx, timeIdx);
+        this->updateRsRvRsw(problem, priVars, globalSpaceIdx, timeIdx);
     }
 
-    Evaluation updateRsRvRsw(const Problem& problem, const PrimaryVariables& priVars, const unsigned globalSpaceIdx, const unsigned timeIdx)
+    void updateRsRvRsw(const Problem& problem, const PrimaryVariables& priVars, const unsigned globalSpaceIdx, const unsigned timeIdx)
     {
         const unsigned pvtRegionIdx = priVars.pvtRegionIndex();
 
@@ -423,8 +423,6 @@ public:
                 fluidState_.setRsw(min(RswMax, RswSat));
             }
         }
-
-        return SoMax;
     }
 
     void updateMobilityAndInvB()
@@ -668,11 +666,8 @@ public:
 
         fluidState_.setPvtRegionIndex(pvtRegionIdx);
 
-        // updateTempSalt(elemCtx, dofIdx, timeIdx);
         updateTempSalt(problem, priVars, globalSpaceIdx, timeIdx, linearizationType);
-        // updateSaturations(elemCtx, dofIdx, timeIdx);
         updateSaturations(priVars, timeIdx, linearizationType);
-        // updateRelpermAndPressures(elemCtx, dofIdx, timeIdx);
         updateRelpermAndPressures(problem, priVars, globalSpaceIdx, timeIdx, linearizationType);
 
         // update extBO parameters
@@ -680,9 +675,7 @@ public:
                 // TODO: asImp_().zFractionUpdate_(elemCtx, dofIdx, timeIdx);
         }
 
-        // Evaluation SoMax = updateRsRvRsw(elemCtx, dofIdx, timeIdx);
-        Evaluation SoMax = updateRsRvRsw(problem, priVars, globalSpaceIdx, timeIdx);
-
+        updateRsRvRsw(problem, priVars, globalSpaceIdx, timeIdx);
         updateMobilityAndInvB();
         updatePhaseDensities();
 
