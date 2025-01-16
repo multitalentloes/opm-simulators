@@ -562,7 +562,7 @@ public:
 
         fluidState_.setPvtRegionIndex(pvtRegionIdx);
 
-        updateTempSalt(elemCtx, dofIdx, timeIdx, fluidSystem);
+        updateTempSalt(elemCtx, dofIdx, timeIdx);
         updateSaturations(elemCtx, dofIdx, timeIdx, fluidSystem);
         updateRelpermAndPressures(elemCtx, dofIdx, timeIdx, fluidSystem);
 
