@@ -731,6 +731,7 @@ if(CUDA_FOUND)
                        gpu_resources
                        gpu_smart_pointers
                        is_gpu_pointer
+                       gpuBlackOilFluidSystem
                        PROPERTIES LABELS ${gpu_label})
 endif()
 
