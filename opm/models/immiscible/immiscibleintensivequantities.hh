@@ -128,11 +128,11 @@ public:
 
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
             // compute and set the viscosity
-            const Evaluation& mu = FluidSystem::viscosity(fluidState_, paramCache, phaseIdx);
+            const Evaluation& mu = fluidSystem.viscosity(fluidState_, paramCache, phaseIdx);
             fluidState_.setViscosity(phaseIdx, mu);
 
             // compute and set the density
-            const Evaluation& rho = FluidSystem::density(fluidState_, paramCache, phaseIdx);
+            const Evaluation& rho = fluidSystem.density(fluidState_, paramCache, phaseIdx);
             fluidState_.setDensity(phaseIdx, rho);
 
             mobility_[phaseIdx] = relativePermeability_[phaseIdx]/mu;

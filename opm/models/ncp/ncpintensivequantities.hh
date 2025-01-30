@@ -168,7 +168,7 @@ public:
         // dynamic viscosities
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
             // viscosities
-            const Evaluation& mu = FluidSystem::viscosity(fluidState_, paramCache, phaseIdx);
+            const Evaluation& mu = fluidSystem.viscosity(fluidState_, paramCache, phaseIdx);
             fluidState_.setViscosity(phaseIdx, mu);
 
             mobility_[phaseIdx] = relativePermeability_[phaseIdx]/mu;
