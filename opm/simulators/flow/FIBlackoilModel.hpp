@@ -99,7 +99,11 @@ public:
                 for (const auto& elem : chunk) {
                     elemCtx.updatePrimaryStencil(elem);
 
-                    elemCtx.updatePrimaryIntensiveQuantities(timeIdx, *fluidSystemInstance);
+                    if constexpr (can_call_getNonStatic<LocalFluidSystem>()) {
+                        elemCtx.updatePrimaryIntensiveQuantities(timeIdx, *fluidSystemInstance);
+                    } else {
+                        elemCtx.updatePrimaryIntensiveQuantities(timeIdx);
+                    }
                 }
             }
         } else {
@@ -107,7 +111,12 @@ public:
             ElementContext elemCtx(this->simulator_);
             for (const auto& elem : elements(this->gridView_)) {
                 elemCtx.updatePrimaryStencil(elem);
-                elemCtx.updatePrimaryIntensiveQuantities(timeIdx, *fluidSystemInstance);
+
+                if constexpr (can_call_getNonStatic<LocalFluidSystem>()) {
+                    elemCtx.updatePrimaryIntensiveQuantities(timeIdx, *fluidSystemInstance);
+                } else {
+                    elemCtx.updatePrimaryIntensiveQuantities(timeIdx);
+                }
             }
         }
         OPM_END_PARALLEL_TRY_CATCH("InvalideAndUpdateIntensiveQuantities: state error", this->simulator_.vanguard().grid().comm());
