@@ -81,9 +81,12 @@ public:
 
     void invalidateAndUpdateIntensiveQuantities(unsigned timeIdx) const
     {
-
         using DynamicFluidSystem = std::remove_reference_t<decltype(LocalFluidSystem::getNonStatic())>;
-        DynamicFluidSystem* fluidSystemInstance = &LocalFluidSystem::getNonStatic();
+
+        DynamicFluidSystem* fluidSystemInstance = nullptr;
+        if constexpr (can_call_getNonStatic<LocalFluidSystem>()) {
+            fluidSystemInstance = &LocalFluidSystem::getNonStatic();
+        }
 
         this->invalidateIntensiveQuantitiesCache(timeIdx);
         OPM_BEGIN_PARALLEL_TRY_CATCH();
