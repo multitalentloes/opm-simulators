@@ -20,6 +20,13 @@
   module for the precise wording of the license and the list of
   copyright holders.
 */
+
+/*
+    This file is based on a copy of the regular blackoilfluidsystem test
+    This file contributes extra assertions that the values match on GPU and CPU
+*/
+
+
 /*!
  * \file
  *
@@ -52,6 +59,10 @@
 
 #include <type_traits>
 #include <cmath>
+
+#include <opm/simulators/linalg/gpuistl/GpuView.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 
 // values of strings based on the SPE1 and NORNE cases of opm-data.
 static constexpr const char* deckString1 =
@@ -641,6 +652,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
     Opm::Schedule schedule(deck, eclState, python);
 
     FluidSystem::initFromState(eclState, schedule);
+
+    // auto dynamicFluidSystem = FluidSystem::getNonStatic();
+    // auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu(dynamicFluidSystem);
+    // auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view(dynamicGpuFluidSystem);
 
     // create a parameter cache
     using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
