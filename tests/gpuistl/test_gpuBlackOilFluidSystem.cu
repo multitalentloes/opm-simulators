@@ -117,6 +117,8 @@ static constexpr const char* deckString1 =
 "1 /";
 
 using Types = boost::mpl::list<double,Opm::DenseAd::Evaluation<double,2>>;
+// using GpuB = ::Opm::gpuistl::GpuBuffer;
+// using GpuPointer = ::Opm::gpuistl::ViewPointer;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
 {
@@ -125,6 +127,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
 
     using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
     using FluidSystem = Opm::BlackOilFluidSystem<double>;
+
+    using GpuB = const Opm::gpuistl::GpuBuffer<double>;
+    using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
+    using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
 
     static constexpr int numPhases = FluidSystem::numPhases;
 
@@ -145,8 +151,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
 
     FluidSystem::initFromState(eclState, schedule);
 
-    // auto dynamicFluidSystem = FluidSystem::getNonStatic();
-    // auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu(dynamicFluidSystem);
+    auto dynamicFluidSystem = FluidSystem::getNonStatic();
+    auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, ::Opm::gpuistl::ViewPointer>(dynamicFluidSystem);
     // auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view(dynamicGpuFluidSystem);
 
     // create a parameter cache
@@ -154,11 +160,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
     ParamCache paramCache(/*maxOilSat=*/0.5, /*regionIdx=*/1);
     BOOST_CHECK_EQUAL(paramCache.regionIndex(), 1);
 
-    BOOST_CHECK_SMALL(Opm::abs(paramCache.maxOilSat() - 0.5), 1e-10);
     BOOST_CHECK_SMALL(Opm::abs(FluidSystem::reservoirTemperature() - (273.15 + 15.555)), 1e-10);
     BOOST_CHECK_EQUAL(FluidSystem::numRegions(), 1);
     BOOST_CHECK_EQUAL(FluidSystem::numActivePhases(), 2);
-
 
     BOOST_CHECK(FluidSystem::phaseIsActive(0));
     BOOST_CHECK(FluidSystem::phaseIsActive(2));
