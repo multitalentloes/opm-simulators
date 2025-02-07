@@ -232,5 +232,8 @@ private:
 template <class T>
 GpuView<const T> make_view(const GpuBuffer<T>&);
 
+template <class T>
+GpuView<T> make_mutable_view(GpuBuffer<T>&);
+
 } // namespace Opm::gpuistl
 #endif

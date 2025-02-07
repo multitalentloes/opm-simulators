@@ -211,6 +211,11 @@ GpuView<const T> make_view(const GpuBuffer<T>& buf) {
     return GpuView<const T>(buf.data(), buf.size());
 }
 
+template <class T>
+GpuView<T> make_view(GpuBuffer<T>& buf) {
+    return GpuView<T>(buf.data(), buf.size());
+}
+
 template GpuView<const double> make_view<double>(const GpuBuffer<double>&);
 template GpuView<const float> make_view<float>(const GpuBuffer<float>&);
 template GpuView<const int> make_view<int>(const GpuBuffer<int>&);
@@ -220,6 +225,16 @@ template GpuView<const std::array<int, 3>> make_view<std::array<int, 3>>(const G
 template GpuView<const std::array<double, 9>> make_view<std::array<double, 9>>(const GpuBuffer<std::array<double, 9>>&);
 template GpuView<const std::array<float, 9>> make_view<std::array<float, 9>>(const GpuBuffer<std::array<float, 9>>&);
 template GpuView<const std::array<int, 9>> make_view<std::array<int, 9>>(const GpuBuffer<std::array<int, 9>>&);
+// template GpuView<double> make_mutable_view<double>(GpuBuffer<double>&);
+// template GpuView<float> make_mutable_view<float>(GpuBuffer<float>&);
+// template GpuView<int> make_mutable_view<int>(GpuBuffer<int>&);
+// template GpuView<std::array<double, 3>> make_mutable_view<std::array<double, 3>>(GpuBuffer<std::array<double, 3>>&);
+// template GpuView<std::array<float, 3>> make_mutable_view<std::array<float, 3>>(GpuBuffer<std::array<float, 3>>&);
+// template GpuView<std::array<int, 3>> make_mutable_view<std::array<int, 3>>(GpuBuffer<std::array<int, 3>>&);
+// template GpuView<std::array<double, 9>> make_mutable_view<std::array<double, 9>>(GpuBuffer<std::array<double, 9>>&);
+// template GpuView<std::array<float, 9>> make_mutable_view<std::array<float, 9>>(GpuBuffer<std::array<float, 9>>&);
+// template GpuView<std::array<int, 9>> make_mutable_view<std::array<int, 9>>(GpuBuffer<std::array<int, 9>>&);
+
 
 
 } // namespace Opm::gpuistl
