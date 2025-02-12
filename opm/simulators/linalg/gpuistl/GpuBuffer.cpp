@@ -212,7 +212,7 @@ GpuView<const T> make_view(const GpuBuffer<T>& buf) {
 }
 
 template <class T>
-GpuView<T> make_view(GpuBuffer<T>& buf) {
+GpuView<T> make_mutable_view(GpuBuffer<T>& buf) {
     return GpuView<T>(buf.data(), buf.size());
 }
 

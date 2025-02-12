@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
 
     auto dynamicFluidSystem = FluidSystem::getNonStatic();
     auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, ::Opm::gpuistl::ViewPointer>(dynamicFluidSystem);
-    auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ViewPointer>(dynamicGpuFluidSystem);
+    // auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ViewPointer>(dynamicGpuFluidSystem);
 
     // create a parameter cache
     using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
