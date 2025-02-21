@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
     // TODO: get the type of the fluid system gasvpt multiplexer approach
 
     auto dynamicFluidSystem = FluidSystem::getNonStaticInstance();
-    // auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, ::Opm::gpuistl::ViewPointer>(dynamicFluidSystem);
+    auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, ::Opm::gpuistl::ViewPointer>(dynamicFluidSystem);
     // auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ViewPointer>(dynamicGpuFluidSystem);
 
     // create a parameter cache
