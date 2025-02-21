@@ -199,6 +199,12 @@ GpuBuffer<T>::copyToHost(std::vector<T>& data) const
 template class GpuBuffer<double>;
 template class GpuBuffer<float>;
 template class GpuBuffer<int>;
+template class GpuBuffer<std::array<double, 3>>;
+template class GpuBuffer<std::array<float, 3>>;
+template class GpuBuffer<std::array<int, 3>>;
+template class GpuBuffer<std::array<double, 9>>;
+template class GpuBuffer<std::array<float, 9>>;
+template class GpuBuffer<std::array<int, 9>>;
 
 template <class T>
 GpuView<T> make_view(GpuBuffer<T>& buf) {
