@@ -766,6 +766,8 @@ if(CUDA_FOUND)
                        is_gpu_pointer
                        throw_macros_on_gpu
                        gpuBlackOilFluidSystem
+                       blackoilfluidstategpu
+                       conditional_storage
                        PROPERTIES LABELS ${gpu_label})
 endif()
 
