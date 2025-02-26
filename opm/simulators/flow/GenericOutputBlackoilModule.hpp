@@ -284,7 +284,7 @@ protected:
                         const bool substep,
                         const bool log,
                         const bool isRestart,
-                        const EclHysteresisConfig* hysteresisConfig,
+                        const EclHysteresisConfig& hysteresisConfig,
                         unsigned numOutputNnc = 0,
                         std::map<std::string, int> rstKeywords = {});
 
