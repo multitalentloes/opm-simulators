@@ -39,6 +39,7 @@
 #include <opm/input/eclipse/EclipseState/SummaryConfig/SummaryConfig.hpp>
 
 #include <opm/material/common/Valgrind.hpp>
+#include <opm/material/fluidmatrixinteractions/EclHysteresisConfig.hpp>
 
 #include <opm/models/blackoil/blackoilproperties.hh>
 #include <opm/models/common/multiphasebaseproperties.hh>
@@ -167,7 +168,7 @@ public:
         this->compC_.allocate(bufferSize, rstKeywords);
 
         this->doAllocBuffers(bufferSize, reportStepNum, substep, log, isRestart,
-                             /* hysteresisConfig = */ nullptr,
+                             EclHysteresisConfig(),
                              /* numOutputNnc =*/ 0,
                              std::move(rstKeywords));
     }

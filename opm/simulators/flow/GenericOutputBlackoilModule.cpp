@@ -567,7 +567,7 @@ doAllocBuffers(const unsigned bufferSize,
                const bool     substep,
                const bool     log,
                const bool     isRestart,
-               const EclHysteresisConfig* hysteresisConfig,
+               const EclHysteresisConfig& hysteresisConfig,
                const unsigned numOutputNnc,
                std::map<std::string, int> rstKeywords)
 {
@@ -710,28 +710,22 @@ doAllocBuffers(const unsigned bufferSize,
        Entry{&pSalt_,                             "", enableSaltPrecipitation_},
        Entry{&permFact_,                          "", enableSaltPrecipitation_},
        Entry{&soMax_,                             "", oilvap.getType() == OilVapP::VAPPARS},
-       Entry{&soMax_,                             "", hysteresisConfig &&
-                                                      hysteresisConfig->enableNonWettingHysteresis() &&
+       Entry{&soMax_,                             "", hysteresisConfig.enableNonWettingHysteresis() &&
                                                       FluidSystem::phaseIsActive(oilPhaseIdx) &&
                                                       FluidSystem::phaseIsActive(waterPhaseIdx)},
-       Entry{&sgmax_,                             "", hysteresisConfig &&
-                                                      hysteresisConfig->enableNonWettingHysteresis() &&
+       Entry{&sgmax_,                             "", hysteresisConfig.enableNonWettingHysteresis() &&
                                                       FluidSystem::phaseIsActive(oilPhaseIdx) &&
                                                       FluidSystem::phaseIsActive(gasPhaseIdx)},
-       Entry{&swMax_,                             "", hysteresisConfig &&
-                                                      hysteresisConfig->enableWettingHysteresis() &&
+       Entry{&swMax_,                             "", hysteresisConfig.enableWettingHysteresis() &&
                                                       FluidSystem::phaseIsActive(oilPhaseIdx) &&
                                                       FluidSystem::phaseIsActive(waterPhaseIdx)},
-       Entry{&shmax_,                             "", hysteresisConfig &&
-                                                      hysteresisConfig->enableWettingHysteresis() &&
+       Entry{&shmax_,                             "", hysteresisConfig.enableWettingHysteresis() &&
                                                       FluidSystem::phaseIsActive(oilPhaseIdx) &&
                                                       FluidSystem::phaseIsActive(gasPhaseIdx)},
-       Entry{&swmin_,                             "", hysteresisConfig &&
-                                                      hysteresisConfig->enablePCHysteresis() &&
+       Entry{&swmin_,                             "", hysteresisConfig.enablePCHysteresis() &&
                                                       FluidSystem::phaseIsActive(oilPhaseIdx) &&
                                                       FluidSystem::phaseIsActive(waterPhaseIdx)},
-       Entry{&somin_,                             "", hysteresisConfig &&
-                                                      hysteresisConfig->enablePCHysteresis() &&
+       Entry{&somin_,                             "", hysteresisConfig.enablePCHysteresis() &&
                                                       FluidSystem::phaseIsActive(oilPhaseIdx) &&
                                                       FluidSystem::phaseIsActive(gasPhaseIdx)},
        Entry{&ppcw_,                          "PPCW", eclState_.fieldProps().has_double("SWATINIT")},
