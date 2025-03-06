@@ -34,9 +34,16 @@
 namespace Opm::gpuistl
 {
 
+/// @brief The ViewPointer is a class that is an alternative to smart pointers on the GPU
+/// A value wrapped in a shared_ptr cannot be used on the GPU, we then create a ViewPointer
+/// around a view to the avlue instead. This means that we have an object here
+/// that just accesses a view through the -> and * operators of regular pointers
+/// Example ViewPointer<GpuView<double>*> ptr(view);
+/// @tparam ViewType 
 template<class ViewType>
 class ViewPointer {
 public:
+    using element_type = ViewType;
     __host__ __device__ ViewPointer (ViewType view) : view_(view) {}
 
     __host__ __device__ ViewPointer() : view_() {}
@@ -54,6 +61,14 @@ public:
     }
 
     __host__ __device__ const ViewType* operator->() const {
+        return &view_;
+    }
+
+    __host__ __device__ ViewType& get(){
+        return &view_;
+    }
+
+    __host__ __device__ const ViewType& get() const {
         return &view_;
     }
 

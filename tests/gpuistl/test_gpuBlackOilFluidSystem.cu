@@ -60,6 +60,7 @@
 
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
+#include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 
 static constexpr const char* deckString1 =
@@ -160,11 +161,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
 
     // auto cpuGasPvt = dynamicFluidSystem.gasPvt().realGasPvt();
 
-    auto gpuCo2GasPvt = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
-    // auto gpuGasPvt = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, CO2Tables<double, ::Opm::gpuistl::GpuBuffer<double>>(dynamicFluidSystem->getPvt());
-
-    // auto dynamicGpuFluidSystem = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer>(dynamicFluidSystem, gpuGasPvt);
-    // auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ViewPointer>(dynamicGpuFluidSystem);
+    auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+    auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::PointerView>(dynamicGpuFluidSystemBuffer);
 
     // create a parameter cache
     // using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
