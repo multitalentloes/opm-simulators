@@ -214,6 +214,12 @@ GpuView<T> make_view(GpuBuffer<T>& buf) {
 template GpuView<double> make_view(GpuBuffer<double>&);
 template GpuView<float> make_view(GpuBuffer<float>&);
 template GpuView<int> make_view(GpuBuffer<int>&);
+template GpuView<std::array<double, 3>> make_view(GpuBuffer<std::array<double, 3>>&);
+template GpuView<std::array<float, 3>> make_view(GpuBuffer<std::array<float, 3>>&);
+template GpuView<std::array<int, 3>> make_view(GpuBuffer<std::array<int, 3>>&);
+template GpuView<std::array<double, 9>> make_view(GpuBuffer<std::array<double, 9>>&);
+template GpuView<std::array<float, 9>> make_view(GpuBuffer<std::array<float, 9>>&);
+template GpuView<std::array<int, 9>> make_view(GpuBuffer<std::array<int, 9>>&);
 
 template <class T>
 GpuView<const T> make_view(const GpuBuffer<T>& buf) {
@@ -223,5 +229,11 @@ GpuView<const T> make_view(const GpuBuffer<T>& buf) {
 template GpuView<const double> make_view(const GpuBuffer<double>&);
 template GpuView<const float> make_view(const GpuBuffer<float>&);
 template GpuView<const int> make_view(const GpuBuffer<int>&);
+template GpuView<const std::array<double, 3>> make_view(const GpuBuffer<std::array<double, 3>>&);
+template GpuView<const std::array<float, 3>> make_view(const GpuBuffer<std::array<float, 3>>&);
+template GpuView<const std::array<int, 3>> make_view(const GpuBuffer<std::array<int, 3>>&);
+template GpuView<const std::array<double, 9>> make_view(const GpuBuffer<std::array<double, 9>>&);
+template GpuView<const std::array<float, 9>> make_view(const GpuBuffer<std::array<float, 9>>&);
+template GpuView<const std::array<int, 9>> make_view(const GpuBuffer<std::array<int, 9>>&);
 
 } // namespace Opm::gpuistl
