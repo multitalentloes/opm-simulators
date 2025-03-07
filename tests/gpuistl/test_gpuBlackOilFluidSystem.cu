@@ -122,6 +122,7 @@ using GpuB = Opm::gpuistl::GpuBuffer<double>;
 using GpuV = Opm::gpuistl::GpuView<double>;
 using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
 using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
+using FluidSystem = Opm::BlackOilFluidSystem<double>;
 
 template <class IndexTraits>
 __global__ void getSimpleValues(Opm::BlackOilFluidSystemNonStatic<double, IndexTraits, Opm::gpuistl::GpuView, Opm::gpuistl::PointerView> fs, double* resTemp)
@@ -132,73 +133,46 @@ __global__ void getSimpleValues(Opm::BlackOilFluidSystemNonStatic<double, IndexT
 
 BOOST_AUTO_TEST_CASE(BlackOilFluidSystemOnGpu)
 {
-    return;
-    // test the black-oil specific methods of BlackOilFluidSystem. The generic methods
-    // for fluid systems are already tested by the generic test for all fluidsystems.
-    using Evaluation = Opm::DenseAd::Evaluation<double,2>;
-    using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
-    using FluidSystem = Opm::BlackOilFluidSystem<double>;
+    // Opm::Parser parser;
 
-    static constexpr int numPhases = FluidSystem::numPhases;
+    // auto deck = parser.parseString(deckString1);
+    // auto python = std::make_shared<Opm::Python>();
+    // Opm::EclipseState eclState(deck);
+    // Opm::Schedule schedule(deck, eclState, python);
 
-    static constexpr int gasPhaseIdx = FluidSystem::gasPhaseIdx;
-    static constexpr int oilPhaseIdx = FluidSystem::oilPhaseIdx;
-    static constexpr int waterPhaseIdx = FluidSystem::waterPhaseIdx;
+    // FluidSystem::initFromState(eclState, schedule);
 
-    static constexpr int gasCompIdx = FluidSystem::gasCompIdx;
-    static constexpr int oilCompIdx = FluidSystem::oilCompIdx;
-    static constexpr int waterCompIdx = FluidSystem::waterCompIdx;
+    // auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
 
-    Opm::Parser parser;
+    // auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+    // auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::PointerView>(dynamicGpuFluidSystemBuffer);
 
-    auto deck = parser.parseString(deckString1);
-    auto python = std::make_shared<Opm::Python>();
-    Opm::EclipseState eclState(deck);
-    Opm::Schedule schedule(deck, eclState, python);
+    // // create a parameter cache
+    // using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
+    // ParamCache paramCache(/*maxOilSat=*/0.5, /*regionIdx=*/1);
+    // BOOST_CHECK_EQUAL(paramCache.regionIndex(), 1);
 
-    FluidSystem::initFromState(eclState, schedule);
+    // double cpuResTemp = FluidSystem::reservoirTemperature();
+    // BOOST_CHECK_EQUAL(FluidSystem::numRegions(), 1);
+    // BOOST_CHECK_EQUAL(FluidSystem::numActivePhases(), 2);
 
+    // double gpuResTemp = 0.0;
+    // double* gpuResTempPtr = nullptr;
+    // OPM_GPU_SAFE_CALL(cudaMalloc(&gpuResTempPtr, sizeof(double)));
+    // getSimpleValues<<<1, 1>>>(dynamicGpuFluidSystemView, gpuResTempPtr);
+    // OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuResTemp, gpuResTempPtr, sizeof(double), cudaMemcpyDeviceToHost));
+    // OPM_GPU_SAFE_CALL(cudaFree(gpuResTempPtr));
+    // OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
 
-    // TODO: get the type of the fluid system gasvpt multiplexer approach
+    // // BOOST_CHECK_CLOSE(cpuResTemp, gpuResTemp, 1e-10);
 
-    auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
+    // BOOST_CHECK(FluidSystem::phaseIsActive(0));
+    // BOOST_CHECK(FluidSystem::phaseIsActive(2));
 
-    using GpuCo2Tables = Opm::CO2Tables<double, ::Opm::gpuistl::GpuBuffer<double>>;
-    using CpuCo2Tables = Opm::CO2Tables<double>;
-    using GpuGasPvt = Opm::Co2GasPvt<double, GpuCo2Tables, ::Opm::gpuistl::GpuBuffer<double>>;
-    using GpuWaterPvt = Opm::BrineCo2Pvt<double, GpuCo2Tables, ::Opm::gpuistl::GpuBuffer<double>>;
-
-    // auto cpuGasPvt = dynamicFluidSystem.gasPvt().realGasPvt();
-
-    auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
-    auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::PointerView>(dynamicGpuFluidSystemBuffer);
-
-    // create a parameter cache
-    using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
-    ParamCache paramCache(/*maxOilSat=*/0.5, /*regionIdx=*/1);
-    BOOST_CHECK_EQUAL(paramCache.regionIndex(), 1);
-
-    double cpuResTemp = FluidSystem::reservoirTemperature();
-    BOOST_CHECK_EQUAL(FluidSystem::numRegions(), 1);
-    BOOST_CHECK_EQUAL(FluidSystem::numActivePhases(), 2);
-
-    double gpuResTemp = 0.0;
-    double* gpuResTempPtr = nullptr;
-    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuResTempPtr, sizeof(double)));
-    getSimpleValues<<<1, 1>>>(dynamicGpuFluidSystemView, gpuResTempPtr);
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuResTemp, gpuResTempPtr, sizeof(double), cudaMemcpyDeviceToHost));
-    OPM_GPU_SAFE_CALL(cudaFree(gpuResTempPtr));
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    // BOOST_CHECK_CLOSE(cpuResTemp, gpuResTemp, 1e-10);
-
-    BOOST_CHECK(FluidSystem::phaseIsActive(0));
-    BOOST_CHECK(FluidSystem::phaseIsActive(2));
-
-    // make sure that the {oil,gas,water}Pvt() methods are available
-    [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
-    [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
-    [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
+    // // make sure that the {oil,gas,water}Pvt() methods are available
+    // [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
+    // [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
+    // [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
 }
 
 __global__ void useGasPvtMultiplexer(Opm::GasPvtMultiplexer<double, true, GpuV, GpuV, Opm::gpuistl::PointerView> gasMultiplexer, double* refTemp)
@@ -213,22 +187,6 @@ __global__ void useWaterPvtMultiplexer(Opm::WaterPvtMultiplexer<double, true, tr
 
 BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
 {
-    using Evaluation = Opm::DenseAd::Evaluation<double,2>;
-    using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
-    using FluidSystem = Opm::BlackOilFluidSystem<double>;
-    using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
-    using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
-
-    static constexpr int numPhases = FluidSystem::numPhases;
-
-    static constexpr int gasPhaseIdx = FluidSystem::gasPhaseIdx;
-    static constexpr int oilPhaseIdx = FluidSystem::oilPhaseIdx;
-    static constexpr int waterPhaseIdx = FluidSystem::waterPhaseIdx;
-
-    static constexpr int gasCompIdx = FluidSystem::gasCompIdx;
-    static constexpr int oilCompIdx = FluidSystem::oilCompIdx;
-    static constexpr int waterCompIdx = FluidSystem::waterCompIdx;
-
     Opm::Parser parser;
 
     auto deck = parser.parseString(deckString1);
