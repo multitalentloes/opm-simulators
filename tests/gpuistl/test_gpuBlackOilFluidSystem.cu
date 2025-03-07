@@ -206,16 +206,8 @@ __global__ void useGasPvtMultiplexer(Opm::GasPvtMultiplexer<double, true, GpuV, 
   *refTemp = gasMultiplexer.gasReferenceDensity(0);
 }
 
-__global__ void useCo2GasPvt(Opm::Co2GasPvt<double, Opm::CO2Tables<double, GpuV>, GpuV> co2GasPvt, double* refTemp)
-{
-  *refTemp = co2GasPvt.gasReferenceDensity(0);
-}
-
 BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
 {
-    printf("I AM HERE - STARTING TEST");
-    // test the black-oil specific methods of BlackOilFluidSystem. The generic methods
-    // for fluid systems are already tested by the generic test for all fluidsystems.
     using Evaluation = Opm::DenseAd::Evaluation<double,2>;
     using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
     using FluidSystem = Opm::BlackOilFluidSystem<double>;
@@ -240,10 +232,9 @@ BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
     Opm::Schedule schedule(deck, eclState, python);
 
     FluidSystem::initFromState(eclState, schedule);
-    
+
     auto gaspvt = FluidSystem::gasPvt();
     auto cpuRefTemp = gaspvt.gasReferenceDensity(0);
-    std::cout << "cpuRefTemp: " << cpuRefTemp << std::endl;
 
     auto gpuGasPvtBuf = ::Opm::gpuistl::copy_to_gpu<GpuB, GpuB>(gaspvt);
     auto gpuGasPvtView = ::Opm::gpuistl::make_view<::Opm::gpuistl::PointerView, GpuV, GpuV>(gpuGasPvtBuf);
@@ -253,26 +244,16 @@ BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
     double gpuRefTemp = 0.0;
     double* gpuRefTempPtr = nullptr;
     OPM_GPU_SAFE_CALL(cudaMalloc(&gpuRefTempPtr, sizeof(double)));
-    
+
     useGasPvtMultiplexer<<<1, 1>>>(gpuGasPvtView, gpuRefTempPtr);
-    // useCo2GasPvt<<<1, 1>>>(gpuViewRealPvt, gpuRefTempPtr);
-    
+
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-    
+
     OPM_GPU_SAFE_CALL(cudaGetLastError());
-    
+
     OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuRefTemp, gpuRefTempPtr, sizeof(double), cudaMemcpyDeviceToHost));
-    std::cout << "gpuRefTemp: " << gpuRefTemp << std::endl;
     OPM_GPU_SAFE_CALL(cudaFree(gpuRefTempPtr));
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
 
     BOOST_CHECK_CLOSE(cpuRefTemp, gpuRefTemp, 1e-10);
-
-    // BOOST_CHECK(FluidSystem::phaseIsActive(0));
-    // BOOST_CHECK(FluidSystem::phaseIsActive(2));
-
-    // // make sure that the {oil,gas,water}Pvt() methods are available
-    // [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
-    // [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
-    // [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
 }
