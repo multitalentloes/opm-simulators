@@ -206,6 +206,11 @@ __global__ void useGasPvtMultiplexer(Opm::GasPvtMultiplexer<double, true, GpuV, 
   *refTemp = gasMultiplexer.gasReferenceDensity(0);
 }
 
+__global__ void useWaterPvtMultiplexer(Opm::WaterPvtMultiplexer<double, true, true, GpuV, GpuV, Opm::gpuistl::PointerView> waterMultiplexer, double* refTemp)
+{
+  *refTemp = waterMultiplexer.waterReferenceDensity(0);
+}
+
 BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
 {
     using Evaluation = Opm::DenseAd::Evaluation<double,2>;
@@ -233,27 +238,31 @@ BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
 
     FluidSystem::initFromState(eclState, schedule);
 
+    // get and compute CPU pvts
     auto gaspvt = FluidSystem::gasPvt();
-    auto cpuRefTemp = gaspvt.gasReferenceDensity(0);
+    auto cpuGasRefDensity = gaspvt.gasReferenceDensity(0);
+    auto waterpvt = FluidSystem::waterPvt();
+    auto cpuWaterRefDensity = waterpvt.waterReferenceDensity(0);
 
+    // move pvts to gpu
     auto gpuGasPvtBuf = ::Opm::gpuistl::copy_to_gpu<GpuB, GpuB>(gaspvt);
     auto gpuGasPvtView = ::Opm::gpuistl::make_view<::Opm::gpuistl::PointerView, GpuV, GpuV>(gpuGasPvtBuf);
+    auto gpuWaterPvtBuf = ::Opm::gpuistl::copy_to_gpu<GpuB, GpuB>(waterpvt);
+    auto gpuWaterPvtView = ::Opm::gpuistl::make_view<::Opm::gpuistl::PointerView, GpuV, GpuV>(gpuWaterPvtBuf);
 
-    auto gpuViewRealPvt = gpuGasPvtView.template getRealPvt<Opm::GasPvtApproach::Co2Gas>();
+    double gpuRefDensity = 0.0;
+    double* gpuRefDensityPtr = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuRefDensityPtr, sizeof(double)));
 
-    double gpuRefTemp = 0.0;
-    double* gpuRefTempPtr = nullptr;
-    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuRefTempPtr, sizeof(double)));
+    // check that the GPU computed GAS reference density is correct
+    useGasPvtMultiplexer<<<1, 1>>>(gpuGasPvtView, gpuRefDensityPtr);
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuRefDensity, gpuRefDensityPtr, sizeof(double), cudaMemcpyDeviceToHost));
+    BOOST_CHECK_CLOSE(cpuGasRefDensity, gpuRefDensity, 1e-10);
 
-    useGasPvtMultiplexer<<<1, 1>>>(gpuGasPvtView, gpuRefTempPtr);
+    // check that the GPU computed WATER reference density is correct
+    useWaterPvtMultiplexer<<<1, 1>>>(gpuWaterPvtView, gpuRefDensityPtr);
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuRefDensity, gpuRefDensityPtr, sizeof(double), cudaMemcpyDeviceToHost));
+    BOOST_CHECK_CLOSE(cpuWaterRefDensity, gpuRefDensity, 1e-10);
 
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    OPM_GPU_SAFE_CALL(cudaGetLastError());
-
-    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuRefTemp, gpuRefTempPtr, sizeof(double), cudaMemcpyDeviceToHost));
-    OPM_GPU_SAFE_CALL(cudaFree(gpuRefTempPtr));
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-
-    BOOST_CHECK_CLOSE(cpuRefTemp, gpuRefTemp, 1e-10);
+    OPM_GPU_SAFE_CALL(cudaFree(gpuRefDensityPtr));
 }
