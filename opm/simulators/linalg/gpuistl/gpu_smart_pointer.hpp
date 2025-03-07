@@ -225,46 +225,6 @@ copyToGPU(const T& value, const std::unique_ptr<T, Deleter>& ptr)
  * being compatible with the requirements of the GPU kernels. This is useful when we want to pass
  * a smart pointer to a GPU kernel, but we do not want to transfer the ownership of the memory.
  */
-// template <class T>
-// class PointerView
-// {
-// public:
-//     PointerView(const PointerView& other) = default;
-
-//     PointerView(const std::shared_ptr<T>& ptr)
-//         : ptr_(ptr.get())
-//     {
-//     }
-
-//     template <class Deleter>
-//     PointerView(const std::unique_ptr<T, Deleter>& ptr)
-//         : ptr_(ptr.get())
-//     {
-//     }
-
-//     PointerView(T* ptr)
-//         : ptr_(ptr)
-//     {
-//     }
-
-//     OPM_HOST_DEVICE T* get() const
-//     {
-//         return ptr_;
-//     }
-
-//     OPM_HOST_DEVICE T& operator*() const
-//     {
-//         return *ptr_;
-//     }
-
-//     OPM_HOST_DEVICE T* operator->() const
-//     {
-//         return ptr_;
-//     }
-
-// private:
-//     T* ptr_;
-// };
 
 template <class T>
 class PointerView
@@ -340,7 +300,6 @@ public:
         return ptr_;
     }
 
-    
     OPM_HOST_DEVICE void* operator->() const
     {
         return ptr_;

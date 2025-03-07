@@ -114,15 +114,22 @@ static constexpr const char* deckString1 =
 "TSTEP\n"
 "1 /";
 
-using Types = boost::mpl::list<double,Opm::DenseAd::Evaluation<double,2>>;
-// using GpuB = ::Opm::gpuistl::GpuBuffer;
-// using GpuPointer = ::Opm::gpuistl::ViewPointer;
+using GpuB = Opm::gpuistl::GpuBuffer<double>;
+using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
+using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
+template <class IndexTraits>
+__global__ void getSimpleValues(Opm::BlackOilFluidSystemNonStatic<double, IndexTraits, Opm::gpuistl::GpuView, Opm::gpuistl::PointerView>& fs, double* resTemp)
+{
+  // *resTemp = fs.reservoirTemperature();
+  // fs.reservoirTemperature();
+}
+
+BOOST_AUTO_TEST_CASE(BlackOilFluidSystemOnGpu)
 {
     // test the black-oil specific methods of BlackOilFluidSystem. The generic methods
     // for fluid systems are already tested by the generic test for all fluidsystems.
-
+    using Evaluation = Opm::DenseAd::Evaluation<double,2>;
     using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
     using FluidSystem = Opm::BlackOilFluidSystem<double>;
 
@@ -165,19 +172,29 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(BlackOil, Evaluation, Types)
     auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::PointerView>(dynamicGpuFluidSystemBuffer);
 
     // create a parameter cache
-    // using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
-    // ParamCache paramCache(/*maxOilSat=*/0.5, /*regionIdx=*/1);
-    // BOOST_CHECK_EQUAL(paramCache.regionIndex(), 1);
+    using ParamCache = typename FluidSystem::template ParameterCache<Scalar>;
+    ParamCache paramCache(/*maxOilSat=*/0.5, /*regionIdx=*/1);
+    BOOST_CHECK_EQUAL(paramCache.regionIndex(), 1);
 
-    // BOOST_CHECK_SMALL(Opm::abs(FluidSystem::reservoirTemperature() - (273.15 + 15.555)), 1e-10);
-    // BOOST_CHECK_EQUAL(FluidSystem::numRegions(), 1);
-    // BOOST_CHECK_EQUAL(FluidSystem::numActivePhases(), 2);
+    double cpuResTemp = FluidSystem::reservoirTemperature();
+    BOOST_CHECK_EQUAL(FluidSystem::numRegions(), 1);
+    BOOST_CHECK_EQUAL(FluidSystem::numActivePhases(), 2);
 
-    // BOOST_CHECK(FluidSystem::phaseIsActive(0));
-    // BOOST_CHECK(FluidSystem::phaseIsActive(2));
+    double gpuResTemp = 0.0;
+    double* gpuResTempPtr = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuResTempPtr, sizeof(double)));
+    getSimpleValues<<<1, 1>>>(dynamicGpuFluidSystemView, gpuResTempPtr);
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuResTemp, gpuResTempPtr, sizeof(double), cudaMemcpyDeviceToHost));
+    OPM_GPU_SAFE_CALL(cudaFree(gpuResTempPtr));
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
 
-    // // make sure that the {oil,gas,water}Pvt() methods are available
-    // [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
-    // [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
-    // [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
+    // BOOST_CHECK_CLOSE(cpuResTemp, gpuResTemp, 1e-10);
+
+    BOOST_CHECK(FluidSystem::phaseIsActive(0));
+    BOOST_CHECK(FluidSystem::phaseIsActive(2));
+
+    // make sure that the {oil,gas,water}Pvt() methods are available
+    [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
+    [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
+    [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
 }
