@@ -44,6 +44,8 @@
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 #include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
 #include <opm/material/fluidstates/BlackOilFluidState.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/GasPvtMultiplexer.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/WaterPvtMultiplexer.hpp>
 #include <opm/material/components/CO2Tables.hpp>
 #include <opm/material/densead/Evaluation.hpp>
 
@@ -115,6 +117,7 @@ static constexpr const char* deckString1 =
 "1 /";
 
 using GpuB = Opm::gpuistl::GpuBuffer<double>;
+using GpuV = Opm::gpuistl::GpuView<double>;
 using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
 using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
 
@@ -132,10 +135,6 @@ BOOST_AUTO_TEST_CASE(BlackOilFluidSystemOnGpu)
     using Evaluation = Opm::DenseAd::Evaluation<double,2>;
     using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
     using FluidSystem = Opm::BlackOilFluidSystem<double>;
-
-    using GpuB = Opm::gpuistl::GpuBuffer<double>;
-    using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
-    using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
 
     static constexpr int numPhases = FluidSystem::numPhases;
 
@@ -197,4 +196,63 @@ BOOST_AUTO_TEST_CASE(BlackOilFluidSystemOnGpu)
     [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
     [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
     [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
+}
+
+__global__ void useGasPvtMultiplexer(Opm::GasPvtMultiplexer<double, true, GpuV, GpuV, Opm::gpuistl::PointerView>& gasMultiplexer, double* refTemp)
+{
+  *refTemp = gasMultiplexer.gasReferenceDensity(0);
+}
+
+BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
+{
+    // test the black-oil specific methods of BlackOilFluidSystem. The generic methods
+    // for fluid systems are already tested by the generic test for all fluidsystems.
+    using Evaluation = Opm::DenseAd::Evaluation<double,2>;
+    using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
+    using FluidSystem = Opm::BlackOilFluidSystem<double>;
+    using GpuBufCo2Tables = Opm::CO2Tables<double, GpuB>;
+    using GpuBufBrineCo2Pvt = Opm::BrineCo2Pvt<double, GpuBufCo2Tables, GpuB>;
+
+    static constexpr int numPhases = FluidSystem::numPhases;
+
+    static constexpr int gasPhaseIdx = FluidSystem::gasPhaseIdx;
+    static constexpr int oilPhaseIdx = FluidSystem::oilPhaseIdx;
+    static constexpr int waterPhaseIdx = FluidSystem::waterPhaseIdx;
+
+    static constexpr int gasCompIdx = FluidSystem::gasCompIdx;
+    static constexpr int oilCompIdx = FluidSystem::oilCompIdx;
+    static constexpr int waterCompIdx = FluidSystem::waterCompIdx;
+
+    Opm::Parser parser;
+
+    auto deck = parser.parseString(deckString1);
+    auto python = std::make_shared<Opm::Python>();
+    Opm::EclipseState eclState(deck);
+    Opm::Schedule schedule(deck, eclState, python);
+
+    FluidSystem::initFromState(eclState, schedule);
+
+    auto gaspvt = FluidSystem::gasPvt();
+
+    auto gpuGasPvtBuf = ::Opm::gpuistl::copy_to_gpu<GpuB, GpuB>(gaspvt);
+    auto gpuGasPvtView = ::Opm::gpuistl::make_view<::Opm::gpuistl::PointerView, GpuV, GpuV>(gpuGasPvtBuf);
+
+    double gpuRefTemp = 0.0;
+    double* gpuRefTempPtr = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMalloc(&gpuRefTempPtr, sizeof(double)));
+    useGasPvtMultiplexer<<<1, 1>>>(gpuGasPvtView, gpuRefTempPtr);
+    OPM_GPU_SAFE_CALL(cudaMemcpy(&gpuRefTemp, gpuRefTempPtr, sizeof(double), cudaMemcpyDeviceToHost));
+    OPM_GPU_SAFE_CALL(cudaFree(gpuRefTempPtr));
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+
+    auto cpuRefTemp = gaspvt.gasReferenceDensity(0);
+    BOOST_CHECK_CLOSE(cpuRefTemp, gpuRefTemp, 1e-10);
+
+    // BOOST_CHECK(FluidSystem::phaseIsActive(0));
+    // BOOST_CHECK(FluidSystem::phaseIsActive(2));
+
+    // // make sure that the {oil,gas,water}Pvt() methods are available
+    // [[maybe_unused]] const auto& gPvt = FluidSystem::gasPvt();
+    // [[maybe_unused]] const auto& oPvt = FluidSystem::oilPvt();
+    // [[maybe_unused]] const auto& wPvt = FluidSystem::waterPvt();
 }
