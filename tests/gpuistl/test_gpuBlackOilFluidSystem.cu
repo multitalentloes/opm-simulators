@@ -189,12 +189,12 @@ BOOST_AUTO_TEST_CASE(BlackOilFluidSystemOnGpu)
     OPM_GPU_SAFE_CALL(cudaFree(gpuComputedValPtr));
 }
 
-__global__ void useGasPvtMultiplexer(Opm::GasPvtMultiplexer<double, true, GpuV, GpuV, Opm::gpuistl::PointerView> gasMultiplexer, double* refTemp)
+__global__ void useGasPvtMultiplexer(Opm::GasPvtMultiplexer<double, true, GpuV, GpuV, false> gasMultiplexer, double* refTemp)
 {
   *refTemp = gasMultiplexer.gasReferenceDensity(0);
 }
 
-__global__ void useWaterPvtMultiplexer(Opm::WaterPvtMultiplexer<double, true, true, GpuV, GpuV, Opm::gpuistl::PointerView> waterMultiplexer, double* refTemp)
+__global__ void useWaterPvtMultiplexer(Opm::WaterPvtMultiplexer<double, true, true, GpuV, GpuV, false> waterMultiplexer, double* refTemp)
 {
   *refTemp = waterMultiplexer.waterReferenceDensity(0);
 }
@@ -218,9 +218,9 @@ BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
 
     // move pvts to gpu
     auto gpuGasPvtBuf = ::Opm::gpuistl::copy_to_gpu<GpuB, GpuB>(gaspvt);
-    auto gpuGasPvtView = ::Opm::gpuistl::make_view<::Opm::gpuistl::PointerView, GpuV, GpuV>(gpuGasPvtBuf);
+    auto gpuGasPvtView = ::Opm::gpuistl::make_view<GpuV, GpuV>(gpuGasPvtBuf);
     auto gpuWaterPvtBuf = ::Opm::gpuistl::copy_to_gpu<GpuB, GpuB>(waterpvt);
-    auto gpuWaterPvtView = ::Opm::gpuistl::make_view<::Opm::gpuistl::PointerView, GpuV, GpuV>(gpuWaterPvtBuf);
+    auto gpuWaterPvtView = ::Opm::gpuistl::make_view<GpuV, GpuV>(gpuWaterPvtBuf);
 
     double gpuRefDensity = 0.0;
     double* gpuRefDensityPtr = nullptr;
