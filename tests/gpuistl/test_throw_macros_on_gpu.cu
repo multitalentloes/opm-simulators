@@ -44,12 +44,12 @@ __global__ void codeThatContainsMacros(bool call) {
 
 BOOST_AUTO_TEST_CASE(TestKernel)
 {
-    // This test currently fails on hipcc with amd gpu, commented out for now
-    // OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-    // OPM_GPU_SAFE_CALL(cudaGetLastError());
-    // codeThatContainsMacros<<<1, 1>>>(false);
-    // OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-    // OPM_GPU_SAFE_CALL(cudaGetLastError());
+    // TODO: Figure out why this test halts when run in debug mode on AMD GPUs
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+    OPM_GPU_SAFE_CALL(cudaGetLastError());
+    codeThatContainsMacros<<<1, 1>>>(false);
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+    OPM_GPU_SAFE_CALL(cudaGetLastError());
 }
 
 BOOST_AUTO_TEST_CASE(TestOutsideKernel)
