@@ -33,6 +33,7 @@
 
 namespace Opm::gpuistl
 {
+
 /**
  * @brief The GpuView class is provides a view of some data allocated on the GPU
  * Essenstially is only stores a pointer and a size.

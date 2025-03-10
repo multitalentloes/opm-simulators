@@ -53,7 +53,6 @@ template <class T>
 GpuBuffer<T>::GpuBuffer(const GpuBuffer<T>& other)
     : GpuBuffer(other.m_numberOfElements)
 {
-    // assertHasElements();
     assertSameSize(other);
     if (m_numberOfElements == 0) {
         return;
