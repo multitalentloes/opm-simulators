@@ -21,85 +21,101 @@
 #include <cuda_runtime.h>
 #include <boost/test/unit_test.hpp>
 #include <opm/material/fluidstates/BlackOilFluidState.hpp>
+#include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
+#include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 #include <opm/material/common/HasMemberGeneratorMacros.hpp>
 #include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
+
+#include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
+#include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
+#include <opm/material/fluidstates/BlackOilFluidState.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/GasPvtMultiplexer.hpp>
+#include <opm/material/fluidsystems/blackoilpvt/WaterPvtMultiplexer.hpp>
+#include <opm/material/components/CO2Tables.hpp>
+#include <opm/material/densead/Evaluation.hpp>
+
+#include <opm/material/common/Valgrind.hpp>
+
+#include <opm/input/eclipse/Parser/Parser.hpp>
+#include <opm/input/eclipse/Deck/Deck.hpp>
+#include <opm/input/eclipse/EclipseState/EclipseState.hpp>
+#include <opm/input/eclipse/Python/Python.hpp>
+#include <opm/input/eclipse/Schedule/Schedule.hpp>
+
+#include <type_traits>
+#include <cmath>
+
+#include <opm/simulators/linalg/gpuistl/GpuView.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
+#include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
+
+static constexpr const char* deckString1 =
+"-- =============== RUNSPEC\n"
+"RUNSPEC\n"
+"DIMENS\n"
+"3 3 3 /\n"
+"EQLDIMS\n"
+"/\n"
+"TABDIMS\n"
+"/\n"
+"WATER\n"
+"GAS\n"
+"CO2STORE\n"
+"METRIC\n"
+"-- =============== GRID\n"
+"GRID\n"
+"GRIDFILE\n"
+"0 0 /\n"
+"DX\n"
+"27*1 /\n"
+"DY\n"
+"27*1 /\n"
+"DZ\n"
+"27*1 /\n"
+"TOPS\n"
+"9*0 /\n"
+"PERMX\n"
+"27*1013.25 /\n"
+"PORO\n"
+"27*0.25 /\n"
+"COPY\n"
+"PERMX PERMY /\n"
+"PERMX PERMZ /\n"
+"/\n"
+"-- =============== PROPS\n"
+"PROPS\n"
+"SGWFN\n"
+"0.000000E+00 0.000000E+00 1.000000E+00 3.060000E-02\n"
+"1.000000E+00 1.000000E+00 0.000000E+00 3.060000E-01 /\n"
+"-- =============== SOLUTION\n"
+"SOLUTION\n"
+"RPTRST\n"
+"'BASIC=0' /\n"
+"EQUIL\n"
+"0 300 100 0 0 0 1 1 0 /\n"
+"-- =============== SCHEDULE\n"
+"SCHEDULE\n"
+"RPTRST\n"
+"'BASIC=0' /\n"
+"TSTEP\n"
+"1 /";
+
+using ScalarT = double;
+using Evaluation = Opm::DenseAd::Evaluation<double,2>;
+
+using FluidSystemCPU = Opm::BlackOilFluidSystem<double>;
+using FluidSystemNonStatic = Opm::BlackOilFluidSystemNonStatic<double>;
+
+using FluidState = Opm::BlackOilFluidState<ScalarT, FluidSystemCPU>;
+using FluidStateDynamic = Opm::BlackOilFluidState<ScalarT, FluidSystemNonStatic>;
+using FluidStateDynamicGPU = Opm::BlackOilFluidState<ScalarT, Opm::BlackOilFluidSystemNonStatic<ScalarT, Opm::BlackOilDefaultIndexTraits, Opm::gpuistl::GpuView, Opm::gpuistl::ValueAsPointer>>;
 namespace
 {
-
-template<class ScalarT>
-struct DummyFluidSystem {
-    static constexpr auto numPhases = 3u;
-    static constexpr auto numComponents = 1;
-    static constexpr auto waterPhaseIdx = 0;
-    static constexpr auto oilPhaseIdx = 1;
-    static constexpr auto gasPhaseIdx = 2;
-    static constexpr auto waterCompIdx = 0;
-    static constexpr auto oilCompIdx = 0;
-    static constexpr auto gasCompIdx = 0;
-
-
-    static auto reservoirTemperature(int) { return ScalarT{ 0.0 }; }
-    static auto enthalpyEqualEnergy() { return true; }
-    static auto molarMass(int, int) { return ScalarT{ 0.0 }; }
-    template<class T>
-    static auto viscosity(const T&, int, int) { return ScalarT{ 0.0 }; }
-
-    static auto convertRsToXoG(ScalarT, int) { return ScalarT{ 0.0 }; }
-    static auto convertRvToXg0(ScalarT, int) { return ScalarT{ 0.0 }; }
-    static auto convertXoGToRs(ScalarT, int) { return ScalarT{ 0.0 }; }
-
-    template<class T>
-    static auto fugacityCoefficient(const T&, int, int, int) { return ScalarT{ 0.0 }; }
-
-    static auto activeToCanonicalPhaseIdx(int) { return 0u; }
-    static auto canonicalToActivePhaseIdx(int) { return 0u; }
-
-};
-
-template<class ScalarT>
-struct DummyFluidSystemDynamic {
-    static constexpr auto numPhases = 3u;
-    static constexpr auto numComponents = 1;
-    static constexpr auto waterPhaseIdx = 0;
-    static constexpr auto oilPhaseIdx = 1;
-    static constexpr auto gasPhaseIdx = 2;
-    static constexpr auto waterCompIdx = 0;
-    static constexpr auto oilCompIdx = 0;
-    static constexpr auto gasCompIdx = 0;
-
-
-    OPM_HOST_DEVICE auto reservoirTemperature(int) const { return ScalarT{ 0.0 }; }
-    OPM_HOST_DEVICE auto enthalpyEqualEnergy() const { return true; }
-    OPM_HOST_DEVICE auto molarMass(int, int) const { return ScalarT{ 0.0 }; }
-    template<class T>
-    OPM_HOST_DEVICE auto viscosity(const T&, int, int) const { return ScalarT{ someVariable }; }
-
-    OPM_HOST_DEVICE auto convertRsToXoG(ScalarT, int) const { return ScalarT{ 0.0 }; }
-    OPM_HOST_DEVICE auto convertRvToXg0(ScalarT, int) const { return ScalarT{ 0.0 }; }
-    OPM_HOST_DEVICE auto convertXoGToRs(ScalarT, int) const { return ScalarT{ 0.0 }; }
-
-    template<class T>
-    OPM_HOST_DEVICE auto fugacityCoefficient(const T&, int, int, int) const { return ScalarT{ 0.0 }; }
-
-    OPM_HOST_DEVICE auto activeToCanonicalPhaseIdx(int) const { return 0u; }
-    OPM_HOST_DEVICE auto canonicalToActivePhaseIdx(int) const { return 0u; }
-
-
-    double someVariable = 43.2;
-
-};
-    
-
 template <class FluidState>
 __global__ void kernelCreatingBlackoilFluidState() {
     FluidState state;
-}
-
-template<class FluidState, class FluidSystem>
-__global__ void kernelCreatingBlackoilFluidStateDynamic() {
-    FluidSystem system;
-    FluidState state(system);
 }
 
 template<class FluidState>
@@ -124,14 +140,8 @@ __global__ void getViscosity(FluidSystem input, double* output) {
 
 } // namespace
 
-using ScalarT = double;
-using FluidState = Opm::BlackOilFluidState<ScalarT, DummyFluidSystem<ScalarT>>;
-using FluidStateDynamic = Opm::BlackOilFluidState<ScalarT, DummyFluidSystemDynamic<ScalarT>>;
-
-
 BOOST_AUTO_TEST_CASE(TestCreation)
 {
-   
     kernelCreatingBlackoilFluidState<FluidState><<<1, 1>>>();
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
     OPM_GPU_SAFE_CALL(cudaGetLastError());
@@ -165,22 +175,40 @@ BOOST_AUTO_TEST_CASE(TestPressure)
     BOOST_CHECK_EQUAL(3.0, outputCPU[2]);
 }
 
-BOOST_AUTO_TEST_CASE(TestDynamicCreation) 
-{
-    kernelCreatingBlackoilFluidStateDynamic<FluidStateDynamic, DummyFluidSystemDynamic<ScalarT>><<<1, 1>>>();
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-    OPM_GPU_SAFE_CALL(cudaGetLastError());
-}
-
 BOOST_AUTO_TEST_CASE(TestPassByValueToGPUDynamic)
 {
-    DummyFluidSystemDynamic<ScalarT> system;
+    Opm::Parser parser;
 
-    system.someVariable = 1234;
+    auto deck = parser.parseString(deckString1);
+    auto python = std::make_shared<Opm::Python>();
+    Opm::EclipseState eclState(deck);
+    Opm::Schedule schedule(deck, eclState, python);
+
+    FluidSystemCPU::initFromState(eclState, schedule);
+
+    auto& dynamicFluidSystem = FluidSystemCPU::getNonStaticInstance();
+
+    auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+    auto system = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
+
+    static_assert(
+        std::is_same_v<
+            decltype(system),
+            ::Opm::BlackOilFluidSystemNonStatic
+            <
+                double,
+                ::Opm::BlackOilDefaultIndexTraits,
+                ::Opm::gpuistl::GpuView,
+                ::Opm::gpuistl::ValueAsPointer
+            >
+        >
+    );
+
     auto output = Opm::gpuistl::make_gpu_unique_ptr<double>();
-    getViscosity<FluidStateDynamic><<<1, 1>>>(system, output.get());
-
+    getViscosity<FluidStateDynamicGPU, decltype(system)><<<1, 1>>>(system, output.get());
     auto outputCPU = Opm::gpuistl::copyFromGPU(output);
-    BOOST_CHECK_EQUAL(1234, outputCPU);
 
+    FluidState state(FluidSystemCPU{});
+
+    BOOST_CHECK_CLOSE(state.viscosity(0), outputCPU, 1e-10);
 }
