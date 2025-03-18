@@ -491,6 +491,7 @@ if (HAVE_CUDA)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_gpuBlackOilFluidSystem.cu)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_blackoilfluidstategpu.cu)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_conditional_storage.cu)
+  ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_gpuflowproblem.cu)
 
 
 
@@ -501,6 +502,7 @@ if (HAVE_CUDA)
       tests/gpuistl/test_gpu_linear_two_phase_material.cu
       tests/gpuistl/test_gpuPvt.cu
       tests/gpuistl/test_blackoilfluidstategpu.cu
+      tests/gpuistl/test_gpuflowproblem.cu
     )
 
     foreach(file ${CU_FILES_NEEDING_RELAXED_CONSTEXPR})
