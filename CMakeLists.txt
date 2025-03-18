@@ -768,6 +768,7 @@ if(CUDA_FOUND)
                        gpuBlackOilFluidSystem
                        blackoilfluidstategpu
                        conditional_storage
+                       gpuflowproblem
                        PROPERTIES LABELS ${gpu_label})
 endif()
 
