@@ -490,6 +490,7 @@ endif()
 target_sources(test_outputdir PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_equil PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_RestartSerialization PRIVATE $<TARGET_OBJECTS:moduleVersion>)
+target_sources(test_gpuflowproblem PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 target_sources(test_glift1 PRIVATE $<TARGET_OBJECTS:moduleVersion>)
 
 include (${CMAKE_CURRENT_SOURCE_DIR}/modelTests.cmake)

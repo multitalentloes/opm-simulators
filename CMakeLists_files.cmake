@@ -533,6 +533,7 @@ endif()
 
 list (APPEND TEST_DATA_FILES
   tests/equil_base.DATA
+  tests/very_simple_deck.DATA
   tests/equil_capillary.DATA
   tests/equil_capillary_overlap.DATA
   tests/equil_capillary_swatinit.DATA
