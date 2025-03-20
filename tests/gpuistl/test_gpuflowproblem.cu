@@ -29,7 +29,6 @@
 #include <opm/simulators/flow/FlowProblemBlackoilGpu.hpp>
 #include <opm/simulators/flow/FlowProblemBlackoil.hpp>
 #include <opm/simulators/flow/FlowProblemBlackoilProperties.hpp>
-#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 
 #include <opm/simulators/flow/BlackoilModelParameters.hpp>
 #include <opm/simulators/flow/FlowGenericVanguard.hpp>
@@ -37,6 +36,10 @@
 #include <opm/simulators/flow/FlowProblemBlackoilProperties.hpp>
 #include <opm/simulators/flow/equil/EquilibrationHelpers.hpp>
 #include <opm/simulators/linalg/parallelbicgstabbackend.hh>
+#include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuView.hpp>
+#include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 
 #include <cuda_runtime.h>
@@ -131,6 +134,12 @@ namespace Opm {
 #include <dune/common/parallel/mpihelper.hh>
 #include <opm/models/utils/start.hh>
 
+template<class ProblemView>
+__global__ void satnumFromFlowProblemBlackoilGpu(ProblemView prob, unsigned short* res)
+{
+  *res = prob.satnumRegionIndex(0);
+}
+
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
   using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
@@ -172,4 +181,16 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   Opm::FlowGenericVanguard::readDeck(filename);
 
   auto sim = std::make_unique<Simulator>();
+
+  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
+  auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
+
+  unsigned short resOnCpu;
+  unsigned short* resOnGpu;
+  cudaMalloc(&resOnGpu, sizeof(unsigned short));
+  satnumFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, resOnGpu);
+  cudaMemcpy(&resOnCpu, resOnGpu, sizeof(unsigned short), cudaMemcpyDeviceToHost);
+
+  BOOST_CHECK_EQUAL(resOnCpu, sim->problem().satnumRegionIndex(0));
+  cudaFree(resOnGpu);
 }

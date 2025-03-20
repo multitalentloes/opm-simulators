@@ -36,18 +36,23 @@ namespace Opm {
 // This class is a simplified version of FlowProblem that should be GPU-instantiable
 template< template<class> class Storage = VectorWithDefaultAllocator >
 class FlowProblemBlackoilGpu {
-
+public:
     FlowProblemBlackoilGpu(Storage<unsigned short> satNum)
         : satNum_(satNum)
     {}
 
-    unsigned short satnumRegionIndex(size_t elemIdx) const
+    OPM_HOST_DEVICE unsigned short satnumRegionIndex(size_t elemIdx) const
     {
         if (satNum_.size() == 0){
             return 0;
         }
 
         return satNum_[elemIdx];
+    }
+
+
+    Storage<unsigned short>& satnumRegionArray() {
+        return satNum_;
     }
 
 private:
@@ -57,13 +62,13 @@ private:
 namespace gpuistl {
 
     template< template<class> class ContainerT, class TypeTag>
-    FlowProblemBlackoilGpu<ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTag> problem) {
-        return FlowProblemBlackoilGpu<ContainerT>(ContainerT(problem.satNum_));
+    FlowProblemBlackoilGpu<ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTag>& problem) {
+        return FlowProblemBlackoilGpu<ContainerT>(ContainerT(problem.satnumRegionArray()));
     }
 
     template< template<class> class ViewT, template<class> class ContainerT>
     FlowProblemBlackoilGpu<ViewT> make_view(FlowProblemBlackoilGpu<ContainerT> problem) {
-        return FlowProblemBlackoilGpu<ViewT>(ViewT(problem.satNum_));
+        return FlowProblemBlackoilGpu<ViewT>(make_view<unsigned short>(problem.satnumRegionArray()));
     }
 
 }
