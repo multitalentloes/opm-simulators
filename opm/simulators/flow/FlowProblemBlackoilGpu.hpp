@@ -90,14 +90,14 @@ public:
     }
 
     OPM_HOST_DEVICE Scalar rockCompressibility(unsigned globalSpaceIdx) const {
-        if (this->rockCompressibility_.size() == 0)
+        if (rockCompressibility_.size() == 0)
             return 0.0;
 
         unsigned tableIdx = 0;
-        if (!this->rockTableIdx_.empty()) {
-            tableIdx = this->rockTableIdx_[globalSpaceIdx];
+        if (rockTableIdx_.size() > 0) {
+            tableIdx = rockTableIdx_[globalSpaceIdx];
         }
-        return this->rockParams_[tableIdx].compressibility;
+        return rockCompressibility_[tableIdx];
     }
 
     Storage<unsigned short>& rockTableIdx() {

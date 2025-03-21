@@ -163,6 +163,12 @@ __global__ void linTypeFromFlowProblemBlackoilGpu(ProblemView prob, Opm::Lineari
   *res = prob.model().linearizer().getLinearizationType();
 }
 
+template<class ProblemView>
+__global__ void rockCompressibilityFromFlowProblemBlackoilGpu(ProblemView prob, double* res)
+{
+  *res = prob.rockCompressibility(0);
+}
+
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
   using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
@@ -206,24 +212,33 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   auto sim = std::make_unique<Simulator>();
 
   auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
-  // auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
+  auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
 
-  // unsigned short satNumOnCpu;
-  // unsigned short* satNumOnGpu;
-  // cudaMalloc(&satNumOnGpu, sizeof(unsigned short));
-  // satnumFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, satNumOnGpu);
-  // cudaMemcpy(&satNumOnCpu, satNumOnGpu, sizeof(unsigned short), cudaMemcpyDeviceToHost);
+  unsigned short satNumOnCpu;
+  unsigned short* satNumOnGpu;
+  cudaMalloc(&satNumOnGpu, sizeof(unsigned short));
+  satnumFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, satNumOnGpu);
+  cudaMemcpy(&satNumOnCpu, satNumOnGpu, sizeof(unsigned short), cudaMemcpyDeviceToHost);
 
-  // BOOST_CHECK_EQUAL(satNumOnCpu, sim->problem().satnumRegionIndex(0));
-  // cudaFree(satNumOnGpu);
+  BOOST_CHECK_EQUAL(satNumOnCpu, sim->problem().satnumRegionIndex(0));
+  cudaFree(satNumOnGpu);
 
-  // Opm::LinearizationType linTypeOnCpu;
-  // Opm::LinearizationType* linTypeOnGpu;
-  // cudaMalloc(&linTypeOnGpu, sizeof(Opm::LinearizationType));
-  // linTypeFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, linTypeOnGpu);
-  // cudaMemcpy(&linTypeOnCpu, linTypeOnGpu, sizeof(Opm::LinearizationType), cudaMemcpyDeviceToHost);
+  Opm::LinearizationType linTypeOnCpu;
+  Opm::LinearizationType* linTypeOnGpu;
+  cudaMalloc(&linTypeOnGpu, sizeof(Opm::LinearizationType));
+  linTypeFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, linTypeOnGpu);
+  cudaMemcpy(&linTypeOnCpu, linTypeOnGpu, sizeof(Opm::LinearizationType), cudaMemcpyDeviceToHost);
 
-  // auto linTypeFromCPUSimulator = sim->problem().model().linearizer().getLinearizationType();
-  // BOOST_CHECK_EQUAL(linTypeOnCpu.type, linTypeFromCPUSimulator.type);
-  // cudaFree(linTypeOnGpu);
+  auto linTypeFromCPUSimulator = sim->problem().model().linearizer().getLinearizationType();
+  BOOST_CHECK_EQUAL(linTypeOnCpu.type, linTypeFromCPUSimulator.type);
+  cudaFree(linTypeOnGpu);
+
+  double rocmCompressibilityOnCpu;
+  double* rockCompressibilityOnGpu;
+  cudaMalloc(&rockCompressibilityOnGpu, sizeof(double));
+  rockCompressibilityFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, rockCompressibilityOnGpu);
+  cudaMemcpy(&rocmCompressibilityOnCpu, rockCompressibilityOnGpu, sizeof(double), cudaMemcpyDeviceToHost);
+
+  BOOST_CHECK_EQUAL(rocmCompressibilityOnCpu, sim->problem().rockCompressibility(0));
+  cudaFree(rockCompressibilityOnGpu);
 }
