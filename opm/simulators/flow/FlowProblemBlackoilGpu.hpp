@@ -54,7 +54,7 @@ namespace {
 namespace Opm {
 
 // This class is a simplified version of FlowProblem that should be GPU-instantiable
-template<class Scalar, template<class> class Storage = VectorWithDefaultAllocator>
+template<class Scalar, class TypeTag, template<class> class Storage = VectorWithDefaultAllocator>
 class FlowProblemBlackoilGpu {
 public:
     FlowProblemBlackoilGpu(
@@ -118,12 +118,12 @@ private:
 namespace gpuistl {
 
     template<class Scalar, template<class> class ContainerT, class TypeTag>
-    FlowProblemBlackoilGpu<Scalar, ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTag>& problem) {
+    FlowProblemBlackoilGpu<Scalar, TypeTag, ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTag>& problem) {
 
         static_assert(std::is_same_v<std::vector<Scalar>, decltype(problem.rockCompressibilitiesRaw())>);
         static_assert(std::is_same_v<std::vector<unsigned short>, decltype(problem.rockTableIdx())>);
 
-        return FlowProblemBlackoilGpu<Scalar, ContainerT>(
+        return FlowProblemBlackoilGpu<Scalar, TypeTag, ContainerT>(
             ContainerT(problem.satnumRegionArray()),
             problem.model().linearizer().getLinearizationType(),
             ContainerT(problem.rockTableIdx()),
@@ -131,9 +131,9 @@ namespace gpuistl {
         );
     }
 
-    template< template<class> class ViewT, template<class> class ContainerT, class Scalar>
-    FlowProblemBlackoilGpu<Scalar, ViewT> make_view(FlowProblemBlackoilGpu<Scalar, ContainerT> problem) {
-        return FlowProblemBlackoilGpu<Scalar, ViewT>(
+    template< template<class> class ViewT, class TypeTag, template<class> class ContainerT, class Scalar>
+    FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT> make_view(FlowProblemBlackoilGpu<Scalar, TypeTag, ContainerT> problem) {
+        return FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>(
             make_view<unsigned short>(problem.satnumRegionArray()),
             problem.model().linearizer().getLinearizationType(),
             make_view<unsigned short>(problem.rockTableIdx()),

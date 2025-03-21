@@ -49,7 +49,7 @@ Functionality tested:
 [X] - problem.model().linearizer().getLinearizationType()
 [X] - problem.satnumRegionIndex(globalSpaceIdx)
 [ ] - problem.materialLawParams(globalSpaceIdx)
-[ ] - problem.rockCompressibility(globalSpaceIdx)
+[X] - problem.rockCompressibility(globalSpaceIdx)
 [ ] - problem.rockReferencePressure(globalSpaceIdx)
 [ ] - problem.porosity(globalSpaceIdx, timeIdx)
 [ ] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx)
@@ -241,4 +241,6 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 
   BOOST_CHECK_EQUAL(rocmCompressibilityOnCpu, sim->problem().rockCompressibility(0));
   cudaFree(rockCompressibilityOnGpu);
+
+
 }
