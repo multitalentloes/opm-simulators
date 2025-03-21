@@ -226,8 +226,8 @@ public:
     { return satnum_; }
 
 
-    std::vector<Scalar>& rockCompressibilitiesRaw();
-    std::vector<unsigned short>& rockTableIdx();
+    std::vector<Scalar> rockCompressibilitiesRaw();
+    std::vector<unsigned short> rockTableIdx();
     /*!
      * \brief Returns the index the relevant MISC region given a cell index
      */

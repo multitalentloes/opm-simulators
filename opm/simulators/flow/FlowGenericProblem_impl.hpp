@@ -322,7 +322,7 @@ rockCompressibility(unsigned globalSpaceIdx) const
 }
 
 template<class GridView, class FluidSystem>
-std::vector<typename FlowGenericProblem<GridView,FluidSystem>::Scalar>&
+std::vector<typename FlowGenericProblem<GridView,FluidSystem>::Scalar>//&
 FlowGenericProblem<GridView,FluidSystem>::
 rockCompressibilitiesRaw(){
     auto result = std::vector<Scalar>(rockParams_.size());
@@ -334,7 +334,7 @@ rockCompressibilitiesRaw(){
 }
 
 template<class GridView, class FluidSystem>
-std::vector<unsigned short>&
+std::vector<unsigned short>//&
 FlowGenericProblem<GridView,FluidSystem>::
 rockTableIdx()
 {

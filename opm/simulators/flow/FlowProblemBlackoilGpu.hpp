@@ -119,6 +119,10 @@ namespace gpuistl {
 
     template<class Scalar, template<class> class ContainerT, class TypeTag>
     FlowProblemBlackoilGpu<Scalar, ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTag>& problem) {
+
+        static_assert(std::is_same_v<std::vector<Scalar>, decltype(problem.rockCompressibilitiesRaw())>);
+        static_assert(std::is_same_v<std::vector<unsigned short>, decltype(problem.rockTableIdx())>);
+
         return FlowProblemBlackoilGpu<Scalar, ContainerT>(
             ContainerT(problem.satnumRegionArray()),
             problem.model().linearizer().getLinearizationType(),
