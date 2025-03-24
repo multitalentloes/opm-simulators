@@ -248,6 +248,12 @@ public:
     {
     }
 
+    // DANGER - TODO: find a safer way to have a default constructor
+    PointerView()
+        : ptr_(nullptr)
+    {
+    }
+
     OPM_HOST_DEVICE T* get() const
     {
         return ptr_;
@@ -272,7 +278,11 @@ private:
     T* ptr_;
 };
 
-
+/**
+ * @brief Specialization of PointerView for void type
+ * This is needed beause we cannot have a PointerView<void> specialization
+ * due to dereferincing a void ptr
+ */
 template <>
 class PointerView<void>
 {
@@ -323,14 +333,18 @@ make_view(const std::unique_ptr<T, Deleter>& ptr)
     return PointerView<T>(ptr);
 }
 
-// This class is used to store objects directly that are typically stored as pointers in the CPU code
-// This  should contain a view, and the key purpose is to look like a pointer from the outside
+/**
+ * @brief A value stored with a pointer interface.
+ * Can be used to wrap objects in GPU kernels that were otherwise stored as pointers
+ */
 template<class T>
 class ValueAsPointer {
 public:
     using element_type = T;
 
     ValueAsPointer(const T& t) : value(t) {}
+
+    ValueAsPointer() = default;
 
     OPM_HOST_DEVICE T* operator->() {
         return &value;
@@ -339,7 +353,6 @@ public:
     OPM_HOST_DEVICE T* get() {
         return &value;
     }
-
 
     OPM_HOST_DEVICE const T* operator->() const {
         return &value;
@@ -360,4 +373,5 @@ private:
     T value;
 };
 } // namespace Opm::gpuistl
+
 #endif

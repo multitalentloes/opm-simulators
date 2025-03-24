@@ -137,6 +137,9 @@ public:
     Scalar referencePorosity(unsigned elementIdx, unsigned timeIdx) const
     { return referencePorosity_[timeIdx][elementIdx]; }
 
+    // get all the referenceporosityvalues
+    auto referencePorosity() const
+    { return referencePorosity_; }
 
     /*!
      * \brief Returns the rockFraction of an element
@@ -214,6 +217,16 @@ public:
      */
     unsigned satnumRegionIndex(unsigned elemIdx) const;
 
+    /*!
+     * \brief Returns all the indices of the saturation regions
+     */
+    const std::vector<unsigned short>& satnumRegionArray() const
+    { return satnum_; }
+
+
+    std::vector<Scalar> rockCompressibilitiesRaw();
+    std::vector<Scalar> rockReferencePressuresRaw();
+    std::vector<unsigned short> rockTableIdx();
     /*!
      * \brief Returns the index the relevant MISC region given a cell index
      */

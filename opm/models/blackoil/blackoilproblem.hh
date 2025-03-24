@@ -175,7 +175,9 @@ public:
     template <class LhsEval>
     LhsEval rockCompTransMultiplier(const IntensiveQuantities&,
                                     unsigned) const
-    { return 1.0; }
+    { 
+        printf("no need to implement");
+        return 1.0; }
 
 private:
     //! Returns the implementation of the problem (i.e. static polymorphism)
