@@ -372,7 +372,7 @@ public:
      * \brief Update the temperature of the intensive quantity's fluid state
      *
      */
-    void updateTemperature_(const ElementContext& elemCtx,
+    OPM_HOST_DEVICE void updateTemperature_(const ElementContext& elemCtx,
                             unsigned dofIdx,
                             unsigned timeIdx)
     {
@@ -387,7 +387,7 @@ public:
      * \brief Update the temperature of the intensive quantity's fluid state
      *
      */
-    void updateTemperature_([[maybe_unused]] const Problem& problem,
+    OPM_HOST_DEVICE OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const Problem& problem,
                             const PrimaryVariables& priVars,
                             [[maybe_unused]] unsigned globalDofIdx,
                             const unsigned timeIdx,
@@ -449,7 +449,7 @@ public:
     { return rockFraction_; }
 
 protected:
-    Implementation& asImp_()
+    OPM_HOST_DEVICE Implementation& asImp_()
     { return *static_cast<Implementation*>(this); }
 
     Evaluation rockInternalEnergy_;
@@ -471,7 +471,7 @@ class BlackOilEnergyIntensiveQuantities<TypeTag, false>
     static constexpr bool enableTemperature = getPropValue<TypeTag, Properties::EnableTemperature>();
 
 public:
-    void updateTemperature_([[maybe_unused]] const ElementContext& elemCtx,
+    OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const ElementContext& elemCtx,
                             [[maybe_unused]] unsigned dofIdx,
                             [[maybe_unused]] unsigned timeIdx)
     {
@@ -485,7 +485,7 @@ public:
     }
 
     template<class Problem>
-    void updateTemperature_([[maybe_unused]] const Problem& problem,
+    OPM_HOST_DEVICE void updateTemperature_([[maybe_unused]] const Problem& problem,
                             [[maybe_unused]] const PrimaryVariables& priVars,
                             [[maybe_unused]] unsigned globalDofIdx,
                             [[maybe_unused]] unsigned timeIdx,
@@ -520,7 +520,7 @@ public:
     }
 
 protected:
-    Implementation& asImp_()
+OPM_HOST_DEVICE Implementation& asImp_()
     { return *static_cast<Implementation*>(this); }
 };
 
@@ -701,7 +701,7 @@ public:
     { return energyFlux_; }
 
 private:
-    Implementation& asImp_()
+OPM_HOST_DEVICE Implementation& asImp_()
     { return *static_cast<Implementation*>(this); }
 
     Evaluation energyFlux_;
