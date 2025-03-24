@@ -31,6 +31,8 @@
 #ifndef OPM_FLOW_PROBLEM_BLACK_HPP
 #define OPM_FLOW_PROBLEM_BLACK_HPP
 
+#include <opm/common/utility/gpuDecorators.hpp>
+
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/DryGasPvt.hpp>
 #include <opm/material/fluidsystems/blackoilpvt/WetGasPvt.hpp>

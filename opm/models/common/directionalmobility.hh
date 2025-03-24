@@ -26,6 +26,7 @@
 #ifndef OPM_MODELS_DIRECTIONAL_MOBILITY_HH
 #define OPM_MODELS_DIRECTIONAL_MOBILITY_HH
 
+#include <opm/common/utility/gpuDecorators.hpp>
 #include <opm/models/common/multiphasebaseproperties.hh>
 #include <opm/models/utils/propertysystem.hh>
 #include <opm/material/densead/Evaluation.hpp>
@@ -43,12 +44,12 @@ struct DirectionalMobility {
     //using Evaluation = GetPropType<TypeTag, Properties::Evaluation>;
 
     using array_type = std::array<Evaluation,numPhases>;
-    DirectionalMobility(const DirectionalMobility& other)
+    OPM_HOST_DEVICE DirectionalMobility(const DirectionalMobility& other)
         : mobilityX_{other.mobilityX_}, mobilityY_{other.mobilityY_}, mobilityZ_{other.mobilityZ_} {}
-    DirectionalMobility(const array_type& mX, const array_type& mY, const array_type& mZ)
+    OPM_HOST_DEVICE  DirectionalMobility(const array_type& mX, const array_type& mY, const array_type& mZ)
         : mobilityX_{mX}, mobilityY_{mY}, mobilityZ_{mZ} {}
-    DirectionalMobility() : mobilityX_{}, mobilityY_{}, mobilityZ_{} {}
-    array_type& getArray(int index) {
+    OPM_HOST_DEVICE  DirectionalMobility() : mobilityX_{}, mobilityY_{}, mobilityZ_{} {}
+    OPM_HOST_DEVICE array_type& getArray(int index) {
         switch(index) {
             case 0:
                 return mobilityX_;

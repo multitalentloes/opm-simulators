@@ -132,15 +132,15 @@ struct BlackOilIndices
 
     //! Index of the primary variable for the first solvent
     static constexpr int solventSaturationIdx =
-        enableSolvent ? PVOffset + numPhases : -1000;
+        enableSolvent ? int(PVOffset + numPhases) : -1000;
 
     //! Index of the primary variable for the first extbo component
     static constexpr int zFractionIdx =
-        enableExtbo ? PVOffset + numPhases + numSolvents : -1000;
+        enableExtbo ? int(PVOffset + numPhases + numSolvents) : -1000;
 
     //! Index of the primary variable for the first polymer
     static constexpr int polymerConcentrationIdx =
-        enablePolymer ? PVOffset + numPhases + numSolvents : -1000;
+        enablePolymer ? int(PVOffset + numPhases + numSolvents) : -1000;
 
     //! Index of the primary variable for the second polymer primary variable (molecular weight)
     static constexpr int polymerMoleWeightIdx =
@@ -148,7 +148,7 @@ struct BlackOilIndices
 
     //! Index of the primary variable for the first MICP component
     static constexpr int microbialConcentrationIdx =
-        enableMICP ? PVOffset + numPhases + numSolvents : -1000;
+        enableMICP ? int(PVOffset + numPhases + numSolvents) : -1000;
 
     //! Index of the primary variable for the second MICP component
     static constexpr int oxygenConcentrationIdx =
@@ -168,15 +168,15 @@ struct BlackOilIndices
 
     //! Index of the primary variable for the foam
     static constexpr int foamConcentrationIdx =
-        enableFoam ? PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs : -1000;
+        enableFoam ? int(PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs) : -1000;
 
     //! Index of the primary variable for the brine
     static constexpr int saltConcentrationIdx =
-        enableBrine ? PVOffset + numPhases + numSolvents + numExtbos + numExtbos + numPolymers + numMICPs + numFoam : -1000;
+        enableBrine ? int(PVOffset + numPhases + numSolvents + numExtbos + numExtbos + numPolymers + numMICPs + numFoam) : -1000;
 
     //! Index of the primary variable for temperature
     static constexpr int temperatureIdx  =
-        enableEnergy ? PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs + numFoam + numBrine : - 1000;
+        enableEnergy ? int(PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs + numFoam + numBrine) : - 1000;
 
 
     ////////
@@ -189,15 +189,15 @@ struct BlackOilIndices
 
     //! Index of the continuity equation for the first solvent component
     static constexpr int contiSolventEqIdx =
-        enableSolvent ? PVOffset + numPhases : -1000;
+        enableSolvent ? int(PVOffset + numPhases) : -1000;
 
     //! Index of the continuity equation for the first extbo component
     static constexpr int contiZfracEqIdx =
-        enableExtbo ? PVOffset + numPhases + numSolvents : -1000;
+        enableExtbo ? int(PVOffset + numPhases + numSolvents) : -1000;
 
     //! Index of the continuity equation for the first polymer component
     static constexpr int contiPolymerEqIdx =
-        enablePolymer ? PVOffset + numPhases + numSolvents + numExtbos : -1000;
+        enablePolymer ? int(PVOffset + numPhases + numSolvents + numExtbos) : -1000;
 
     //! Index of the continuity equation for the second polymer component (molecular weight)
     static constexpr int contiPolymerMWEqIdx =
@@ -205,7 +205,7 @@ struct BlackOilIndices
 
     //! Index of the continuity equation for the first MICP component
     static constexpr int contiMicrobialEqIdx =
-        enableMICP ? PVOffset + numPhases + numSolvents + numExtbos : -1000;
+        enableMICP ? int(PVOffset + numPhases + numSolvents + numExtbos) : -1000;
 
     //! Index of the continuity equation for the second MICP component
     static constexpr int contiOxygenEqIdx =
@@ -225,15 +225,15 @@ struct BlackOilIndices
 
     //! Index of the continuity equation for the foam component
     static constexpr int contiFoamEqIdx =
-        enableFoam ? PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs : -1000;
+        enableFoam ? int(PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs) : -1000;
 
     //! Index of the continuity equation for the salt water component
     static constexpr int contiBrineEqIdx =
-        enableBrine ? PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs + numFoam : -1000;
+        enableBrine ? int(PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs + numFoam) : -1000;
 
     //! Index of the continuity equation for energy
     static constexpr int contiEnergyEqIdx =
-        enableEnergy ? PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs + numFoam + numBrine: -1000;
+        enableEnergy ? int(PVOffset + numPhases + numSolvents + numExtbos + numPolymers + numMICPs + numFoam + numBrine): -1000;
 };
 
 } // namespace Opm

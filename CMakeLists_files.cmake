@@ -489,6 +489,9 @@ if (HAVE_CUDA)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_gpu_resources.cu)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_is_gpu_pointer.cpp)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_throw_macros_on_gpu.cu)
+  ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_gpuBlackOilFluidSystem.cu)
+  ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_blackoilintensivequantities_gpu.cu)
+  ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_primary_variables_gpu.cu)
   if(MPI_FOUND)
     ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_GpuOwnerOverlapCopy.cpp)
   endif()
@@ -499,10 +502,21 @@ if (HAVE_CUDA)
       tests/gpuistl/test_gpu_ad.cu
       tests/gpuistl/test_gpu_linear_two_phase_material.cu
       tests/gpuistl/test_gpuPvt.cu
+      tests/gpuistl/test_gpuBlackOilFluidSystem.cu
+      tests/gpuistl/test_blackoilintensivequantities_gpu.cu
     )
 
     foreach(file ${CU_FILES_NEEDING_RELAXED_CONSTEXPR})
         set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS "--expt-relaxed-constexpr")
+    endforeach()
+
+    set(CU_FILES_NEEDING_FPERMISSIVE
+      tests/gpuistl/test_primary_variables_gpu.cu
+      tests/gpuistl/test_blackoilintensivequantities_gpu.cu
+    )
+
+    foreach(file ${CU_FILES_NEEDING_FPERMISSIVE})
+      set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS "-fpermissive --expt-relaxed-constexpr -Xcompiler=-fpermissive")
     endforeach()
   endif()
 endif()
