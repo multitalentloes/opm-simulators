@@ -492,6 +492,7 @@ if (HAVE_CUDA)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_gpuBlackOilFluidSystem.cu)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_blackoilintensivequantities_gpu.cu)
   ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_primary_variables_gpu.cu)
+  ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_gpuflowproblem.cu)
   if(MPI_FOUND)
     ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_GpuOwnerOverlapCopy.cpp)
   endif()
@@ -504,6 +505,7 @@ if (HAVE_CUDA)
       tests/gpuistl/test_gpuPvt.cu
       tests/gpuistl/test_gpuBlackOilFluidSystem.cu
       tests/gpuistl/test_blackoilintensivequantities_gpu.cu
+      tests/gpuistl/test_gpuflowproblem.cu
     )
 
     foreach(file ${CU_FILES_NEEDING_RELAXED_CONSTEXPR})
