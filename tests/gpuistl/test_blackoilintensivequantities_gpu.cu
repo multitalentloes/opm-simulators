@@ -19,7 +19,7 @@
 
 #include <stdexcept>
 
-#define BOOST_TEST_MODULE TestDenseVector
+#define BOOST_TEST_MODULE TestBlackOilIntensiveQuantitiesGPU
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -48,10 +48,36 @@
 #include <opm/input/eclipse/Schedule/Schedule.hpp>
 #include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
 #include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
+#include <opm/simulators/flow/FlowProblemBlackoilGpu.hpp>
 
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
 #include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
+
+#include <opm/material/densead/Evaluation.hpp>
+#include <opm/material/fluidmatrixinteractions/EclMaterialLawManagerSimple.hpp>
+
+#include <opm/models/blackoil/blackoilmodel.hh>
+#include <opm/models/discretization/common/tpfalinearizer.hh>
+#include <opm/models/utils/simulator.hh>
+
+#include <opm/simulators/utils/moduleVersion.hpp>
+#include <opm/simulators/flow/FlowProblemBlackoilGpu.hpp>
+#include <opm/simulators/flow/FlowProblemBlackoil.hpp>
+#include <opm/simulators/flow/FlowProblemBlackoilProperties.hpp>
+
+#include <opm/simulators/flow/BlackoilModelParameters.hpp>
+#include <opm/simulators/flow/FlowGenericVanguard.hpp>
+#include <opm/simulators/flow/FlowProblemBlackoil.hpp>
+#include <opm/simulators/flow/FlowProblemBlackoilProperties.hpp>
+#include <opm/simulators/flow/equil/EquilibrationHelpers.hpp>
+#include <opm/simulators/linalg/parallelbicgstabbackend.hh>
+#include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuView.hpp>
+#include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
+#include <opm/simulators/wells/BlackoilWellModel.hpp>
+
 
 static constexpr const char* deckString1 =
 "-- =============== RUNSPEC\n"
@@ -268,7 +294,7 @@ namespace {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCrationGPU) 
+BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU) 
 {
   Opm::Parser parser;
 
@@ -297,4 +323,51 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCrationGPU)
   testCreationGPU<<<1, 1>>>(dynamicGpuFluidSystemView);
   OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
   OPM_GPU_SAFE_CALL(cudaGetLastError());
+}
+
+
+BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
+{
+  using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
+  // FIXTURE FROM TEST EQUIL
+  int argc1 = boost::unit_test::framework::master_test_suite().argc;
+  char** argv1 = boost::unit_test::framework::master_test_suite().argv;
+
+#if HAVE_DUNE_FEM
+  Dune::Fem::MPIManager::initialize(argc1, argv1);
+#else
+  Dune::MPIHelper::instance(argc1, argv1);
+#endif
+
+  using namespace Opm;
+  FlowGenericVanguard::setCommunication(std::make_unique<Opm::Parallel::Communication>());
+  Opm::ThreadManager::registerParameters();
+  BlackoilModelParameters<double>::registerParameters();
+  AdaptiveTimeStepping<TypeTag>::registerParameters();
+  Parameters::Register<Parameters::EnableTerminalOutput>("Dummy added for the well model to compile.");
+  registerAllParameters_<TypeTag>();
+
+  // END OF FIXTURE FROM TEST EQUIL
+
+  using Simulator = Opm::GetPropType<TypeTag, Opm::Properties::Simulator>;
+
+  // TODO: will this actually refer to the very_simple_deck.DATA inside the gpuistl folder,
+  // TODO: do we need to keep track of the path since it can be hipified?
+  const std::string filename = "very_simple_deck.DATA";
+  const auto filenameArg = std::string {"--ecl-deck-file-name="} + filename;
+
+  const char* argv2[] = {
+      "test_gpuflowproblem",
+      filenameArg.c_str(),
+      "--check-satfunc-consistency=false",
+  };
+
+  Opm::setupParameters_<TypeTag>(/*argc=*/sizeof(argv2)/sizeof(argv2[0]), argv2, /*registerParams=*/false);
+
+  Opm::FlowGenericVanguard::readDeck(filename);
+
+  auto sim = std::make_unique<Simulator>();
+
+//  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
+ // auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
 }

@@ -792,8 +792,9 @@ public:
                 case Dir::ZMinus:
                 case Dir::ZPlus:
                     return dirMob_->mobilityZ_[phaseIdx];
-                default:
-                    throw std::runtime_error("Unexpected face direction");
+                default: {
+                    OPM_THROW(std::runtime_error, "Unexpected face direction");
+                }
             }
         }
         else {

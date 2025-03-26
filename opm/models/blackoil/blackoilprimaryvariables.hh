@@ -193,7 +193,8 @@ public:
         return result;
     }
 
-    OPM_HOST_DEVICE static void init()
+    
+    static void init()
     {
         // TODO: these parameters have undocumented non-trivial dependencies
         pressureScaleStatic_ = Parameters::Get<Parameters::PressureScale<Scalar>>();
@@ -477,7 +478,7 @@ public:
                 this->setScaledPressure_(FsToolbox::value(fluidState.pressure(waterPhaseIdx)));
                 break;
             default:
-                throw std::logic_error("No valid primary variable selected for pressure");
+                OPM_THROW(std::logic_error, "No valid primary variable selected for pressure");
         }
         switch(primaryVarsMeaningWater()) {
             case WaterMeaning::Sw:
@@ -502,7 +503,7 @@ public:
                 break;
             }
             default:
-                throw std::logic_error("No valid primary variable selected for water");
+                OPM_THROW(std::logic_error, "No valid primary variable selected for water");
         }
         switch(primaryVarsMeaningGas()) {
             case GasMeaning::Sg:
@@ -527,7 +528,9 @@ public:
                 break;
             }
             default:
-                throw std::logic_error("No valid primary variable selected for composision");
+            {
+                OPM_THROW(std::logic_error, "No valid primary variable selected for composision");
+            }
         }
     }
 
