@@ -541,6 +541,7 @@ if(HDF5_FOUND)
 endif()
 
 list (APPEND TEST_DATA_FILES
+  tests/very_simple_deck.DATA
   tests/equil_base.DATA
   tests/equil_capillary.DATA
   tests/equil_capillary_overlap.DATA
@@ -875,6 +876,7 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/simulators/flow/FlowMain.hpp
   opm/simulators/flow/FlowProblem.hpp
   opm/simulators/flow/FlowProblemBlackoil.hpp
+  opm/simulators/flow/FlowProblemBlackoilGpu.hpp
   opm/simulators/flow/FlowProblemBlackoilProperties.hpp
   opm/simulators/flow/FlowProblemComp.hpp
   opm/simulators/flow/FlowProblemCompProperties.hpp

@@ -322,6 +322,26 @@ rockCompressibility(unsigned globalSpaceIdx) const
 }
 
 template<class GridView, class FluidSystem>
+std::vector<typename FlowGenericProblem<GridView,FluidSystem>::Scalar>//&
+FlowGenericProblem<GridView,FluidSystem>::
+rockCompressibilitiesRaw(){
+    auto result = std::vector<Scalar>(rockParams_.size());
+    for (std::size_t i = 0; i < rockParams_.size(); ++i)
+    {
+        result[i] = rockParams_[i].compressibility;
+    }
+    return result;
+}
+
+template<class GridView, class FluidSystem>
+std::vector<unsigned short>//&
+FlowGenericProblem<GridView,FluidSystem>::
+rockTableIdx()
+{
+    return rockTableIdx_;
+}
+
+template<class GridView, class FluidSystem>
 typename FlowGenericProblem<GridView,FluidSystem>::Scalar
 FlowGenericProblem<GridView,FluidSystem>::
 porosity(unsigned globalSpaceIdx, unsigned timeIdx) const

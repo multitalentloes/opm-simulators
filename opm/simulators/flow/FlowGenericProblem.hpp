@@ -220,6 +220,15 @@ public:
     unsigned satnumRegionIndex(unsigned elemIdx) const;
 
     /*!
+     * \brief Returns all the indices of the saturation regions
+     */
+    const std::vector<unsigned short>& satnumRegionArray() const
+    { return satnum_; }
+
+
+    std::vector<Scalar> rockCompressibilitiesRaw();
+    std::vector<unsigned short> rockTableIdx();
+    /*!
      * \brief Returns the index the relevant MISC region given a cell index
      */
     unsigned miscnumRegionIndex(unsigned elemIdx) const;

@@ -272,7 +272,11 @@ private:
     T* ptr_;
 };
 
-
+/**
+ * @brief Specialization of PointerView for void type
+ * This is needed beause we cannot have a PointerView<void> specialization
+ * due to dereferincing a void ptr
+ */
 template <>
 class PointerView<void>
 {
@@ -323,8 +327,10 @@ make_view(const std::unique_ptr<T, Deleter>& ptr)
     return PointerView<T>(ptr);
 }
 
-// This class is used to store objects directly that are typically stored as pointers in the CPU code
-// This  should contain a view, and the key purpose is to look like a pointer from the outside
+/**
+ * @brief A value stored with a pointer interface.
+ * Can be used to wrap objects in GPU kernels that were otherwise stored as pointers
+ */
 template<class T>
 class ValueAsPointer {
 public:
@@ -339,7 +345,6 @@ public:
     OPM_HOST_DEVICE T* get() {
         return &value;
     }
-
 
     OPM_HOST_DEVICE const T* operator->() const {
         return &value;

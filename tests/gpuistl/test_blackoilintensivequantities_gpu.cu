@@ -368,6 +368,6 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 
   auto sim = std::make_unique<Simulator>();
 
-//  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
+  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
  // auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
 }
