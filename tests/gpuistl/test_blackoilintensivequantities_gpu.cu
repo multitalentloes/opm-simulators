@@ -318,7 +318,7 @@ namespace {
     intensiveQuantities.updatePhaseDensities();
     printf("BlackOilState density after update: %f\n", state.density(0));
 
-    //intensiveQuantities.update(problem, primaryVariables, 0, 0);
+    intensiveQuantities.update(problem, primaryVariables, 0, 0);
     printf("Updating succeeded");
   }
 }
@@ -397,7 +397,7 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 
   auto sim = std::make_unique<Simulator>();
 
-  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
+  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag, TypeTagGPU>(sim->problem());
   auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
   auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
 
