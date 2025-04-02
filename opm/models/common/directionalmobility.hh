@@ -27,6 +27,7 @@
 #define OPM_MODELS_DIRECTIONAL_MOBILITY_HH
 
 #include <opm/common/utility/gpuDecorators.hpp>
+#include <opm/common/ErrorMacros.hpp>
 #include <opm/models/common/multiphasebaseproperties.hh>
 #include <opm/models/utils/propertysystem.hh>
 #include <opm/material/densead/Evaluation.hpp>
@@ -58,7 +59,7 @@ struct DirectionalMobility {
             case 2:
                 return mobilityZ_;
             default:
-                throw std::runtime_error("Unexpected mobility array index");
+                OPM_THROW(std::runtime_error, "Unexpected mobility array index");
         }
     }
     array_type mobilityX_;

@@ -138,6 +138,8 @@ using FluidSystem = Opm::BlackOilFluidSystem<double>;
 using Evaluation = Opm::DenseAd::Evaluation<double,2>;
 using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
 using BlackOilFluidSystemView = Opm::BlackOilFluidSystemNonStatic<double, Opm::BlackOilDefaultIndexTraits, Opm::gpuistl::GpuView, Opm::gpuistl::ValueAsPointer>;
+template<class TypeTag>
+using FlowProblemView = Opm::FlowProblemBlackoilGpu<double, TypeTag, Opm::gpuistl::GpuView>;
 
 template<class TypeTag>
 struct DummyProblem {
@@ -186,6 +188,10 @@ namespace Opm {
           struct FlowSimpleProblemGPU {
               using InheritsFrom = std::tuple<FlowSimpleProblem>;
           };
+
+          struct FlowSimpleDummyProblemGPU {
+            using InheritsFrom = std::tuple<FlowSimpleProblem>;
+        };
 
       }
 
@@ -264,7 +270,13 @@ namespace Opm {
       struct IntensiveQuantities<TypeTag, TTag::FlowSimpleProblem> { using type = BlackOilIntensiveQuantities<TypeTag>; };
 
       template<class TypeTag>
-      struct Problem<TypeTag, TTag::FlowSimpleProblemGPU> { using type = DummyProblem<TypeTag>; };
+      struct Problem<TypeTag, TTag::FlowSimpleDummyProblemGPU> { using type = DummyProblem<TypeTag>; };
+
+      template<class TypeTag>
+      struct FluidSystem<TypeTag, TTag::FlowSimpleDummyProblemGPU> { using type = BlackOilFluidSystemView; };
+
+      template<class TypeTag>
+      struct Problem<TypeTag, TTag::FlowSimpleProblemGPU> { using type = FlowProblemView<TypeTag>; };
 
       template<class TypeTag>
       struct FluidSystem<TypeTag, TTag::FlowSimpleProblemGPU> { using type = BlackOilFluidSystemView; };
@@ -274,7 +286,9 @@ namespace Opm {
 }
 
 using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-using TypeNacht = Opm::Properties::TTag::FlowSimpleProblemGPU;
+using TypeNacht = Opm::Properties::TTag::FlowSimpleDummyProblemGPU;
+using TypeTagGPU = Opm::Properties::TTag::FlowSimpleProblemGPU;
+
 #if 1
 
 #endif
@@ -290,6 +304,21 @@ namespace {
     printf("BlackOilState density after update: %f\n", state.density(0));
 
     intensiveQuantities.update(problem, primaryVariables, 0, 0);
+    printf("Updating succeeded");
+  }
+
+  template<class ProblemType>
+  __global__ void testCreationGPUWithProblem(BlackOilFluidSystemView fs, ProblemType problem) {
+
+
+    Opm::BlackOilPrimaryVariables<TypeTagGPU, Opm::gpuistl::dense::FieldVector> primaryVariables;
+    Opm::BlackOilIntensiveQuantities<TypeTagGPU> intensiveQuantities (&fs);
+    auto& state = intensiveQuantities.fluidState();
+    printf("BlackOilState density before update: %f\n", state.density(0));
+    intensiveQuantities.updatePhaseDensities();
+    printf("BlackOilState density after update: %f\n", state.density(0));
+
+    //intensiveQuantities.update(problem, primaryVariables, 0, 0);
     printf("Updating succeeded");
   }
 }
@@ -369,5 +398,11 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   auto sim = std::make_unique<Simulator>();
 
   auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag>(sim->problem());
- // auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
+  auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
+  auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
+
+  auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+  auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
+
+  testCreationGPUWithProblem<<<1, 1>>>(dynamicGpuFluidSystemView, problemGpuView);
 }
