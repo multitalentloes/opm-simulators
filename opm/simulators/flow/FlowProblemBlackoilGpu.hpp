@@ -2,7 +2,7 @@
 // vi: set et ts=4 sw=4 sts=4:
 /*
   Copyright 2025 EQUINOR
-  
+
   This file is part of the Open Porous Media project (OPM).
 
   OPM is free software: you can redistribute it and/or modify
@@ -33,63 +33,70 @@
 
 #include <opm/simulators/flow/FlowProblemBlackoil.hpp>
 
-namespace {
-    struct Model {
-        struct Linearizer {
-            OPM_HOST_DEVICE Opm::LinearizationType getLinearizationType() const {
-                return linearizationType_;
-            }
-            Opm::LinearizationType linearizationType_;
-        };
-
-        OPM_HOST_DEVICE Linearizer linearizer() {
-            return linearizer_;
+namespace
+{
+struct Model {
+    struct Linearizer {
+        OPM_HOST_DEVICE Opm::LinearizationType getLinearizationType() const
+        {
+            return linearizationType_;
         }
-
-        Linearizer linearizer_;
+        Opm::LinearizationType linearizationType_;
     };
 
-}
+    OPM_HOST_DEVICE Linearizer linearizer()
+    {
+        return linearizer_;
+    }
 
-namespace Opm {
+    Linearizer linearizer_;
+};
+
+} // namespace
+
+namespace Opm
+{
 
 // This class is a simplified version of FlowProblem that should be GPU-instantiable
-template<class Scalar, class TypeTag, template<class> class Storage = VectorWithDefaultAllocator>
-class FlowProblemBlackoilGpu {
+template <class Scalar, class TypeTag, template <class> class Storage = VectorWithDefaultAllocator>
+class FlowProblemBlackoilGpu
+{
 public:
-    FlowProblemBlackoilGpu(
-        Storage<unsigned short> satNum,
-        LinearizationType linearizationType,
-        Storage<unsigned short> rockTableIdx,
-        Storage<Scalar> rockCompressibility
-    )
+    FlowProblemBlackoilGpu(Storage<unsigned short> satNum,
+                           LinearizationType linearizationType,
+                           Storage<unsigned short> rockTableIdx,
+                           Storage<Scalar> rockCompressibility)
         : satNum_(satNum)
         , linearizationType_(linearizationType)
         , rockTableIdx_(rockTableIdx)
         , rockCompressibility_(rockCompressibility)
-    {}
+    {
+    }
 
     OPM_HOST_DEVICE unsigned short satnumRegionIndex(size_t elemIdx) const
     {
-        if (satNum_.size() == 0){
+        if (satNum_.size() == 0) {
             return 0;
         }
 
         return satNum_[elemIdx];
     }
 
-    Storage<unsigned short>& satnumRegionArray() {
+    Storage<unsigned short>& satnumRegionArray()
+    {
         return satNum_;
     }
 
-    //problem.model().linearizer().getLinearizationType()
-    OPM_HOST_DEVICE Model model() {
+    // problem.model().linearizer().getLinearizationType()
+    OPM_HOST_DEVICE Model model() const
+    {
         Model m;
         m.linearizer_.linearizationType_ = linearizationType_;
         return m;
     }
 
-    OPM_HOST_DEVICE Scalar rockCompressibility(unsigned globalSpaceIdx) const {
+    OPM_HOST_DEVICE Scalar rockCompressibility(unsigned globalSpaceIdx) const
+    {
         if (rockCompressibility_.size() == 0)
             return 0.0;
 
@@ -100,13 +107,63 @@ public:
         return rockCompressibility_[tableIdx];
     }
 
-    Storage<unsigned short>& rockTableIdx() {
+    Storage<unsigned short>& rockTableIdx()
+    {
         return rockTableIdx_;
     }
 
-    Storage<Scalar>& rockCompressibilitiesRaw() {
+    Storage<Scalar>& rockCompressibilitiesRaw()
+    {
         return rockCompressibility_;
     }
+
+    // Below are the dummy functions, to be removed
+    using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
+    using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
+    using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
+
+    OPM_HOST_DEVICE MaterialLawParams materialLawParams(std::size_t) const
+    {
+        return MaterialLawParams();
+    }
+    OPM_HOST_DEVICE double rockReferencePressure(std::size_t) const
+    {
+        return 0.0;
+    }
+    OPM_HOST_DEVICE double porosity(std::size_t, unsigned int) const
+    {
+        return 0.0;
+    }
+    OPM_HOST_DEVICE double maxOilVaporizationFactor(unsigned int, std::size_t) const
+    {
+        return 0.0;
+    }
+    OPM_HOST_DEVICE double maxGasDissolutionFactor(unsigned int, std::size_t) const
+    {
+        return 0.0;
+    }
+    OPM_HOST_DEVICE double maxOilSaturation(std::size_t) const
+    {
+        return 0.0;
+    }
+
+    template <class Evaluation>
+    OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const auto&, std::size_t) const
+    {
+        return Evaluation(0.0);
+    }
+
+    template <class A, class B, class C>
+    OPM_HOST_DEVICE void updateRelperms(A&, B&, const C&, std::size_t) const
+    {
+    }
+
+    template <class Evaluation>
+    OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const auto&, std::size_t) const
+    {
+        return Evaluation(0.0);
+    }
+    // end dummy functions.
 
 private:
     Storage<unsigned short> satNum_;
@@ -115,10 +172,12 @@ private:
     LinearizationType linearizationType_;
 };
 
-namespace gpuistl {
+namespace gpuistl
+{
 
-    template<class Scalar, template<class> class ContainerT, class TypeTagFrom, class TypeTagTo>
-    FlowProblemBlackoilGpu<Scalar, TypeTagTo, ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem) {
+    template <class Scalar, template <class> class ContainerT, class TypeTagFrom, class TypeTagTo>
+    FlowProblemBlackoilGpu<Scalar, TypeTagTo, ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem)
+    {
 
         static_assert(std::is_same_v<std::vector<Scalar>, decltype(problem.rockCompressibilitiesRaw())>);
         static_assert(std::is_same_v<std::vector<unsigned short>, decltype(problem.rockTableIdx())>);
@@ -127,22 +186,21 @@ namespace gpuistl {
             ContainerT(problem.satnumRegionArray()),
             problem.model().linearizer().getLinearizationType(),
             ContainerT(problem.rockTableIdx()),
-            ContainerT(problem.rockCompressibilitiesRaw())
-        );
+            ContainerT(problem.rockCompressibilitiesRaw()));
     }
 
-    template< template<class> class ViewT, class TypeTag, template<class> class ContainerT, class Scalar>
-    FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT> make_view(FlowProblemBlackoilGpu<Scalar, TypeTag, ContainerT> problem) {
-        return FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>(
-            make_view<unsigned short>(problem.satnumRegionArray()),
-            problem.model().linearizer().getLinearizationType(),
-            make_view<unsigned short>(problem.rockTableIdx()),
-            make_view<Scalar>(problem.rockCompressibilitiesRaw())
-        );
+    template <template <class> class ViewT, class TypeTag, template <class> class ContainerT, class Scalar>
+    FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>
+    make_view(FlowProblemBlackoilGpu<Scalar, TypeTag, ContainerT> problem)
+    {
+        return FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>(make_view<unsigned short>(problem.satnumRegionArray()),
+                                                              problem.model().linearizer().getLinearizationType(),
+                                                              make_view<unsigned short>(problem.rockTableIdx()),
+                                                              make_view<Scalar>(problem.rockCompressibilitiesRaw()));
     }
 
-}
+} // namespace gpuistl
 
-}
+} // namespace Opm
 
 #endif // OPM_FLOW_PROBLEM_BLACKOILGPU_HPP
