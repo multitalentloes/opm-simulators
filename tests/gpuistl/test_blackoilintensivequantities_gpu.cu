@@ -146,6 +146,7 @@ struct DummyProblem {
   using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
   using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
   using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
+  using IntensiveQuantities = typename Opm::GetPropType<TypeTag, Opm::Properties::IntensiveQuantities>;
   struct {
     struct {
       OPM_HOST_DEVICE Opm::LinearizationType getLinearizationType() const { return Opm::LinearizationType(); }
@@ -166,7 +167,7 @@ struct DummyProblem {
   OPM_HOST_DEVICE double maxOilSaturation(std::size_t) const { return 0.0; }
 
   template<class Evaluation>
-  OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const auto&, std::size_t) const {
+  OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const IntensiveQuantities&, std::size_t) const {
     return Evaluation(0.0);
   }
 
@@ -174,7 +175,7 @@ struct DummyProblem {
   OPM_HOST_DEVICE void updateRelperms(A&, B&, const C&, std::size_t) const {}
 
   template<class Evaluation>
-  OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const auto&, std::size_t) const {
+  OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const IntensiveQuantities&, std::size_t) const {
     return Evaluation(0.0);
   }
 };
@@ -299,9 +300,9 @@ namespace {
     Opm::BlackOilPrimaryVariables<TypeNacht, Opm::gpuistl::dense::FieldVector> primaryVariables;
     Opm::BlackOilIntensiveQuantities<TypeNacht> intensiveQuantities (&fs);
     auto& state = intensiveQuantities.fluidState();
-    printf("BlackOilState density before update: %f\n", state.density(0));
+    printf("BlackOilState density before update: %f\n", state.density(0).value());
     intensiveQuantities.updatePhaseDensities();
-    printf("BlackOilState density after update: %f\n", state.density(0));
+    printf("BlackOilState density after update: %f\n", state.density(0).value());
 
     intensiveQuantities.update(problem, primaryVariables, 0, 0);
     printf("Updating succeeded");
@@ -314,9 +315,9 @@ namespace {
     Opm::BlackOilPrimaryVariables<TypeTagGPU, Opm::gpuistl::dense::FieldVector> primaryVariables;
     Opm::BlackOilIntensiveQuantities<TypeTagGPU> intensiveQuantities (&fs);
     auto& state = intensiveQuantities.fluidState();
-    printf("BlackOilState density before update: %f\n", state.density(0));
+    printf("BlackOilState density before update: %f\n", state.density(0).value());
     intensiveQuantities.updatePhaseDensities();
-    printf("BlackOilState density after update: %f\n", state.density(0));
+    printf("BlackOilState density after update: %f\n", state.density(0).value());
 
     intensiveQuantities.update(problem, primaryVariables, 0, 0);
     printf("Updating succeeded");
@@ -343,9 +344,9 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
 
   intensiveQuantities.printme();
   auto& state = intensiveQuantities.fluidState();
-  printf("(CPU) BlackOilState density before update: %f\n", state.density(0));
+  printf("(CPU) BlackOilState density before update: %f\n", state.density(0).value());
   intensiveQuantities.updatePhaseDensities();
-  printf("(CPU) BlackOilState density after update: %f\n", state.density(0));
+  printf("(CPU) BlackOilState density after update: %f\n", state.density(0).value());
 
   using PrimaryVariables = Opm::GetPropType<TypeTag, Opm::Properties::PrimaryVariables>;
   std::cout << typeid(PrimaryVariables).name() << std::endl;

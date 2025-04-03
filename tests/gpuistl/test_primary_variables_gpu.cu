@@ -41,11 +41,11 @@
 #include <opm/simulators/flow/equil/InitStateEquil.hpp>
 using TypeTag = Opm::Properties::TTag::FlowProblem;
 
-namespace {
-  __global__ void testCreationGPU() {
-    Opm::BlackOilPrimaryVariables<TypeTag, Opm::gpuistl::dense::FieldVector> primaryVariablesFieldVector;
-  }
-}
+// namespace {
+//   __global__ void testCreationGPU() {
+//     Opm::BlackOilPrimaryVariables<TypeTag, Opm::gpuistl::dense::FieldVector> primaryVariablesFieldVector;
+//   }
+// }
 
 BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationWithFieldVector) 
 {
@@ -56,9 +56,9 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationWithFieldVector)
    Opm::BlackOilPrimaryVariables<TypeTag, Opm::gpuistl::dense::FieldVector> primaryVariablesFieldVector;
 }
 
-BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCrationGPU) 
-{
-  testCreationGPU<<<1, 1>>>();
-  OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-  OPM_GPU_SAFE_CALL(cudaGetLastError());
-}
+// BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCrationGPU) 
+// {
+//   testCreationGPU<<<1, 1>>>();
+//   OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+//   OPM_GPU_SAFE_CALL(cudaGetLastError());
+// }

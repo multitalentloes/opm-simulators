@@ -121,6 +121,7 @@ public:
     using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
     using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
     using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
+    using IntensiveQuantities = typename Opm::GetPropType<TypeTag, Opm::Properties::IntensiveQuantities>;
 
     OPM_HOST_DEVICE MaterialLawParams materialLawParams(std::size_t) const
     {
@@ -148,7 +149,7 @@ public:
     }
 
     template <class Evaluation>
-    OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const auto&, std::size_t) const
+    OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const IntensiveQuantities&, std::size_t) const
     {
         return Evaluation(0.0);
     }
@@ -159,7 +160,7 @@ public:
     }
 
     template <class Evaluation>
-    OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const auto&, std::size_t) const
+    OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const IntensiveQuantities&, std::size_t) const
     {
         return Evaluation(0.0);
     }

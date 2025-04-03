@@ -45,6 +45,8 @@
 
 #include <cstdint>
 
+#include <opm/common/utility/gpuDecorators.hpp>
+
 namespace Opm::Parameters {
 
 template<class Scalar>
