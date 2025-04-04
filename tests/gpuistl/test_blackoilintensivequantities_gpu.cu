@@ -248,6 +248,38 @@ namespace Opm {
           using type = typename EclMaterialLawManager::MaterialLaw;
       };
 
+      template<class TypeTag>
+      struct MaterialLaw<TypeTag, TTag::FlowSimpleProblemGPU>
+      {
+      private:
+          using Scalar = GetPropType<TypeTag, Properties::Scalar>;
+          using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
+
+          using Traits = ThreePhaseMaterialTraits<Scalar,
+                                                  /*wettingPhaseIdx=*/FluidSystem::waterPhaseIdx,
+                                                  /*nonWettingPhaseIdx=*/FluidSystem::oilPhaseIdx,
+                                                  /*gasPhaseIdx=*/FluidSystem::gasPhaseIdx>;
+      public:
+          using EclMaterialLawManager = ::Opm::EclMaterialLawManagerSimple<Traits, Opm::gpuistl::GpuView>;
+          using type = typename EclMaterialLawManager::MaterialLaw;
+      };
+
+      template<class TypeTag>
+      struct MaterialLaw<TypeTag, TTag::FlowSimpleDummyProblemGPU>
+      {
+      private:
+          using Scalar = GetPropType<TypeTag, Properties::Scalar>;
+          using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
+
+          using Traits = ThreePhaseMaterialTraits<Scalar,
+                                                  /*wettingPhaseIdx=*/FluidSystem::waterPhaseIdx,
+                                                  /*nonWettingPhaseIdx=*/FluidSystem::oilPhaseIdx,
+                                                  /*gasPhaseIdx=*/FluidSystem::gasPhaseIdx>;
+      public:
+          using EclMaterialLawManager = ::Opm::EclMaterialLawManagerSimple<Traits>;
+          using type = typename EclMaterialLawManager::MaterialLaw;
+      };
+
       // Use the TPFA linearizer.
       template<class TypeTag>
       struct Linearizer<TypeTag, TTag::FlowSimpleProblem> { using type = TpfaLinearizer<TypeTag>; };

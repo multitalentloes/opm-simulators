@@ -42,6 +42,8 @@
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 
+#include <utility>
+
 #include <cuda_runtime.h>
 
 /*
@@ -169,6 +171,13 @@ __global__ void rockCompressibilityFromFlowProblemBlackoilGpu(ProblemView prob, 
   *res = prob.rockCompressibility(0);
 }
 
+template<class ProblemView>
+__global__ void porosityFromFlowProblemBlackoilGpu(ProblemView prob, double* res)
+{
+  *res = prob.porosity(0, 0);
+}
+
+
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
   using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
@@ -216,31 +225,37 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 
   unsigned short satNumOnCpu;
   unsigned short* satNumOnGpu;
-  cudaMalloc(&satNumOnGpu, sizeof(unsigned short));
+  std::ignore = cudaMalloc(&satNumOnGpu, sizeof(unsigned short));
   satnumFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, satNumOnGpu);
-  cudaMemcpy(&satNumOnCpu, satNumOnGpu, sizeof(unsigned short), cudaMemcpyDeviceToHost);
-
+  std::ignore = cudaMemcpy(&satNumOnCpu, satNumOnGpu, sizeof(unsigned short), cudaMemcpyDeviceToHost);
   BOOST_CHECK_EQUAL(satNumOnCpu, sim->problem().satnumRegionIndex(0));
-  cudaFree(satNumOnGpu);
+  std::ignore = cudaFree(satNumOnGpu);
 
   Opm::LinearizationType linTypeOnCpu;
   Opm::LinearizationType* linTypeOnGpu;
-  cudaMalloc(&linTypeOnGpu, sizeof(Opm::LinearizationType));
+  std::ignore = cudaMalloc(&linTypeOnGpu, sizeof(Opm::LinearizationType));
   linTypeFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, linTypeOnGpu);
-  cudaMemcpy(&linTypeOnCpu, linTypeOnGpu, sizeof(Opm::LinearizationType), cudaMemcpyDeviceToHost);
-
+  std::ignore = cudaMemcpy(&linTypeOnCpu, linTypeOnGpu, sizeof(Opm::LinearizationType), cudaMemcpyDeviceToHost);
   auto linTypeFromCPUSimulator = sim->problem().model().linearizer().getLinearizationType();
   BOOST_CHECK_EQUAL(linTypeOnCpu.type, linTypeFromCPUSimulator.type);
-  cudaFree(linTypeOnGpu);
+  std::ignore = cudaFree(linTypeOnGpu);
 
   double rocmCompressibilityOnCpu;
   double* rockCompressibilityOnGpu;
-  cudaMalloc(&rockCompressibilityOnGpu, sizeof(double));
+  std::ignore = cudaMalloc(&rockCompressibilityOnGpu, sizeof(double));
   rockCompressibilityFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, rockCompressibilityOnGpu);
-  cudaMemcpy(&rocmCompressibilityOnCpu, rockCompressibilityOnGpu, sizeof(double), cudaMemcpyDeviceToHost);
-
+  std::ignore = cudaMemcpy(&rocmCompressibilityOnCpu, rockCompressibilityOnGpu, sizeof(double), cudaMemcpyDeviceToHost);
   BOOST_CHECK_EQUAL(rocmCompressibilityOnCpu, sim->problem().rockCompressibility(0));
-  cudaFree(rockCompressibilityOnGpu);
+  std::ignore = cudaFree(rockCompressibilityOnGpu);
 
 
+  double porosityOnCpu;
+  double* porosityOnGpu;
+  std::ignore = cudaMalloc(&porosityOnGpu, sizeof(double));
+  porosityFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, porosityOnGpu);
+  std::ignore = cudaMemcpy(&porosityOnCpu, porosityOnGpu, sizeof(double), cudaMemcpyDeviceToHost);
+  BOOST_CHECK_EQUAL(porosityOnCpu, sim->problem().porosity(0, 0));
+  std::ignore = cudaFree(porosityOnGpu);
+
+  std::cout << porosityOnCpu << std::endl;
 }

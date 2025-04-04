@@ -65,11 +65,13 @@ public:
     FlowProblemBlackoilGpu(Storage<unsigned short> satNum,
                            LinearizationType linearizationType,
                            Storage<unsigned short> rockTableIdx,
-                           Storage<Scalar> rockCompressibility)
+                           Storage<Scalar> rockCompressibility,
+                           std::array<Storage<Scalar>, 2> referencePorosity)
         : satNum_(satNum)
         , linearizationType_(linearizationType)
         , rockTableIdx_(rockTableIdx)
         , rockCompressibility_(rockCompressibility)
+        , referencePorosity_(referencePorosity)
     {
     }
 
@@ -82,7 +84,7 @@ public:
         return satNum_[elemIdx];
     }
 
-    Storage<unsigned short>& satnumRegionArray()
+    OPM_HOST_DEVICE Storage<unsigned short>& satnumRegionArray()
     {
         return satNum_;
     }
@@ -107,14 +109,24 @@ public:
         return rockCompressibility_[tableIdx];
     }
 
-    Storage<unsigned short>& rockTableIdx()
+    OPM_HOST_DEVICE Storage<unsigned short>& rockTableIdx()
     {
         return rockTableIdx_;
     }
 
-    Storage<Scalar>& rockCompressibilitiesRaw()
+    OPM_HOST_DEVICE Storage<Scalar>& rockCompressibilitiesRaw()
     {
         return rockCompressibility_;
+    }
+
+    OPM_HOST_DEVICE Scalar porosity(unsigned globalSpaceIdx, unsigned timeIdx) const
+    {
+        return referencePorosity_[timeIdx][globalSpaceIdx];
+    }
+
+    OPM_HOST_DEVICE auto referencePorosity() const
+    {
+        return referencePorosity_;
     }
 
     // Below are the dummy functions, to be removed
@@ -128,10 +140,6 @@ public:
         return MaterialLawParams();
     }
     OPM_HOST_DEVICE double rockReferencePressure(std::size_t) const
-    {
-        return 0.0;
-    }
-    OPM_HOST_DEVICE double porosity(std::size_t, unsigned int) const
     {
         return 0.0;
     }
@@ -170,6 +178,7 @@ private:
     Storage<unsigned short> satNum_;
     Storage<unsigned short> rockTableIdx_;
     Storage<Scalar> rockCompressibility_;
+    std::array<Storage<Scalar>, 2> referencePorosity_;
     LinearizationType linearizationType_;
 };
 
@@ -187,7 +196,9 @@ namespace gpuistl
             ContainerT(problem.satnumRegionArray()),
             problem.model().linearizer().getLinearizationType(),
             ContainerT(problem.rockTableIdx()),
-            ContainerT(problem.rockCompressibilitiesRaw()));
+            ContainerT(problem.rockCompressibilitiesRaw()),
+            std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])}
+        );
     }
 
     template <template <class> class ViewT, class TypeTag, template <class> class ContainerT, class Scalar>
@@ -197,7 +208,10 @@ namespace gpuistl
         return FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>(make_view<unsigned short>(problem.satnumRegionArray()),
                                                               problem.model().linearizer().getLinearizationType(),
                                                               make_view<unsigned short>(problem.rockTableIdx()),
-                                                              make_view<Scalar>(problem.rockCompressibilitiesRaw()));
+                                                              make_view<Scalar>(problem.rockCompressibilitiesRaw()),
+                                                              std::array<ViewT<Scalar>, 2>{make_view<Scalar>(problem.referencePorosity()[0]),
+                                                                                                make_view<Scalar>(problem.referencePorosity()[1])}
+                                                            );
     }
 
 } // namespace gpuistl

@@ -137,6 +137,9 @@ public:
     Scalar referencePorosity(unsigned elementIdx, unsigned timeIdx) const
     { return referencePorosity_[timeIdx][elementIdx]; }
 
+    // get all the referenceporosityvalues
+    auto referencePorosity() const
+    { return referencePorosity_; }
 
     /*!
      * \brief Returns the rockFraction of an element
