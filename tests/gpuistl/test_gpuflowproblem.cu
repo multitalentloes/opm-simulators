@@ -61,7 +61,7 @@ Functionality requested for the blackoil flow problem on gpu:
 [-] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx)
 [-] - problem.maxGasDissolutionFactor(timeIdx, globalSpaceIdx)
 [-] - problem.maxOilSaturation(globalSpaceIdx)
-[ ] - problem.template rockCompPoroMultiplier<Evaluation>(*this, globalSpaceIdx)
+[-] - problem.template rockCompPoroMultiplier<Evaluation>(*this, globalSpaceIdx)
 [ ] - problem.updateRelperms(mobility_, dirMob_, fluidState_, globalSpaceIdx)
 [ ] - problem.template rockCompTransMultiplier<Evaluation>(*this, globalSpaceIdx)
 
