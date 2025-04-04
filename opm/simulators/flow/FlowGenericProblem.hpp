@@ -230,6 +230,7 @@ public:
 
 
     std::vector<Scalar> rockCompressibilitiesRaw();
+    std::vector<Scalar> rockReferencePressuresRaw();
     std::vector<unsigned short> rockTableIdx();
     /*!
      * \brief Returns the index the relevant MISC region given a cell index

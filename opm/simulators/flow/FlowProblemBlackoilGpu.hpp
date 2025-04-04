@@ -66,11 +66,13 @@ public:
                            LinearizationType linearizationType,
                            Storage<unsigned short> rockTableIdx,
                            Storage<Scalar> rockCompressibility,
+                           Storage<Scalar> rockReferencePressures,
                            std::array<Storage<Scalar>, 2> referencePorosity)
         : satNum_(satNum)
         , linearizationType_(linearizationType)
         , rockTableIdx_(rockTableIdx)
         , rockCompressibility_(rockCompressibility)
+        , rockReferencePressures_(rockReferencePressures)
         , referencePorosity_(referencePorosity)
     {
     }
@@ -109,6 +111,18 @@ public:
         return rockCompressibility_[tableIdx];
     }
 
+    OPM_HOST_DEVICE Scalar rockReferencePressure(unsigned globalSpaceIdx) const
+    {
+        if (rockReferencePressures_.size() == 0)
+            return 1e5;
+
+        unsigned tableIdx = 0;
+        if (rockTableIdx_.size() > 0) {
+            tableIdx = rockTableIdx_[globalSpaceIdx];
+        }
+        return rockReferencePressures_[tableIdx];
+    }
+
     OPM_HOST_DEVICE Storage<unsigned short>& rockTableIdx()
     {
         return rockTableIdx_;
@@ -117,6 +131,11 @@ public:
     OPM_HOST_DEVICE Storage<Scalar>& rockCompressibilitiesRaw()
     {
         return rockCompressibility_;
+    }
+
+    OPM_HOST_DEVICE Storage<Scalar>& rockReferencePressuresRaw()
+    {
+        return rockReferencePressures_;
     }
 
     OPM_HOST_DEVICE Scalar porosity(unsigned globalSpaceIdx, unsigned timeIdx) const
@@ -138,10 +157,6 @@ public:
     OPM_HOST_DEVICE MaterialLawParams materialLawParams(std::size_t) const
     {
         return MaterialLawParams();
-    }
-    OPM_HOST_DEVICE double rockReferencePressure(std::size_t) const
-    {
-        return 0.0;
     }
     OPM_HOST_DEVICE double maxOilVaporizationFactor(unsigned int, std::size_t) const
     {
@@ -178,6 +193,7 @@ private:
     Storage<unsigned short> satNum_;
     Storage<unsigned short> rockTableIdx_;
     Storage<Scalar> rockCompressibility_;
+    Storage<Scalar> rockReferencePressures_;
     std::array<Storage<Scalar>, 2> referencePorosity_;
     LinearizationType linearizationType_;
 };
@@ -197,6 +213,7 @@ namespace gpuistl
             problem.model().linearizer().getLinearizationType(),
             ContainerT(problem.rockTableIdx()),
             ContainerT(problem.rockCompressibilitiesRaw()),
+            ContainerT(problem.rockReferencePressuresRaw()),
             std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])}
         );
     }
@@ -209,6 +226,7 @@ namespace gpuistl
                                                               problem.model().linearizer().getLinearizationType(),
                                                               make_view<unsigned short>(problem.rockTableIdx()),
                                                               make_view<Scalar>(problem.rockCompressibilitiesRaw()),
+                                                              make_view<Scalar>(problem.rockReferencePressuresRaw()),
                                                               std::array<ViewT<Scalar>, 2>{make_view<Scalar>(problem.referencePorosity()[0]),
                                                                                                 make_view<Scalar>(problem.referencePorosity()[1])}
                                                             );

@@ -334,6 +334,18 @@ rockCompressibilitiesRaw(){
 }
 
 template<class GridView, class FluidSystem>
+std::vector<typename FlowGenericProblem<GridView,FluidSystem>::Scalar>//&
+FlowGenericProblem<GridView,FluidSystem>::
+rockReferencePressuresRaw(){
+    auto result = std::vector<Scalar>(rockParams_.size());
+    for (std::size_t i = 0; i < rockParams_.size(); ++i)
+    {
+        result[i] = rockParams_[i].referencePressure;
+    }
+    return result;
+}
+
+template<class GridView, class FluidSystem>
 std::vector<unsigned short>//&
 FlowGenericProblem<GridView,FluidSystem>::
 rockTableIdx()

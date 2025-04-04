@@ -52,8 +52,8 @@ Functionality tested:
 [X] - problem.satnumRegionIndex(globalSpaceIdx)
 [ ] - problem.materialLawParams(globalSpaceIdx)
 [X] - problem.rockCompressibility(globalSpaceIdx)
-[ ] - problem.rockReferencePressure(globalSpaceIdx)
-[ ] - problem.porosity(globalSpaceIdx, timeIdx)
+[X] - problem.rockReferencePressure(globalSpaceIdx)
+[X] - problem.porosity(globalSpaceIdx, timeIdx)
 [ ] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx)
 [ ] - problem.maxGasDissolutionFactor(timeIdx, globalSpaceIdx)
 [ ] - problem.maxOilSaturation(globalSpaceIdx)
@@ -177,6 +177,12 @@ __global__ void porosityFromFlowProblemBlackoilGpu(ProblemView prob, double* res
   *res = prob.porosity(0, 0);
 }
 
+template<class ProblemView>
+__global__ void rockReferencePressureFromFlowProblemBlackoilGpu(ProblemView prob, double* res)
+{
+  *res = prob.rockReferencePressure(0);
+}
+
 
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
@@ -248,7 +254,6 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   BOOST_CHECK_EQUAL(rocmCompressibilityOnCpu, sim->problem().rockCompressibility(0));
   std::ignore = cudaFree(rockCompressibilityOnGpu);
 
-
   double porosityOnCpu;
   double* porosityOnGpu;
   std::ignore = cudaMalloc(&porosityOnGpu, sizeof(double));
@@ -257,5 +262,13 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   BOOST_CHECK_EQUAL(porosityOnCpu, sim->problem().porosity(0, 0));
   std::ignore = cudaFree(porosityOnGpu);
 
-  std::cout << porosityOnCpu << std::endl;
+  double referencePressureOnCpu;
+  double* referencePressureOnGpu;
+  std::ignore = cudaMalloc(&referencePressureOnGpu, sizeof(double));
+  rockReferencePressureFromFlowProblemBlackoilGpu<<<1, 1>>>(problemGpuView, referencePressureOnGpu);
+  std::ignore = cudaMemcpy(&referencePressureOnCpu, referencePressureOnGpu, sizeof(double), cudaMemcpyDeviceToHost);
+  BOOST_CHECK_EQUAL(referencePressureOnCpu, sim->problem().rockReferencePressure(0));
+  std::ignore = cudaFree(referencePressureOnGpu);
+
+  std::cout << referencePressureOnCpu << std::endl;
 }
