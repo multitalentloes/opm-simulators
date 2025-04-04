@@ -54,8 +54,8 @@ Functionality tested:
 [X] - problem.rockCompressibility(globalSpaceIdx)
 [X] - problem.rockReferencePressure(globalSpaceIdx)
 [X] - problem.porosity(globalSpaceIdx, timeIdx)
-[ ] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx)
-[ ] - problem.maxGasDissolutionFactor(timeIdx, globalSpaceIdx)
+[-] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx) NOT USED IN SPE11
+[-] - problem.maxGasDissolutionFactor(timeIdx, globalSpaceIdx) NOT USED IN SPE11
 [ ] - problem.maxOilSaturation(globalSpaceIdx)
 [ ] - problem.template rockCompPoroMultiplier<Evaluation>(*this, globalSpaceIdx)
 [ ] - problem.updateRelperms(mobility_, dirMob_, fluidState_, globalSpaceIdx)
