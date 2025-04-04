@@ -158,19 +158,34 @@ public:
     {
         return MaterialLawParams();
     }
+
+    /*
+        NOT USED IN SPE11
+    */
     OPM_HOST_DEVICE double maxOilVaporizationFactor(unsigned int, std::size_t) const
     {
         return 0.0;
     }
+
+    /*
+        NOT USED IN SPE11
+    */
     OPM_HOST_DEVICE double maxGasDissolutionFactor(unsigned int, std::size_t) const
     {
         return 0.0;
     }
+
+    /*
+        NOT USED IN SPE11
+    */
     OPM_HOST_DEVICE double maxOilSaturation(std::size_t) const
     {
         return 0.0;
     }
 
+    /*
+        NOT USED IN SPE11
+    */
     template <class Evaluation>
     OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const IntensiveQuantities&, std::size_t) const
     {
