@@ -47,16 +47,20 @@
 #include <cuda_runtime.h>
 
 /*
-Functionality tested:
+Functionality requested for the blackoil flow problem on gpu:
+[X] indicates that the functionality is added and verified with unit test
+[-] indicates that the functionality does not seem to be used in spe11
+[ ] indicates that the functionality is not added yet
+
 [X] - problem.model().linearizer().getLinearizationType()
 [X] - problem.satnumRegionIndex(globalSpaceIdx)
 [ ] - problem.materialLawParams(globalSpaceIdx)
 [X] - problem.rockCompressibility(globalSpaceIdx)
 [X] - problem.rockReferencePressure(globalSpaceIdx)
 [X] - problem.porosity(globalSpaceIdx, timeIdx)
-[-] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx) NOT USED IN SPE11
-[-] - problem.maxGasDissolutionFactor(timeIdx, globalSpaceIdx) NOT USED IN SPE11
-[ ] - problem.maxOilSaturation(globalSpaceIdx)
+[-] - problem.maxOilVaporizationFactor(timeIdx, globalSpaceIdx)
+[-] - problem.maxGasDissolutionFactor(timeIdx, globalSpaceIdx)
+[-] - problem.maxOilSaturation(globalSpaceIdx)
 [ ] - problem.template rockCompPoroMultiplier<Evaluation>(*this, globalSpaceIdx)
 [ ] - problem.updateRelperms(mobility_, dirMob_, fluidState_, globalSpaceIdx)
 [ ] - problem.template rockCompTransMultiplier<Evaluation>(*this, globalSpaceIdx)
