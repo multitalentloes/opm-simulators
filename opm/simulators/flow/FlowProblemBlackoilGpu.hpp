@@ -192,15 +192,17 @@ public:
         return Evaluation(0.0);
     }
 
-    template <class A, class B, class C>
-    OPM_HOST_DEVICE void updateRelperms(A&, B&, const C&, std::size_t) const
+    template <class MobArr, class DirMobPtr, class FluidState>
+    OPM_HOST_DEVICE void updateRelperms(MobArr& mobility, DirMobPtr& dirMob, const FluidState& fluidstate, std::size_t globalSpaceIdx) const
     {
+        // const auto& materialParams = materialLawManager_->materialLawParams(globalDofIdx);;
+        // MaterialLaw::relativePermeabilities(mobility, materialParams, fluidState);
     }
 
     template <class Evaluation>
     OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const IntensiveQuantities&, std::size_t) const
     {
-        return Evaluation(0.0);
+        return Evaluation(1.0);
     }
     // end dummy functions.
 
