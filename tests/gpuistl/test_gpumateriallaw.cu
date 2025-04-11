@@ -136,7 +136,43 @@ namespace Opm {
 #include <dune/common/parallel/mpihelper.hh>
 #include <opm/models/utils/start.hh>
 
-BOOST_AUTO_TEST_CASE(TestTautology)
+  // these types are taken from Norne
+  using Scalar = float;
+  using ValueVector = std::vector<Scalar>;
+  using GPUBuffer = Opm::gpuistl::GpuBuffer<Scalar>;
+  using GPUView = Opm::gpuistl::GpuView<Scalar>;
+
+  using TraitsT = Opm::TwoPhaseMaterialTraits<Scalar, 1, 2>;
+  using CPUParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TraitsT>;
+  using GPUBufferParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TraitsT, GPUBuffer>;
+  using GPUViewParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TraitsT, GPUView>;
+
+  using CPUTwoPhaseMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TraitsT, CPUParams>;
+  using GPUTwoPhaseViewMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TraitsT, GPUViewParams>;
+  using NorneEvaluation = Opm::DenseAd::Evaluation<Scalar, 3, 0u>;
+
+__global__ void gpuTwoPhaseSatPcnwWrapper(GPUTwoPhaseViewMaterialLaw::Params params, NorneEvaluation* Sw, NorneEvaluation* res){
+    *res = GPUTwoPhaseViewMaterialLaw::twoPhaseSatPcnw(params, *Sw);
+}
+
+BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 {
+    ValueVector cx = {0.0, 0.5, 1.0};
+    ValueVector cy = {0.0, 0.9, 1.0};
+    const GPUBuffer gx(cx);
+    const GPUBuffer gy(cy);
+
+    CPUParams cpuParams;
+    cpuParams.setPcnwSamples(cx, cy);
+    cpuParams.setKrwSamples(cx, cy);
+    cpuParams.setKrnSamples(cx, cy);
+    cpuParams.finalize();
+
+    GPUBufferParams gpuBufferParams = Opm::gpuistl::copy_to_gpu<GPUBuffer>(cpuParams);
+
+    GPUViewParams gpuViewParams = Opm::gpuistl::make_view<GPUView>(gpuBufferParams);
+
+    ValueVector testXs = {-1.0, 0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99, 1.0, 1.1};
+
     BOOST_CHECK(true);
 }
