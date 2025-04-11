@@ -136,6 +136,9 @@ namespace Opm {
 #include <dune/common/parallel/mpihelper.hh>
 #include <opm/models/utils/start.hh>
 
+#include <opm/material/fluidmatrixinteractions/EclTwoPhaseMaterialParams.hpp>
+#include <opm/material/fluidmatrixinteractions/MaterialTraits.hpp>
+
   // these types are taken from Norne
   using Scalar = float;
   using ValueVector = std::vector<Scalar>;
@@ -155,8 +158,18 @@ __global__ void gpuTwoPhaseSatPcnwWrapper(GPUTwoPhaseViewMaterialLaw::Params par
     *res = GPUTwoPhaseViewMaterialLaw::twoPhaseSatPcnw(params, *Sw);
 }
 
+// using OPMFS = Opm::Properties::FluidSystem;
+using ProblemType = Opm::Properties::TTag::FlowSimpleProblem;
+using namespace Opm;
+
+using Traits = ThreePhaseMaterialTraits<Scalar,
+/*wettingPhaseIdx=*/GetPropType<ProblemType, Opm::Properties::FluidSystem>::waterPhaseIdx,
+/*nonWettingPhaseIdx=*/GetPropType<ProblemType, Opm::Properties::FluidSystem>::oilPhaseIdx,
+/*gasPhaseIdx=*/GetPropType<ProblemType, Opm::Properties::FluidSystem>::gasPhaseIdx>;
+
 BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 {
+
     ValueVector cx = {0.0, 0.5, 1.0};
     ValueVector cy = {0.0, 0.9, 1.0};
     const GPUBuffer gx(cx);
@@ -168,11 +181,14 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
     cpuParams.setKrnSamples(cx, cy);
     cpuParams.finalize();
 
-    GPUBufferParams gpuBufferParams = Opm::gpuistl::copy_to_gpu<GPUBuffer>(cpuParams);
+    std::shared_ptr<CPUParams> cpuParamsPtr = std::make_shared<CPUParams>(cpuParams);
 
-    GPUViewParams gpuViewParams = Opm::gpuistl::make_view<GPUView>(gpuBufferParams);
+    GPUBufferParams gpuBufferParams = gpuistl::copy_to_gpu<GPUBuffer>(cpuParams);
+    GPUViewParams gpuViewParams = gpuistl::make_view<GPUView>(gpuBufferParams);
 
-    ValueVector testXs = {-1.0, 0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99, 1.0, 1.1};
+    EclTwoPhaseMaterialParams<Traits, CPUParams, CPUParams, CPUParams> cpuTwoPhaseParams;
+    cpuTwoPhaseParams.setApproach(EclTwoPhaseApproach::GasWater);
+    cpuTwoPhaseParams.setGasWaterParams(cpuParamsPtr);
 
     BOOST_CHECK(true);
 }
