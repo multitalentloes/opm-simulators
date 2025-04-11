@@ -248,6 +248,12 @@ public:
     {
     }
 
+    // DANGER - TODO: find a safer way to have a default constructor
+    PointerView()
+        : ptr_(nullptr)
+    {
+    }
+
     OPM_HOST_DEVICE T* get() const
     {
         return ptr_;
