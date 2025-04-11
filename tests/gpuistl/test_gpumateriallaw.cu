@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
     cpuTwoPhaseParams.finalize();
 
     auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams>(cpuTwoPhaseParams);
-    // auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
+    auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
 
     BOOST_CHECK(true);
 }

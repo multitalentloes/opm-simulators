@@ -271,6 +271,8 @@ BOOST_AUTO_TEST_CASE(GasPvtMultiplexer)
 
 #include <cuda_runtime.h>
 
+#include <iostream>
+
 namespace Opm {
   namespace Properties {
       namespace TTag {
@@ -382,44 +384,71 @@ using Traits = ThreePhaseMaterialTraits<Scalar,
 
 BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 {
+  ValueVector cx = {0.0, 0.5, 1.0};
+  ValueVector cy = {0.0, 0.9, 1.0};
+  const GPUBuffer gx(cx);
+  const GPUBuffer gy(cy);
 
-    ValueVector cx = {0.0, 0.5, 1.0};
-    ValueVector cy = {0.0, 0.9, 1.0};
-    const GPUBuffer gx(cx);
-    const GPUBuffer gy(cy);
+  CPUParams cpuParams;
+  cpuParams.setPcnwSamples(cx, cy);
+  cpuParams.setKrwSamples(cx, cy);
+  cpuParams.setKrnSamples(cx, cy);
+  cpuParams.finalize();
 
-    CPUParams cpuParams;
-    cpuParams.setPcnwSamples(cx, cy);
-    cpuParams.setKrwSamples(cx, cy);
-    cpuParams.setKrnSamples(cx, cy);
-    cpuParams.finalize();
+  std::shared_ptr<CPUParams> cpuParamsPtr = std::make_shared<CPUParams>(cpuParams);
 
-    std::shared_ptr<CPUParams> cpuParamsPtr = std::make_shared<CPUParams>(cpuParams);
+  GPUBufferParams gpuBufferParams = gpuistl::copy_to_gpu<GPUBuffer>(cpuParams);
+  GPUViewParams gpuViewParams = gpuistl::make_view<GPUView>(gpuBufferParams);
 
-    GPUBufferParams gpuBufferParams = gpuistl::copy_to_gpu<GPUBuffer>(cpuParams);
-    GPUViewParams gpuViewParams = gpuistl::make_view<GPUView>(gpuBufferParams);
+  EclTwoPhaseMaterialParams<Traits, CPUParams, CPUParams, CPUParams> cpuTwoPhaseParams;
+  cpuTwoPhaseParams.setApproach(EclTwoPhaseApproach::GasWater);
+  // Probably not the way it should be, but I have to pass all three parameter types
+  // Even though I only need to support spe11 which is 2-phase (gas-water)
+  cpuTwoPhaseParams.setGasWaterParams(cpuParamsPtr);
+  cpuTwoPhaseParams.setOilWaterParams(cpuParamsPtr);
+  cpuTwoPhaseParams.setGasOilParams(cpuParamsPtr);
+  cpuTwoPhaseParams.finalize();
 
-    EclTwoPhaseMaterialParams<Traits, CPUParams, CPUParams, CPUParams> cpuTwoPhaseParams;
-    cpuTwoPhaseParams.setApproach(EclTwoPhaseApproach::GasWater);
-    cpuTwoPhaseParams.setGasWaterParams(cpuParamsPtr);
+  auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams>(cpuTwoPhaseParams);
+  auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
 
-    auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams>(cpuTwoPhaseParams);
-    auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
+  BOOST_CHECK(true);
 
-    BOOST_CHECK(true);
+  Opm::Parser parser;
 
-    Opm::Parser parser;
+  auto deck = parser.parseString(deckString1);
+  auto python = std::make_shared<Opm::Python>();
+  Opm::EclipseState eclState(deck);
+  Opm::Schedule schedule(deck, eclState, python);
 
-    auto deck = parser.parseString(deckString1);
-    auto python = std::make_shared<Opm::Python>();
-    Opm::EclipseState eclState(deck);
-    Opm::Schedule schedule(deck, eclState, python);
+  FluidSystem::initFromState(eclState, schedule);
 
-    FluidSystem::initFromState(eclState, schedule);
+  auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
 
-    auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
+  auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+  auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
+  BOOST_CHECK(true);
 
-    auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
-    auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
-    BOOST_CHECK(true);
+
+//TODO: make some fake fluidstate that adheres to the API so that this function can actually be tested
+
+  // Commented out because this code needs fluidstate, not fluidsystem... fs != fs
+  // at this point we have a gpu BOFS and a GPU EclTwoPhaseMaterialParams
+  // This means we have enough to start testing the EclTwoPhaseMaterial  
+  // std::vector<double> Pc = {0, 0, 0};
+  // auto res = ::Opm::EclTwoPhaseMaterial<
+  //   Traits,
+  //   CPUTwoPhaseMaterialLaw,
+  //   CPUTwoPhaseMaterialLaw,
+  //   CPUTwoPhaseMaterialLaw
+  // >::capillaryPressures<decltype(Pc), decltype(dynamicFluidSystem)>
+  //   (
+  //     Pc,
+  //     cpuTwoPhaseParams,
+  //     dynamicFluidSystem
+  //   );
+
+  // for (auto e : res) {
+  //   std::cout << e << std::endl;
+  // }
 }
