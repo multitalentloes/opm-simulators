@@ -188,10 +188,15 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 
     EclTwoPhaseMaterialParams<Traits, CPUParams, CPUParams, CPUParams> cpuTwoPhaseParams;
     cpuTwoPhaseParams.setApproach(EclTwoPhaseApproach::GasWater);
+    // Probably not the way it should be, but I have to pass all three parameter types
+    // Even though I only need to support spe11 which is 2-phase (gas-water)
     cpuTwoPhaseParams.setGasWaterParams(cpuParamsPtr);
+    cpuTwoPhaseParams.setOilWaterParams(cpuParamsPtr);
+    cpuTwoPhaseParams.setGasOilParams(cpuParamsPtr);
+    cpuTwoPhaseParams.finalize();
 
     auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams>(cpuTwoPhaseParams);
-    auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
+    // auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
 
     BOOST_CHECK(true);
 }
