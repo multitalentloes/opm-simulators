@@ -190,5 +190,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
     cpuTwoPhaseParams.setApproach(EclTwoPhaseApproach::GasWater);
     cpuTwoPhaseParams.setGasWaterParams(cpuParamsPtr);
 
+    auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams, Traits>(cpuTwoPhaseParams);
+
     BOOST_CHECK(true);
 }
