@@ -369,8 +369,10 @@ namespace Opm {
   using GPUTwoPhaseViewMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TraitsT, GPUViewParams>;
   using NorneEvaluation = Opm::DenseAd::Evaluation<Scalar, 3, 0u>;
 
-__global__ void gpuTwoPhaseSatPcnwWrapper(GPUTwoPhaseViewMaterialLaw::Params params, NorneEvaluation* Sw, NorneEvaluation* res){
-    *res = GPUTwoPhaseViewMaterialLaw::twoPhaseSatPcnw(params, *Sw);
+template<typename MaterialLaw, typename FluidState, typename ContainerT>
+__global__ void computeCapillaryPressures(ContainerT Pc, typename MaterialLaw::Params lawParams, FluidState fluidState)
+{
+  MaterialLaw::template capillaryPressures<ContainerT, FluidState>(Pc, lawParams, fluidState);
 }
 
 // using OPMFS = Opm::Properties::FluidSystem;
@@ -412,8 +414,6 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
   auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams>(cpuTwoPhaseParams);
   auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
 
-  BOOST_CHECK(true);
-
   Opm::Parser parser;
 
   auto deck = parser.parseString(deckString1);
@@ -427,28 +427,42 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 
   auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
   auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
-  BOOST_CHECK(true);
 
+  // should thid be based on the view or the cpu object??
+  auto gpufluidstate = BlackOilFluidState<double, decltype(dynamicGpuFluidSystemView)>(dynamicGpuFluidSystemView);
+  auto cpuFluidstate = BlackOilFluidState<double, std::remove_reference_t<decltype(dynamicFluidSystem)>>(dynamicFluidSystem);
 
-//TODO: make some fake fluidstate that adheres to the API so that this function can actually be tested
+  std::vector<double> Pc = {0, 0, 0};
+  ::Opm::EclTwoPhaseMaterial<
+    Traits,
+    CPUTwoPhaseMaterialLaw,
+    CPUTwoPhaseMaterialLaw,
+    CPUTwoPhaseMaterialLaw
+  >::capillaryPressures<decltype(Pc), decltype(cpuFluidstate)>
+    (
+      Pc,
+      cpuTwoPhaseParams,
+      cpuFluidstate
+    );
 
-  // Commented out because this code needs fluidstate, not fluidsystem... fs != fs
-  // at this point we have a gpu BOFS and a GPU EclTwoPhaseMaterialParams
-  // This means we have enough to start testing the EclTwoPhaseMaterial  
-  // std::vector<double> Pc = {0, 0, 0};
-  // auto res = ::Opm::EclTwoPhaseMaterial<
-  //   Traits,
-  //   CPUTwoPhaseMaterialLaw,
-  //   CPUTwoPhaseMaterialLaw,
-  //   CPUTwoPhaseMaterialLaw
-  // >::capillaryPressures<decltype(Pc), decltype(dynamicFluidSystem)>
-  //   (
-  //     Pc,
-  //     cpuTwoPhaseParams,
-  //     dynamicFluidSystem
-  //   );
+  std::vector<double> gpuPcOnCpu = {0, 0, 0};
+  auto gpuPcBuffer = GpuB(gpuPcOnCpu);
+  auto gpuPcView = gpuistl::make_view<double>(gpuPcBuffer);
 
-  // for (auto e : res) {
-  //   std::cout << e << std::endl;
-  // }
+  using GpuEclTwoPhaseMaterialParams = EclTwoPhaseMaterialParams<Traits, GPUViewParams, GPUViewParams, GPUViewParams, typename ::Opm::gpuistl::PointerView>;
+  using GpuEclTwoPhaseMaterial = Opm::EclTwoPhaseMaterial<
+    Traits,
+    GPUTwoPhaseViewMaterialLaw,
+    GPUTwoPhaseViewMaterialLaw,
+    GPUTwoPhaseViewMaterialLaw,
+    GpuEclTwoPhaseMaterialParams>;
+
+  computeCapillaryPressures<GpuEclTwoPhaseMaterial><<<1, 1>>>(gpuPcView, gpuTwoPhaseParamsView, gpufluidstate);
+
+  auto res = gpuPcView.asStdVector();
+
+  BOOST_CHECK_EQUAL(res.size(), 3);
+  BOOST_CHECK_EQUAL(res[0], Pc[0]);
+  BOOST_CHECK_EQUAL(res[1], Pc[1]);
+  BOOST_CHECK_EQUAL(res[2], Pc[2]);
 }
