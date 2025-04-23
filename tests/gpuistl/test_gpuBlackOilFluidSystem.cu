@@ -355,20 +355,6 @@ namespace Opm {
 
 }
 
-  // these types are taken from Norne
-  using ValueVector = std::vector<Scalar>;
-  using GPUBuffer = Opm::gpuistl::GpuBuffer<Scalar>;
-  using GPUView = Opm::gpuistl::GpuView<Scalar>;
-
-  using TraitsT = Opm::TwoPhaseMaterialTraits<Scalar, 1, 2>;
-  using CPUParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TraitsT>;
-  using GPUBufferParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TraitsT, GPUBuffer>;
-  using GPUViewParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TraitsT, GPUView>;
-
-  using CPUTwoPhaseMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TraitsT, CPUParams>;
-  using GPUTwoPhaseViewMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TraitsT, GPUViewParams>;
-  using NorneEvaluation = Opm::DenseAd::Evaluation<Scalar, 3, 0u>;
-
 template<typename MaterialLaw, typename FluidState, typename ContainerT>
 __global__ void computeCapillaryPressures(ContainerT Pc, typename MaterialLaw::Params lawParams, FluidState fluidState)
 {
@@ -379,10 +365,27 @@ __global__ void computeCapillaryPressures(ContainerT Pc, typename MaterialLaw::P
 using ProblemType = Opm::Properties::TTag::FlowSimpleProblem;
 using namespace Opm;
 
-using Traits = ThreePhaseMaterialTraits<Scalar,
+using ThreePhaseTraits = ThreePhaseMaterialTraits<Scalar,
 /*wettingPhaseIdx=*/GetPropType<ProblemType, Opm::Properties::FluidSystem>::waterPhaseIdx,
 /*nonWettingPhaseIdx=*/GetPropType<ProblemType, Opm::Properties::FluidSystem>::oilPhaseIdx,
 /*gasPhaseIdx=*/GetPropType<ProblemType, Opm::Properties::FluidSystem>::gasPhaseIdx>;
+
+// TODO: I do not know if this should be in the opposite order
+using TwoPhaseTraits = TwoPhaseMaterialTraits<double,
+    GetPropType<ProblemType, Opm::Properties::FluidSystem>::waterPhaseIdx,
+    GetPropType<ProblemType, Opm::Properties::FluidSystem>::gasPhaseIdx>;
+
+// these types are taken from Norne
+using ValueVector = std::vector<Scalar>;
+using GPUBuffer = Opm::gpuistl::GpuBuffer<Scalar>;
+using GPUView = Opm::gpuistl::GpuView<Scalar>;
+
+using CPUParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TwoPhaseTraits>;
+using GPUBufferParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TwoPhaseTraits, GPUBuffer>;
+using GPUViewParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<TwoPhaseTraits, GPUView>;
+
+using CPUTwoPhaseMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TwoPhaseTraits, CPUParams>;
+using GPUTwoPhaseViewMaterialLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TwoPhaseTraits, GPUViewParams>;
 
 BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 {
@@ -402,7 +405,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
   GPUBufferParams gpuBufferParams = gpuistl::copy_to_gpu<GPUBuffer>(cpuParams);
   GPUViewParams gpuViewParams = gpuistl::make_view<GPUView>(gpuBufferParams);
 
-  EclTwoPhaseMaterialParams<Traits, CPUParams, CPUParams, CPUParams> cpuTwoPhaseParams;
+  EclTwoPhaseMaterialParams<ThreePhaseTraits, CPUParams, CPUParams, CPUParams> cpuTwoPhaseParams;
   cpuTwoPhaseParams.setApproach(EclTwoPhaseApproach::GasWater);
   // Probably not the way it should be, but I have to pass all three parameter types
   // Even though I only need to support spe11 which is 2-phase (gas-water)
@@ -412,7 +415,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
   cpuTwoPhaseParams.finalize();
 
   auto gpuTwoPhaseParamsBuffer = gpuistl::copy_to_gpu<GPUBuffer, GPUBufferParams, GPUBufferParams, GPUBufferParams>(cpuTwoPhaseParams);
-  auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::PointerView>(gpuTwoPhaseParamsBuffer);
+  auto gpuTwoPhaseParamsView = gpuistl::make_view<GPUView, GPUViewParams, GPUViewParams, GPUViewParams, gpuistl::ValueAsPointer>(gpuTwoPhaseParamsBuffer);
 
   Opm::Parser parser;
 
@@ -434,7 +437,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
 
   std::vector<double> Pc = {0, 0, 0};
   ::Opm::EclTwoPhaseMaterial<
-    Traits,
+    ThreePhaseTraits,
     CPUTwoPhaseMaterialLaw,
     CPUTwoPhaseMaterialLaw,
     CPUTwoPhaseMaterialLaw
@@ -449,9 +452,9 @@ BOOST_AUTO_TEST_CASE(TestSimpleInterpolation)
   auto gpuPcBuffer = GpuB(gpuPcOnCpu);
   auto gpuPcView = gpuistl::make_view<double>(gpuPcBuffer);
 
-  using GpuEclTwoPhaseMaterialParams = EclTwoPhaseMaterialParams<Traits, GPUViewParams, GPUViewParams, GPUViewParams, typename ::Opm::gpuistl::PointerView>;
+  using GpuEclTwoPhaseMaterialParams = EclTwoPhaseMaterialParams<ThreePhaseTraits, GPUViewParams, GPUViewParams, GPUViewParams, typename ::Opm::gpuistl::ValueAsPointer>;
   using GpuEclTwoPhaseMaterial = Opm::EclTwoPhaseMaterial<
-    Traits,
+    ThreePhaseTraits,
     GPUTwoPhaseViewMaterialLaw,
     GPUTwoPhaseViewMaterialLaw,
     GPUTwoPhaseViewMaterialLaw,

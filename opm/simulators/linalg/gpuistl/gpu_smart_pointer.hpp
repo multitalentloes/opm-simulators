@@ -344,6 +344,8 @@ public:
 
     ValueAsPointer(const T& t) : value(t) {}
 
+    ValueAsPointer() = default;
+
     OPM_HOST_DEVICE T* operator->() {
         return &value;
     }
