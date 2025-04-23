@@ -67,15 +67,22 @@ public:
                            Storage<unsigned short> rockTableIdx,
                            Storage<Scalar> rockCompressibility,
                            Storage<Scalar> rockReferencePressures,
-                           std::array<Storage<Scalar>, 2> referencePorosity)
+                           std::array<Storage<Scalar>, 2> referencePorosity,
+                           Storage<typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager::MaterialLaw::Params> materialLawParams)
         : satNum_(satNum)
         , linearizationType_(linearizationType)
         , rockTableIdx_(rockTableIdx)
         , rockCompressibility_(rockCompressibility)
         , rockReferencePressures_(rockReferencePressures)
         , referencePorosity_(referencePorosity)
+        , materialLawParams_(materialLawParams)
     {
     }
+
+    using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
+    using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
+    using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
+    using IntensiveQuantities = typename Opm::GetPropType<TypeTag, Opm::Properties::IntensiveQuantities>;
 
     OPM_HOST_DEVICE unsigned short satnumRegionIndex(size_t elemIdx) const
     {
@@ -148,16 +155,13 @@ public:
         return referencePorosity_;
     }
 
-    // Below are the dummy functions, to be removed
-    using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
-    using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
-    using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
-    using IntensiveQuantities = typename Opm::GetPropType<TypeTag, Opm::Properties::IntensiveQuantities>;
-
-    OPM_HOST_DEVICE MaterialLawParams materialLawParams(std::size_t) const
+    OPM_HOST_DEVICE MaterialLawParams materialLawParams(std::size_t idx) const
     {
-        return MaterialLawParams();
+        return materialLawParams_[idx];
     }
+
+    // =================================================================================
+    // Below are the dummy functions, to be removed
 
     /*
         NOT USED IN SPE11
@@ -213,17 +217,77 @@ private:
     Storage<Scalar> rockReferencePressures_;
     std::array<Storage<Scalar>, 2> referencePorosity_;
     LinearizationType linearizationType_;
+    Storage<MaterialLawParams> materialLawParams_;
 };
 
 namespace gpuistl
 {
-
-    template <class Scalar, template <class> class ContainerT, class TypeTagFrom, class TypeTagTo>
-    FlowProblemBlackoilGpu<Scalar, TypeTagTo, ContainerT> copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem)
+    // TODO: why are there two typetags?
+    template <class TmpTwoPhaseMatParms, class Scalar, template <class> class ContainerT, class TypeTagFrom, class TypeTagTo>
+    FlowProblemBlackoilGpu<Scalar, TypeTagTo, ContainerT>
+    copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem)
     {
+        using MatLaw = typename Opm::GetProp<TypeTagFrom, Opm::Properties::MaterialLaw>;
+        using CpuMgr = typename MatLaw::EclMaterialLawManager;          // == EclMaterialLawManagerSimple<…>
+        using CpuParams = typename MatLaw::EclMaterialLawManager::Params;              // == EclTwoPhaseMaterialParams<…CpuGasOil, CpuOilWater, CpuGasWater>
+        using Traits = typename CpuParams::Traits;
+        
+        using GpuBuf = ContainerT<Scalar>;
+        
+        using GasOilTraits   = TwoPhaseMaterialTraits<Scalar,
+                                                      Traits::nonWettingPhaseIdx,
+                                                      Traits::gasPhaseIdx>;
+        using OilWaterTraits = TwoPhaseMaterialTraits<Scalar,
+                                                      Traits::wettingPhaseIdx,
+                                                      Traits::nonWettingPhaseIdx>;
+        using GasWaterTraits = TwoPhaseMaterialTraits<Scalar,
+                                                      Traits::wettingPhaseIdx,
+                                                      Traits::gasPhaseIdx>;
+        
+        // now build your new GPU param classes:
+        using GpuGasOilParams   = PiecewiseLinearTwoPhaseMaterialParams<GasOilTraits,   GpuBuf>;
+        using GpuOilWaterParams = PiecewiseLinearTwoPhaseMaterialParams<OilWaterTraits, GpuBuf>;
+        using GpuGasWaterParams = PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, GpuBuf>;
+
+        // using MaterialLawParams = typename Opm::GetProp<TypeTagFrom, Opm::Properties::MaterialLaw>::EclMaterialLawManager::MaterialLaw::Params;
+        // using MaterialLaw = typename Opm::GetProp<TypeTagFrom, Opm::Properties::MaterialLaw>::EclMaterialLawManager::MaterialLaw;
 
         static_assert(std::is_same_v<std::vector<Scalar>, decltype(problem.rockCompressibilitiesRaw())>);
         static_assert(std::is_same_v<std::vector<unsigned short>, decltype(problem.rockTableIdx())>);
+
+        auto nParams = problem.materialLawManager()->numMaterialLawParams();
+
+        using ThreePhaseMaterialParams = typename std::invoke_result_t<
+            decltype(&::Opm::gpuistl::copy_to_gpu<
+            ContainerT<Scalar>,
+            GpuGasOilParams,
+            GpuOilWaterParams,
+            GpuGasWaterParams,
+            Traits
+            >),
+            decltype(problem.materialLawParams(0))
+        >;
+
+        auto materialLawParamsInVector = std::vector<ThreePhaseMaterialParams>(nParams);
+        for (size_t i = 0; i < nParams; ++i) {
+            // materialLawParamsInVector[i] = ::Opm::gpuistl::copy_to_gpu
+            // <
+            //     ContainerT<Scalar>,
+            //     typename MaterialLawParams::GasOilParams,
+            //     typename MaterialLawParams::OilWaterParams,
+            //     typename MaterialLawParams::GasWaterParams,
+            //     typename MaterialLaw::Traits
+            // >(problem.materialLawParams(i));
+
+            materialLawParamsInVector[i] =
+                ::Opm::gpuistl::copy_to_gpu<ContainerT<
+                ContainerT<Scalar>>,
+                GpuGasOilParams,
+                GpuOilWaterParams,
+                GpuGasWaterParams,
+                Traits
+                >(problem.materialLawParams(i));
+        }
 
         return FlowProblemBlackoilGpu<Scalar, TypeTagTo, ContainerT>(
             ContainerT(problem.satnumRegionArray()),
@@ -231,21 +295,25 @@ namespace gpuistl
             ContainerT(problem.rockTableIdx()),
             ContainerT(problem.rockCompressibilitiesRaw()),
             ContainerT(problem.rockReferencePressuresRaw()),
-            std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])}
+            std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])},
+            ContainerT(materialLawParamsInVector)
         );
     }
 
-    template <template <class> class ViewT, class TypeTag, template <class> class ContainerT, class Scalar>
+    template <class TmpTwoPhaseMatParmsView, template <class> class ViewT, class TypeTag, template <class> class ContainerT, class Scalar>
     FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>
     make_view(FlowProblemBlackoilGpu<Scalar, TypeTag, ContainerT> problem)
     {
+
+        // auto ViewOfMaterialParams = ViewT<TmpTwoPhaseMatParmsView>(0);
+
         return FlowProblemBlackoilGpu<Scalar, TypeTag, ViewT>(make_view<unsigned short>(problem.satnumRegionArray()),
                                                               problem.model().linearizer().getLinearizationType(),
                                                               make_view<unsigned short>(problem.rockTableIdx()),
                                                               make_view<Scalar>(problem.rockCompressibilitiesRaw()),
                                                               make_view<Scalar>(problem.rockReferencePressuresRaw()),
                                                               std::array<ViewT<Scalar>, 2>{make_view<Scalar>(problem.referencePorosity()[0]),
-                                                                                                make_view<Scalar>(problem.referencePorosity()[1])}
+                                                                                                make_view<Scalar>(problem.referencePorosity()[1])},
                                                             );
     }
 

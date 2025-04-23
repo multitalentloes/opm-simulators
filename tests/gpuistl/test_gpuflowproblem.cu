@@ -117,12 +117,11 @@ namespace Opm {
       private:
           using Scalar = GetPropType<TypeTag, Properties::Scalar>;
           using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
-
+      public:
           using Traits = ThreePhaseMaterialTraits<Scalar,
                                                   /*wettingPhaseIdx=*/FluidSystem::waterPhaseIdx,
                                                   /*nonWettingPhaseIdx=*/FluidSystem::oilPhaseIdx,
                                                   /*gasPhaseIdx=*/FluidSystem::gasPhaseIdx>;
-      public:
           using EclMaterialLawManager = ::Opm::EclMaterialLawManagerSimple<Traits>;
           using type = typename EclMaterialLawManager::MaterialLaw;
       };
@@ -230,8 +229,21 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 
   auto sim = std::make_unique<Simulator>();
 
-  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag, TypeTag>(sim->problem());
-  auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView>(problemGpuBuf);
+  // using ThreePhaseParams = TypeTag::MaterialLaw::EclMaterialLawManager::MaterialLawParams;
+  // using CpuGasWaterTwoPhaseLaw = ThreePhaseParams::GasWaterParams;
+
+  using ThreePhaseTraits = typename TypeTag::MaterialLaw::Traits;
+  enum { waterPhaseIdx = ThreePhaseTraits::wettingPhaseIdx };
+  enum { oilPhaseIdx = ThreePhaseTraits::nonWettingPhaseIdx };
+  enum { gasPhaseIdx = ThreePhaseTraits::gasPhaseIdx };
+  enum { numPhases = ThreePhaseTraits::numPhases };
+  using GasWaterTraits = TwoPhaseMaterialTraits<Scalar, waterPhaseIdx, gasPhaseIdx>;
+
+  using GPUBufferInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuBuffer<double>>;
+  using GPUViewInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuView<double>>;
+
+  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<GPUBufferInterpolation, double, Opm::gpuistl::GpuBuffer, TypeTag, TypeTag>(sim->problem());
+  auto problemGpuView = Opm::gpuistl::make_view<GPUViewInterpolation, Opm::gpuistl::GpuView>(problemGpuBuf);
 
   unsigned short satNumOnCpu;
   unsigned short* satNumOnGpu;
