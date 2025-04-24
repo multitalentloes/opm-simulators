@@ -232,18 +232,18 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   // using ThreePhaseParams = TypeTag::MaterialLaw::EclMaterialLawManager::MaterialLawParams;
   // using CpuGasWaterTwoPhaseLaw = ThreePhaseParams::GasWaterParams;
 
-  using ThreePhaseTraits = typename TypeTag::MaterialLaw::Traits;
+  using ThreePhaseTraits = typename GetPropType<TypeTag, Properties::MaterialLaw>::Traits;
   enum { waterPhaseIdx = ThreePhaseTraits::wettingPhaseIdx };
   enum { oilPhaseIdx = ThreePhaseTraits::nonWettingPhaseIdx };
   enum { gasPhaseIdx = ThreePhaseTraits::gasPhaseIdx };
   enum { numPhases = ThreePhaseTraits::numPhases };
-  using GasWaterTraits = TwoPhaseMaterialTraits<Scalar, waterPhaseIdx, gasPhaseIdx>;
+  using GasWaterTraits = TwoPhaseMaterialTraits<double, waterPhaseIdx, gasPhaseIdx>;
 
   using GPUBufferInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuBuffer<double>>;
   using GPUViewInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuView<double>>;
 
-  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<GPUBufferInterpolation, double, Opm::gpuistl::GpuBuffer, TypeTag, TypeTag>(sim->problem());
-  auto problemGpuView = Opm::gpuistl::make_view<GPUViewInterpolation, Opm::gpuistl::GpuView>(problemGpuBuf);
+  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, TypeTag, TypeTag>(sim->problem());
+  auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView, Opm::gpuistl::ValueAsPointer>(problemGpuBuf);
 
   unsigned short satNumOnCpu;
   unsigned short* satNumOnGpu;
