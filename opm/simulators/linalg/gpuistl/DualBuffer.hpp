@@ -35,7 +35,9 @@
 #include <cuda_runtime.h>
 
 
-namespace Opm::gpuistl
+namespace Opm
+{
+namespace gpuistl
 {
 // This class is motivated by FlowProblemBlackoilGpu, where we need to
 // have a buffer of material law parameters on the GPU, which themselves contain buffers.
@@ -63,5 +65,6 @@ private:
     std::vector<GPUTypeT> m_cpuBuffer;
     GpuBuffer<ViewTypeT> m_gpuBuffer;
 };
-} // namespace Opm::gpuistl
+} // namespace gpuistl
+} // namespace Opm
 #endif
