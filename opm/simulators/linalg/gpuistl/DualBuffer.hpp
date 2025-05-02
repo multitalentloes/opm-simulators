@@ -26,6 +26,9 @@
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
+#include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuView.hpp>
 #include <vector>
 #include <string>
 #include <cuda_runtime.h>
@@ -41,45 +44,23 @@ namespace Opm::gpuistl
 // be accessible so that we can call make_view on them. Additionally, this leaves us with a buffer
 // of views that will not go out of scope so the outer view of the matlawparams will not go out of scope
 // T may be EclTwoPhaseMaterialParams or similar
-template<class T>
+template<template<class...> class T>
 class DualBuffer {
 public:
-    // using ViewTypeT = ViewType<T>; // her må vi ha definert en ViewType<T> for de klassene vi trenger
-    // using GPUTypeT = GPUType<T>;
+    using ViewTypeT = ViewType<T>; // her må vi ha definert en ViewType<T> for de klassene vi trenger
+    using GPUTypeT = GPUType<T>;
 
-    // const GPUBuffer<ViewTypeT>& getGPUBuffer() const {
-    //     return m_gpubuffer;
-    // }
+    const GPUBuffer<ViewTypeT>& getGPUBuffer() const {
+        return m_gpubuffer;
+    }
 
-    // const std::vector<GPUType>& getCPUBuffer() const {
-    //     return m_cpuBuffer;
-    // }
-
-private:
-    // std::vector<GPUType> m_cpuBuffer;
-    // GPUBuffer<ViewTypeT> m_gpuBuffer;
-};
-
-// DualBuffer in the case of EclTwoPhaseMaterialParams
-template<class... Args>
-class DualBuffer<EclTwoPhaseMaterialParams<Args...>> {
-public:
-    using MaterialParams = EclTwoPhaseMaterialParams<Args...>;
-    using Traits = typename MaterialParams::TraitsType;
-    using GasOilParams = typename MaterialParams::GasOilParams;
-    using OilWaterParams = typename MaterialParams::OilWaterParams;
-    using GasWaterParams = typename MaterialParams::GasWaterParams;
-    // I do not need to extract the PtrType as this will only ever use the default value
-
-    // Declare the EclTwoPhaseMaterialParams type with GPU Buffers
-    // This requires that I 
-    using MatParamBuffer = EclTwoPhaseMaterialParams<Traits
-
+    const std::vector<GPUType>& getCPUBuffer() const {
+        return m_cpuBuffer;
+    }
 
 private:
     std::vector<GPUType> m_cpuBuffer;
-    GPUBuffer<ViewType> m_gpuBuffer;
+    GpuBuffer<ViewTypeT> m_gpuBuffer;
 };
-
 } // namespace Opm::gpuistl
 #endif

@@ -23,11 +23,11 @@
 #include <opm/simulators/linalg/gpuistl/DualBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 
-namespace Opm::gpuistl
-{
+// namespace Opm::gpuistl
+// {
 
-template class DualBuffer<double>;
-template class DualBuffer<float>;
-template class DualBuffer<int>;
+// template class DualBuffer<double>;
+// template class DualBuffer<float>;
+// template class DualBuffer<int>;
 
-} // namespace Opm::gpuistl
+// } // namespace Opm::gpuistl

@@ -161,6 +161,7 @@ public:
         // when this is a buffer we cannot actually index this value
         // Implement a form of indexing or let this particular vector of materialLawParams stay a vector
         // in the buffer version and make it a buffer and a view inside the make_view function?
+
         return materialLawParams_[idx];
     }
 
@@ -231,135 +232,137 @@ private:
 
 namespace gpuistl
 {
-    // TODO: why are there two typetags?
-    template <class Scalar, template <class> class ContainerT, class TypeTagFrom, class TypeTagTo>
-    auto
-    copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem)
-    {
-        using MatLaw = typename Opm::GetProp<TypeTagFrom, Opm::Properties::MaterialLaw>;
-        using CpuMgr = typename MatLaw::EclMaterialLawManager;          // == EclMaterialLawManagerSimple<…>
-        using CpuParams = typename CpuMgr::MaterialLawParams;              // == EclTwoPhaseMaterialParams<…CpuGasOil, CpuOilWater, CpuGasWater>
-        using Traits = typename MatLaw::Traits;
+//     template <class Scalar, class TypeTag, class MatLawParam, template <class> class Storage = VectorWithDefaultAllocator>
+// class FlowProblemBlackoilGpu
+
+//     // TODO: why are there two typetags?
+//     template <class Scalar, template <class> class ContainerT, class TypeTagFrom, class TypeTagTo>
+//     auto
+//     copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem)
+//     {
+//         using MatLaw = typename Opm::GetProp<TypeTagFrom, Opm::Properties::MaterialLaw>;
+//         using CpuMgr = typename MatLaw::EclMaterialLawManager;          // == EclMaterialLawManagerSimple<…>
+//         using CpuParams = typename CpuMgr::MaterialLawParams;              // == EclTwoPhaseMaterialParams<…CpuGasOil, CpuOilWater, CpuGasWater>
+//         using Traits = typename MatLaw::Traits;
         
-        using GpuBuf = ContainerT<Scalar>;
+//         using GpuBuf = ContainerT<Scalar>;
         
-        using GasOilTraits   = TwoPhaseMaterialTraits<Scalar,
-                                                      Traits::nonWettingPhaseIdx,
-                                                      Traits::gasPhaseIdx>;
-        using OilWaterTraits = TwoPhaseMaterialTraits<Scalar,
-                                                      Traits::wettingPhaseIdx,
-                                                      Traits::nonWettingPhaseIdx>;
-        using GasWaterTraits = TwoPhaseMaterialTraits<Scalar,
-                                                      Traits::wettingPhaseIdx,
-                                                      Traits::gasPhaseIdx>;
+//         using GasOilTraits   = TwoPhaseMaterialTraits<Scalar,
+//                                                       Traits::nonWettingPhaseIdx,
+//                                                       Traits::gasPhaseIdx>;
+//         using OilWaterTraits = TwoPhaseMaterialTraits<Scalar,
+//                                                       Traits::wettingPhaseIdx,
+//                                                       Traits::nonWettingPhaseIdx>;
+//         using GasWaterTraits = TwoPhaseMaterialTraits<Scalar,
+//                                                       Traits::wettingPhaseIdx,
+//                                                       Traits::gasPhaseIdx>;
         
-        // now build your new GPU param classes:
-        using GpuGasOilParams   = PiecewiseLinearTwoPhaseMaterialParams<GasOilTraits,   GpuBuf>;
-        using GpuOilWaterParams = PiecewiseLinearTwoPhaseMaterialParams<OilWaterTraits, GpuBuf>;
-        using GpuGasWaterParams = PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, GpuBuf>;
+//         // now build your new GPU param classes:
+//         using GpuGasOilParams   = PiecewiseLinearTwoPhaseMaterialParams<GasOilTraits,   GpuBuf>;
+//         using GpuOilWaterParams = PiecewiseLinearTwoPhaseMaterialParams<OilWaterTraits, GpuBuf>;
+//         using GpuGasWaterParams = PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, GpuBuf>;
 
-        static_assert(std::is_same_v<std::vector<Scalar>, decltype(problem.rockCompressibilitiesRaw())>);
-        static_assert(std::is_same_v<std::vector<unsigned short>, decltype(problem.rockTableIdx())>);
+//         static_assert(std::is_same_v<std::vector<Scalar>, decltype(problem.rockCompressibilitiesRaw())>);
+//         static_assert(std::is_same_v<std::vector<unsigned short>, decltype(problem.rockTableIdx())>);
 
-        auto nParams = problem.materialLawManager()->numMaterialLawParams();
+//         auto nParams = problem.materialLawManager()->numMaterialLawParams();
 
-        using ThreePhaseMaterialParams = Opm::EclTwoPhaseMaterialParams<
-            Traits,
-            GpuGasOilParams,
-            GpuOilWaterParams,
-            GpuGasWaterParams
-        >;
+//         using ThreePhaseMaterialParams = Opm::EclTwoPhaseMaterialParams<
+//             Traits,
+//             GpuGasOilParams,
+//             GpuOilWaterParams,
+//             GpuGasWaterParams
+//         >;
 
-        auto materialLawParamsInVector = std::vector<ThreePhaseMaterialParams>(nParams);
-        for (size_t i = 0; i < nParams; ++i) {
-            materialLawParamsInVector[i] =
-                ::Opm::gpuistl::copy_to_gpu<
-                ContainerT<Scalar>,
-                GpuGasOilParams,
-                GpuOilWaterParams,
-                GpuGasWaterParams,
-                Traits
-                >(problem.materialLawParams(i));
-        }
+//         auto materialLawParamsInVector = std::vector<ThreePhaseMaterialParams>(nParams);
+//         for (size_t i = 0; i < nParams; ++i) {
+//             materialLawParamsInVector[i] =
+//                 ::Opm::gpuistl::copy_to_gpu<
+//                 ContainerT<Scalar>,
+//                 GpuGasOilParams,
+//                 GpuOilWaterParams,
+//                 GpuGasWaterParams,
+//                 Traits
+//                 >(problem.materialLawParams(i));
+//         }
 
-        return FlowProblemBlackoilGpu<Scalar, TypeTagTo, ThreePhaseMaterialParams, ContainerT>(
-            ContainerT(problem.satnumRegionArray()),
-            problem.model().linearizer().getLinearizationType(),
-            ContainerT(problem.rockTableIdx()),
-            ContainerT(problem.rockCompressibilitiesRaw()),
-            ContainerT(problem.rockReferencePressuresRaw()),
-            std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])},
-            ContainerT(materialLawParamsInVector)
-        );
-    }
+//         return FlowProblemBlackoilGpu<Scalar, TypeTagTo, ThreePhaseMaterialParams, ContainerT>(
+//             ContainerT(problem.satnumRegionArray()),
+//             problem.model().linearizer().getLinearizationType(),
+//             ContainerT(problem.rockTableIdx()),
+//             ContainerT(problem.rockCompressibilitiesRaw()),
+//             ContainerT(problem.rockReferencePressuresRaw()),
+//             std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])},
+//             ContainerT(materialLawParamsInVector)
+//         );
+//     }
 
-    template <template <class> class ViewT, template <class> class PtrType, class TypeTag, template <class> class ContainerT, class Scalar, class OldThreePhaseMaterialParams>
-    auto
-    make_view(FlowProblemBlackoilGpu<Scalar, TypeTag, OldThreePhaseMaterialParams, ContainerT> problem)
-    {
+//     template <template <class> class ViewT, template <class> class PtrType, class TypeTag, template <class> class ContainerT, class Scalar, class OldThreePhaseMaterialParams>
+//     auto
+//     make_view(FlowProblemBlackoilGpu<Scalar, TypeTag, OldThreePhaseMaterialParams, ContainerT> problem)
+//     {
 
-        using MatLaw = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>;
-        using CpuMgr = typename MatLaw::EclMaterialLawManager;          // == EclMaterialLawManagerSimple<…>
-        using CpuParams = typename CpuMgr::MaterialLawParams;              // == EclTwoPhaseMaterialParams<…CpuGasOil, CpuOilWater, CpuGasWater>
-        using Traits = typename MatLaw::Traits;
+//         using MatLaw = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>;
+//         using CpuMgr = typename MatLaw::EclMaterialLawManager;          // == EclMaterialLawManagerSimple<…>
+//         using CpuParams = typename CpuMgr::MaterialLawParams;              // == EclTwoPhaseMaterialParams<…CpuGasOil, CpuOilWater, CpuGasWater>
+//         using Traits = typename MatLaw::Traits;
         
-        // using GpuView = ContainerT<Scalar>;
-        using GpuView = ViewT<Scalar>;
+//         // using GpuView = ContainerT<Scalar>;
+//         using GpuView = ViewT<Scalar>;
         
-        using GasOilTraits   = TwoPhaseMaterialTraits<Scalar,
-                                                      Traits::nonWettingPhaseIdx,
-                                                      Traits::gasPhaseIdx>;
-        using OilWaterTraits = TwoPhaseMaterialTraits<Scalar,
-                                                      Traits::wettingPhaseIdx,
-                                                      Traits::nonWettingPhaseIdx>;
-        using GasWaterTraits = TwoPhaseMaterialTraits<Scalar,
-                                                      Traits::wettingPhaseIdx,
-                                                      Traits::gasPhaseIdx>;
+//         using GasOilTraits   = TwoPhaseMaterialTraits<Scalar,
+//                                                       Traits::nonWettingPhaseIdx,
+//                                                       Traits::gasPhaseIdx>;
+//         using OilWaterTraits = TwoPhaseMaterialTraits<Scalar,
+//                                                       Traits::wettingPhaseIdx,
+//                                                       Traits::nonWettingPhaseIdx>;
+//         using GasWaterTraits = TwoPhaseMaterialTraits<Scalar,
+//                                                       Traits::wettingPhaseIdx,
+//                                                       Traits::gasPhaseIdx>;
         
-        // now build your new GPU param classes:
-        using GpuGasOilParams   = PiecewiseLinearTwoPhaseMaterialParams<GasOilTraits,   GpuView>;
-        using GpuOilWaterParams = PiecewiseLinearTwoPhaseMaterialParams<OilWaterTraits, GpuView>;
-        using GpuGasWaterParams = PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, GpuView>;
+//         // now build your new GPU param classes:
+//         using GpuGasOilParams   = PiecewiseLinearTwoPhaseMaterialParams<GasOilTraits,   GpuView>;
+//         using GpuOilWaterParams = PiecewiseLinearTwoPhaseMaterialParams<OilWaterTraits, GpuView>;
+//         using GpuGasWaterParams = PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, GpuView>;
 
-        auto nParams = problem.numMaterialLawParams();
+//         auto nParams = problem.numMaterialLawParams();
 
-        using ThreePhaseMaterialParams = Opm::EclTwoPhaseMaterialParams<
-            Traits,
-            GpuGasOilParams,
-            GpuOilWaterParams,
-            GpuGasWaterParams,
-            PtrType
-        >;
+//         using ThreePhaseMaterialParams = Opm::EclTwoPhaseMaterialParams<
+//             Traits,
+//             GpuGasOilParams,
+//             GpuOilWaterParams,
+//             GpuGasWaterParams,
+//             PtrType
+//         >;
 
-        auto materialLawParamsInVector = std::vector<ThreePhaseMaterialParams>(nParams);
-        for (size_t i = 0; i < nParams; ++i) {
-            materialLawParamsInVector[i] =
-                ::Opm::gpuistl::make_view<
-                ViewT<Scalar>,
-                GpuGasOilParams,
-                GpuOilWaterParams,
-                GpuGasWaterParams,
-                PtrType,
-                Traits
-                >(problem.materialLawParams(i));
-        }
+//         auto materialLawParamsInVector = std::vector<ThreePhaseMaterialParams>(nParams);
+//         for (size_t i = 0; i < nParams; ++i) {
+//             materialLawParamsInVector[i] =
+//                 ::Opm::gpuistl::make_view<
+//                 ViewT<Scalar>,
+//                 GpuGasOilParams,
+//                 GpuOilWaterParams,
+//                 GpuGasWaterParams,
+//                 PtrType,
+//                 Traits
+//                 >(problem.materialLawParams(i));
+//         }
 
-        // I now have the values in a regular vector, I guess I can now first make it a buffer and then a view...
-        auto parmsInBuffer = ContainerT(materialLawParamsInVector);
-        auto parmsInView = make_view(parmsInBuffer);
+//         // I now have the values in a regular vector, I guess I can now first make it a buffer and then a view...
+//         auto parmsInBuffer = ContainerT(materialLawParamsInVector);
+//         auto parmsInView = make_view(parmsInBuffer);
 
-        return FlowProblemBlackoilGpu<Scalar, TypeTag, ThreePhaseMaterialParams, ViewT>(make_view<unsigned short>(problem.satnumRegionArray()),
-                                                              problem.model().linearizer().getLinearizationType(),
-                                                              make_view<unsigned short>(problem.rockTableIdx()),
-                                                              make_view<Scalar>(problem.rockCompressibilitiesRaw()),
-                                                              make_view<Scalar>(problem.rockReferencePressuresRaw()),
-                                                              std::array<ViewT<Scalar>, 2>{make_view<Scalar>(problem.referencePorosity()[0]),
-                                                              make_view<Scalar>(problem.referencePorosity()[1])},
-                                                              parmsInView
-                                                            );
-    }
-
-} // namespace gpuistl
+//         return FlowProblemBlackoilGpu<Scalar, TypeTag, ThreePhaseMaterialParams, ViewT>(make_view<unsigned short>(problem.satnumRegionArray()),
+//                                                               problem.model().linearizer().getLinearizationType(),
+//                                                               make_view<unsigned short>(problem.rockTableIdx()),
+//                                                               make_view<Scalar>(problem.rockCompressibilitiesRaw()),
+//                                                               make_view<Scalar>(problem.rockReferencePressuresRaw()),
+//                                                               std::array<ViewT<Scalar>, 2>{make_view<Scalar>(problem.referencePorosity()[0]),
+//                                                               make_view<Scalar>(problem.referencePorosity()[1])},
+//                                                               parmsInView
+//                                                             );
+//     }
+// } // namespace gpuistl
 
 } // namespace Opm
 

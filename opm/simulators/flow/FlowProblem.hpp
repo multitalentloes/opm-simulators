@@ -732,6 +732,8 @@ public:
 
     const MaterialLawParams& materialLawParams(unsigned globalDofIdx) const
     {
+        // printf("[FlowProblem] accessing %u", globalDofIdx);
+        printf("p");
         return materialLawManager_->materialLawParams(globalDofIdx);
     }
 

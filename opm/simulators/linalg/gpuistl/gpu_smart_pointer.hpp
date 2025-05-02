@@ -373,4 +373,5 @@ private:
     T value;
 };
 } // namespace Opm::gpuistl
+
 #endif
