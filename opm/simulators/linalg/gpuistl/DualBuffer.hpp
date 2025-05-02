@@ -16,8 +16,8 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef OPM_GPUBUFFER_HEADER_HPP
-#define OPM_GPUBUFFER_HEADER_HPP
+#ifndef OPM_DUALBUFFER_HEADER_HPP
+#define OPM_DUALBUFFER_HEADER_HPP
 #include <dune/common/fvector.hh>
 #include <dune/istl/bvector.hh>
 #include <exception>
@@ -29,6 +29,7 @@
 #include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
+#include <opm/common/utility/gpuDecorators.hpp>
 #include <vector>
 #include <string>
 #include <cuda_runtime.h>
@@ -44,22 +45,22 @@ namespace Opm::gpuistl
 // be accessible so that we can call make_view on them. Additionally, this leaves us with a buffer
 // of views that will not go out of scope so the outer view of the matlawparams will not go out of scope
 // T may be EclTwoPhaseMaterialParams or similar
-template<template<class...> class T>
+template<class T>
 class DualBuffer {
 public:
-    using ViewTypeT = ViewType<T>; // her må vi ha definert en ViewType<T> for de klassene vi trenger
-    using GPUTypeT = GPUType<T>;
+    using ViewTypeT = typename ViewType<T>::type; // her må vi ha definert en ViewType<T> for de klassene vi trenger
+    using GPUTypeT = typename GPUType<T>::type;
 
-    const GPUBuffer<ViewTypeT>& getGPUBuffer() const {
-        return m_gpubuffer;
+    const GpuBuffer<ViewTypeT>& getGpuBuffer() const {
+        return m_gpuBuffer;
     }
 
-    const std::vector<GPUType>& getCPUBuffer() const {
+    const std::vector<GPUTypeT>& getCPUBuffer() const {
         return m_cpuBuffer;
     }
 
 private:
-    std::vector<GPUType> m_cpuBuffer;
+    std::vector<GPUTypeT> m_cpuBuffer;
     GpuBuffer<ViewTypeT> m_gpuBuffer;
 };
 } // namespace Opm::gpuistl
