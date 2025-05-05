@@ -362,7 +362,7 @@ namespace gpuistl
 //                                                               parmsInView
 //                                                             );
 //     }
-// } // namespace gpuistl
+} // namespace gpuistl
 
 } // namespace Opm
 

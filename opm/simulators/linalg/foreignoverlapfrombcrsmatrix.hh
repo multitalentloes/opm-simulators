@@ -27,8 +27,10 @@
 #ifndef EWOMS_FOREIGN_OVERLAP_FROM_BCRS_MATRIX_HH
 #define EWOMS_FOREIGN_OVERLAP_FROM_BCRS_MATRIX_HH
 
-#include "overlaptypes.hh"
-#include "blacklist.hh"
+// #include "overlaptypes.hh"
+// #include "blacklist.hh"
+#include <opm/simulators/linalg/overlaptypes.hh>
+#include <opm/simulators/linalg/blacklist.hh>
 
 #include <opm/models/parallel/mpibuffer.hh>
 
