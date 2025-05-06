@@ -23,6 +23,7 @@
 #include <exception>
 #include <fmt/core.h>
 #include <opm/common/ErrorMacros.hpp>
+#include <opm/material/common/EnsureFinalized.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
@@ -48,8 +49,9 @@ namespace gpuistl
 // of views that will not go out of scope so the outer view of the matlawparams will not go out of scope
 // T may be EclTwoPhaseMaterialParams or similar
 template<class T>
-class DualBuffer {
+class DualBuffer : public EnsureFinalized {
 public:
+    using field_type = T;
     using ViewTypeT = typename ViewType<T>::type; // her må vi ha definert en ViewType<T> for de klassene vi trenger
     using GPUTypeT = typename GPUType<T>::type;
 
@@ -65,7 +67,27 @@ public:
         // m_gpuBuffer = other.m_gpuBuffer;
     }
 
-    const GpuBuffer<ViewTypeT>& getGpuBuffer() const {
+    size_t size() const
+    {
+        return m_cpuBuffer.size();
+    }
+
+    // This function makes the views on the GPU that are stored in a buffer
+    // After this function is called, the make_view function can be run in O(1) for this class
+    //template<typename... Args>
+    template<class MakeViewArgs>
+    void prepareViews(MakeViewArgs makeView)
+    {
+        std::vector<ViewTypeT> views;
+        for (auto& buf_item : m_cpuBuffer) {
+            views.push_back(makeView(buf_item));
+        }
+        m_gpuBuffer = GpuBuffer<ViewTypeT>(views);
+
+        EnsureFinalized::finalize();
+    }
+
+    GpuBuffer<ViewTypeT>& getGpuBuffer() {
         return m_gpuBuffer;
     }
 
@@ -73,10 +95,24 @@ public:
         return m_cpuBuffer;
     }
 
+    void ensureFinalized() const
+    {
+        EnsureFinalized::check();
+    }
+
 private:
     std::vector<GPUTypeT> m_cpuBuffer;
     GpuBuffer<ViewTypeT> m_gpuBuffer;
 };
+
+template<typename T>
+GpuView<typename DualBuffer<T>::ViewTypeT> // return a view of the viewtype of the thing the dual buffer stores
+make_view(DualBuffer<T>& dualBuffer)
+{
+    dualBuffer.ensureFinalized();
+    return make_view(dualBuffer.getGpuBuffer());
+}
+
 } // namespace gpuistl
 } // namespace Opm
 #endif
