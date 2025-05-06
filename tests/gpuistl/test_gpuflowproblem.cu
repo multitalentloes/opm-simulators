@@ -187,6 +187,12 @@ __global__ void rockReferencePressureFromFlowProblemBlackoilGpu(ProblemView prob
   *res = prob.rockReferencePressure(0);
 }
 
+template<class ProblemView>
+__global__ void materialLawParamsCallable(ProblemView prob)
+{
+  auto matLawParams = prob.materialLawParams(0);
+}
+
 
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
@@ -287,5 +293,5 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   BOOST_CHECK_EQUAL(referencePressureOnCpu, sim->problem().rockReferencePressure(0));
   std::ignore = cudaFree(referencePressureOnGpu);
 
-  std::cout << referencePressureOnCpu << std::endl;
+  materialLawParamsCallable<<<1, 1>>>(problemGpuView);
 }

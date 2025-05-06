@@ -164,11 +164,6 @@ public:
 
     OPM_HOST_DEVICE MatLawParam materialLawParams(std::size_t idx) const
     {
-        // Not sure what to do here, this is used to traverse elements and create the buffer and the view
-        // when this is a buffer we cannot actually index this value
-        // Implement a form of indexing or let this particular vector of materialLawParams stay a vector
-        // in the buffer version and make it a buffer and a view inside the make_view function?
-
         return materialLawParams_[idx];
     }
 
