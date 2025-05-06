@@ -58,7 +58,13 @@ namespace Opm
 {
 
 // This class is a simplified version of FlowProblem that should be GPU-instantiable
-template <class Scalar, class TypeTag, class MatLawParam, template <class> class Storage = VectorWithDefaultAllocator>
+template <
+    class Scalar,
+    class TypeTag,
+    class MatLawParam,
+    template <class> class Storage = VectorWithDefaultAllocator,
+    template <class> class StorageOfStorage = VectorWithDefaultAllocator
+>
 class FlowProblemBlackoilGpu
 {
 public:
@@ -68,7 +74,7 @@ public:
                            Storage<Scalar> rockCompressibility,
                            Storage<Scalar> rockReferencePressures,
                            std::array<Storage<Scalar>, 2> referencePorosity,
-                           Storage<MatLawParam> materialLawParams)
+                           StorageOfStorage<MatLawParam> materialLawParams)
         : satNum_(satNum)
         , linearizationType_(linearizationType)
         , rockTableIdx_(rockTableIdx)
@@ -227,7 +233,7 @@ private:
     Storage<Scalar> rockReferencePressures_;
     std::array<Storage<Scalar>, 2> referencePorosity_;
     LinearizationType linearizationType_;
-    Storage<MatLawParam> materialLawParams_;
+    StorageOfStorage<MatLawParam> materialLawParams_;
 };
 
 namespace gpuistl
@@ -236,7 +242,7 @@ namespace gpuistl
 // class FlowProblemBlackoilGpu
 
     // TODO: why are there two typetags?
-    template <class Scalar, template <class> class ContainerT, class TypeTagFrom, class TypeTagTo>
+    template <class Scalar, template <class> class ContainerT, template<class> class DualContainer, class TypeTagFrom, class TypeTagTo>
     auto
     copy_to_gpu(FlowProblemBlackoil<TypeTagFrom>& problem)
     {
@@ -286,14 +292,31 @@ namespace gpuistl
                 >(problem.materialLawParams(i));
         }
 
-        return FlowProblemBlackoilGpu<Scalar, TypeTagTo, ThreePhaseMaterialParams, ContainerT>(
+        // Check that GPUType works
+        static_assert(
+            std::is_same_v<
+                decltype(materialLawParamsInVector),
+                std::vector<
+                    typename GPUType<
+                        EclTwoPhaseMaterialParams<
+                            Traits,
+                            GpuGasOilParams,
+                            GpuOilWaterParams,
+                            GpuGasWaterParams
+                        >
+                    >::type
+                >
+            >
+        );
+
+        return FlowProblemBlackoilGpu<Scalar, TypeTagTo, ThreePhaseMaterialParams, ContainerT, DualContainer>(
             ContainerT(problem.satnumRegionArray()),
             problem.model().linearizer().getLinearizationType(),
             ContainerT(problem.rockTableIdx()),
             ContainerT(problem.rockCompressibilitiesRaw()),
             ContainerT(problem.rockReferencePressuresRaw()),
             std::array<ContainerT<Scalar>, 2>{ContainerT(problem.referencePorosity()[0]), ContainerT(problem.referencePorosity()[1])},
-            ContainerT(materialLawParamsInVector)
+            DualContainer<ThreePhaseMaterialParams>(materialLawParamsInVector)
         );
     }
 

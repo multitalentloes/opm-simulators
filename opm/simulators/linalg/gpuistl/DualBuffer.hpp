@@ -53,6 +53,18 @@ public:
     using ViewTypeT = typename ViewType<T>::type; // her må vi ha definert en ViewType<T> for de klassene vi trenger
     using GPUTypeT = typename GPUType<T>::type;
 
+    DualBuffer(std::vector<GPUTypeT>& cpuBuffer_)
+        : m_cpuBuffer(cpuBuffer_)
+    {
+        // TODO: make the Buffer of Views on the GPU such that we can make a view of this type
+    }
+
+    DualBuffer(DualBuffer<T>& other)
+        : m_cpuBuffer(other.m_cpuBuffer)
+    {
+        // m_gpuBuffer = other.m_gpuBuffer;
+    }
+
     const GpuBuffer<ViewTypeT>& getGpuBuffer() const {
         return m_gpuBuffer;
     }
