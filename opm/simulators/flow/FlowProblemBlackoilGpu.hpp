@@ -31,6 +31,8 @@
 
 #include <opm/models/discretization/common/linearizationtype.hh>
 
+#include <opm/material/fluidmatrixinteractions/EclMaterialLawManagerSimple.hpp>
+
 #include <opm/simulators/flow/FlowProblemBlackoil.hpp>
 
 namespace
@@ -88,6 +90,7 @@ public:
     using ExternallyVisibleMatLawParam = MatLawParam;
     using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
     using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
+    using MaterialLaw = typename gpuistl::GPUType<typename EclMaterialLawManager::MaterialLaw>::type;
     using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
     using IntensiveQuantities = typename Opm::GetPropType<TypeTag, Opm::Properties::IntensiveQuantities>;
 
@@ -178,6 +181,13 @@ public:
         return materialLawParams_;
     }
 
+    template <class MobArr, class DirMobPtr, class FluidState>
+    OPM_HOST_DEVICE void updateRelperms(MobArr& mobility, DirMobPtr& dirMob, const FluidState& fluidstate, std::size_t globalSpaceIdx) const
+    {
+        const auto& materialParams = materialLawParams(globalSpaceIdx);;
+        MaterialLaw::relativePermeabilities(mobility, materialParams, fluidstate);
+    }
+
     // =================================================================================
     // Below are the dummy functions, to be removed
 
@@ -212,13 +222,6 @@ public:
     OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const IntensiveQuantities&, std::size_t) const
     {
         return Evaluation(0.0);
-    }
-
-    template <class MobArr, class DirMobPtr, class FluidState>
-    OPM_HOST_DEVICE void updateRelperms(MobArr& mobility, DirMobPtr& dirMob, const FluidState& fluidstate, std::size_t globalSpaceIdx) const
-    {
-        // const auto& materialParams = materialLawManager_->materialLawParams(globalDofIdx);;
-        // MaterialLaw::relativePermeabilities(mobility, materialParams, fluidState);
     }
 
     template <class Evaluation>

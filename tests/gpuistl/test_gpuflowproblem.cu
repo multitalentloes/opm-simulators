@@ -55,7 +55,7 @@ Functionality requested for the blackoil flow problem on gpu:
 
 [X] - problem.model().linearizer().getLinearizationType()
 [X] - problem.satnumRegionIndex(globalSpaceIdx)
-[ ] - problem.materialLawParams(globalSpaceIdx)
+[X] - problem.materialLawParams(globalSpaceIdx)
 [X] - problem.rockCompressibility(globalSpaceIdx)
 [X] - problem.rockReferencePressure(globalSpaceIdx)
 [X] - problem.porosity(globalSpaceIdx, timeIdx)
@@ -67,6 +67,67 @@ Functionality requested for the blackoil flow problem on gpu:
 [ ] - problem.template rockCompTransMultiplier<Evaluation>(*this, globalSpaceIdx)
 
 */
+
+#include <opm/material/fluidsystems/BlackOilFluidSystem.hpp>
+#include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
+#include <opm/material/fluidstates/BlackOilFluidState.hpp>
+
+#include <opm/input/eclipse/Parser/Parser.hpp>
+#include <opm/input/eclipse/Deck/Deck.hpp>
+#include <opm/input/eclipse/EclipseState/EclipseState.hpp>
+#include <opm/input/eclipse/Python/Python.hpp>
+#include <opm/input/eclipse/Schedule/Schedule.hpp>
+
+static constexpr const char* deckString1 =
+"-- =============== RUNSPEC\n"
+"RUNSPEC\n"
+"DIMENS\n"
+"3 3 3 /\n"
+"EQLDIMS\n"
+"/\n"
+"TABDIMS\n"
+"/\n"
+"WATER\n"
+"GAS\n"
+"CO2STORE\n"
+"METRIC\n"
+"-- =============== GRID\n"
+"GRID\n"
+"GRIDFILE\n"
+"0 0 /\n"
+"DX\n"
+"27*1 /\n"
+"DY\n"
+"27*1 /\n"
+"DZ\n"
+"27*1 /\n"
+"TOPS\n"
+"9*0 /\n"
+"PERMX\n"
+"27*1013.25 /\n"
+"PORO\n"
+"27*0.25 /\n"
+"COPY\n"
+"PERMX PERMY /\n"
+"PERMX PERMZ /\n"
+"/\n"
+"-- =============== PROPS\n"
+"PROPS\n"
+"SGWFN\n"
+"0.000000E+00 0.000000E+00 1.000000E+00 3.060000E-02\n"
+"1.000000E+00 1.000000E+00 0.000000E+00 3.060000E-01 /\n"
+"-- =============== SOLUTION\n"
+"SOLUTION\n"
+"RPTRST\n"
+"'BASIC=0' /\n"
+"EQUIL\n"
+"0 300 100 0 0 0 1 1 0 /\n"
+"-- =============== SCHEDULE\n"
+"SCHEDULE\n"
+"RPTRST\n"
+"'BASIC=0' /\n"
+"TSTEP\n"
+"1 /";
 
 namespace Opm {
   namespace Properties {
@@ -193,6 +254,13 @@ __global__ void materialLawParamsCallable(ProblemView prob)
   auto matLawParams = prob.materialLawParams(0);
 }
 
+template<class DirMobPtr, class ProblemView, class MobArr, class FluidState>
+__global__ void updateRelPermsFromFlowProblemBlackoilGpu(ProblemView prob, MobArr mob, FluidState fs)
+{
+  auto dirPtr = DirMobPtr(); // produces nullptr, this value is not used in the function, but should match signature
+  prob.updateRelperms(mob, dirPtr, fs, 0);
+}
+
 
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
@@ -294,4 +362,36 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
   std::ignore = cudaFree(referencePressureOnGpu);
 
   materialLawParamsCallable<<<1, 1>>>(problemGpuView);
+
+  using FluidSystem = Opm::BlackOilFluidSystem<double>;
+  using Evaluation = Opm::DenseAd::Evaluation<double,2>;
+  using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
+  using DirectionalMobilityPtr = Utility::CopyablePtr<DirectionalMobility<TypeTag, Evaluation>>;
+  
+  // Create the fluid system
+  Opm::Parser parser;
+  auto deck = parser.parseString(deckString1);
+  auto python = std::make_shared<Opm::Python>();
+  Opm::EclipseState eclState(deck);
+  Opm::Schedule schedule(deck, eclState, python);
+
+  FluidSystem::initFromState(eclState, schedule);
+  auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
+  auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+  auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
+  auto gpufluidstate = BlackOilFluidState<double, decltype(dynamicGpuFluidSystemView)>(dynamicGpuFluidSystemView);
+  // Create MobArr
+  double testValue = 0.5;
+  // Create an array of Evaluations on CPU
+  using MobArr = std::array<Evaluation, 2>;
+  MobArr cpuMobArray;
+  cpuMobArray[0] = Evaluation(testValue, 0);
+  cpuMobArray[1] = Evaluation(testValue, 1);
+  
+  // Copy to GPU
+  MobArr* d_mobArray;
+  OPM_GPU_SAFE_CALL(cudaMalloc(&d_mobArray, sizeof(MobArr)));
+  OPM_GPU_SAFE_CALL(cudaMemcpy(d_mobArray, &cpuMobArray, sizeof(MobArr), cudaMemcpyHostToDevice));
+  
+  updateRelPermsFromFlowProblemBlackoilGpu<DirectionalMobilityPtr><<<1, 1>>>(problemGpuView, *d_mobArray, gpufluidstate);
 }
