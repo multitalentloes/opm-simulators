@@ -90,7 +90,10 @@ public:
     using ExternallyVisibleMatLawParam = MatLawParam;
     using EclMaterialLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
     using EclThermalLawManager = typename Opm::GetProp<TypeTag, Opm::Properties::SolidEnergyLaw>::EclThermalLawManager;
-    using MaterialLaw = typename gpuistl::GPUType<typename EclMaterialLawManager::MaterialLaw>::type;
+    // This materialLaw is made with a CPU version of the materiallaw, we need a ViewType of it
+    using MaterialLaw = typename EclMaterialLawManager::MaterialLaw;
+    // for now i KNOW that this is an EclTwoPhaseMaterial
+    using GpuViewMaterialLaw = typename gpuistl::ViewType<MaterialLaw>::type;
     using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
     using IntensiveQuantities = typename Opm::GetPropType<TypeTag, Opm::Properties::IntensiveQuantities>;
 
@@ -184,8 +187,9 @@ public:
     template <class MobArr, class DirMobPtr, class FluidState>
     OPM_HOST_DEVICE void updateRelperms(MobArr& mobility, DirMobPtr& dirMob, const FluidState& fluidstate, std::size_t globalSpaceIdx) const
     {
+        // Currently trying to make sure I am using a proper GPU materiallaw.
         const auto& materialParams = materialLawParams(globalSpaceIdx);;
-        MaterialLaw::relativePermeabilities(mobility, materialParams, fluidstate);
+        GpuViewMaterialLaw::relativePermeabilities(mobility, materialParams, fluidstate);
     }
 
     // =================================================================================

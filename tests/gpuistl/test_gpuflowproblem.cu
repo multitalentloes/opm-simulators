@@ -365,7 +365,7 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 
   using FluidSystem = Opm::BlackOilFluidSystem<double>;
   using Evaluation = Opm::DenseAd::Evaluation<double,2>;
-  using Scalar = typename Opm::MathToolbox<Evaluation>::Scalar;
+  using Scalar = double;
   using DirectionalMobilityPtr = Utility::CopyablePtr<DirectionalMobility<TypeTag, Evaluation>>;
   
   // Create the fluid system
