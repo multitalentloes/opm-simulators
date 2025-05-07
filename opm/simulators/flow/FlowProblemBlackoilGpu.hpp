@@ -192,6 +192,12 @@ public:
         GpuViewMaterialLaw::relativePermeabilities(mobility, materialParams, fluidstate);
     }
 
+    template <class Evaluation>
+    OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const IntensiveQuantities&, std::size_t) const
+    {
+        return Evaluation(1.0);
+    }
+
     // =================================================================================
     // Below are the dummy functions, to be removed
 
@@ -226,12 +232,6 @@ public:
     OPM_HOST_DEVICE Evaluation rockCompPoroMultiplier(const IntensiveQuantities&, std::size_t) const
     {
         return Evaluation(0.0);
-    }
-
-    template <class Evaluation>
-    OPM_HOST_DEVICE Evaluation rockCompTransMultiplier(const IntensiveQuantities&, std::size_t) const
-    {
-        return Evaluation(1.0);
     }
     // end dummy functions.
 

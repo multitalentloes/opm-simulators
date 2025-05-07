@@ -1095,6 +1095,8 @@ public:
     LhsEval rockCompTransMultiplier(const IntensiveQuantities& intQuants, unsigned elementIdx) const
     {
         const bool implicit = !this->explicitRockCompaction_;
+        if (!implicit)
+            exit(1);
         return implicit ? this->simulator().problem().template computeRockCompTransMultiplier_<LhsEval>(intQuants, elementIdx)
                         : this->simulator().problem().getRockCompTransMultVal(elementIdx);
     }
@@ -1620,32 +1622,36 @@ protected:
     LhsEval computeRockCompTransMultiplier_(const IntensiveQuantities& intQuants, unsigned elementIdx) const
     {
         OPM_TIMEBLOCK_LOCAL(computeRockCompTransMultiplier);
-        if (this->rockCompTransMult_.empty() && this->rockCompTransMultWc_.empty())
+        if (this->rockCompTransMult_.empty() && this->rockCompTransMultWc_.empty()){
             return 1.0;
+        }
+        exit(1);
 
         unsigned tableIdx = 0;
-        if (!this->rockTableIdx_.empty())
+        if (!this->rockTableIdx_.empty()){
             tableIdx = this->rockTableIdx_[elementIdx];
-
+        }
         const auto& fs = intQuants.fluidState();
         LhsEval effectivePressure = decay<LhsEval>(fs.pressure(refPressurePhaseIdx_()));
         const auto& rock_config = this->simulator().vanguard().eclState().getSimulationConfig().rock_config();
-        if (!this->minRefPressure_.empty())
+        if (!this->minRefPressure_.empty()){
             // The pore space change is irreversible
             effectivePressure =
                 min(decay<LhsEval>(fs.pressure(refPressurePhaseIdx_())),
                     this->minRefPressure_[elementIdx]);
+        }
 
-        if (!this->overburdenPressure_.empty())
+        if (!this->overburdenPressure_.empty()){
             effectivePressure -= this->overburdenPressure_[elementIdx];
-        
+        }
+
         if (rock_config.store()) {
             effectivePressure -= asImp_().initialFluidState(elementIdx).pressure(refPressurePhaseIdx_());
         }
 
-        if (!this->rockCompTransMult_.empty())
+        if (!this->rockCompTransMult_.empty()){
             return this->rockCompTransMult_[tableIdx].eval(effectivePressure, /*extrapolation=*/true);
-
+        }
         // water compaction
         assert(!this->rockCompTransMultWc_.empty());
         LhsEval SwMax = max(decay<LhsEval>(fs.saturation(waterPhaseIdx)), this->maxWaterSaturation_[elementIdx]);
