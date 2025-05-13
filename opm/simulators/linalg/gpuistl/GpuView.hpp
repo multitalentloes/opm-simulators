@@ -25,6 +25,7 @@
 
 #include <opm/common/utility/gpuDecorators.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 
 #include <stdexcept>
 #include <vector>
