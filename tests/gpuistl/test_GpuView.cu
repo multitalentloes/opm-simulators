@@ -32,85 +32,80 @@
 #include <algorithm>
 #include <type_traits>
 
-BOOST_AUTO_TEST_CASE(Tautology)
-{
-    BOOST_CHECK(true);
+using GpuViewDouble = ::Opm::gpuistl::GpuView<double>;
+using GpuBufferDouble = ::Opm::gpuistl::GpuBuffer<double>;
+
+__global__ void useGpuViewOnGPU(GpuViewDouble a, GpuViewDouble b){
+    b[0] = a.front();
+    b[1] = a.back();
+    b[2] = *a.begin();
+    b[3] = *(--a.end());
+
+    a[0] = a[2];
 }
 
-// using GpuViewDouble = ::Opm::gpuistl::GpuView<double>;
-// using GpuBufferDouble = ::Opm::gpuistl::GpuBuffer<double>;
+BOOST_AUTO_TEST_CASE(TestCreationAndIndexing)
+{
+    // A simple test to check that we can move data to and from the GPU
+    auto cpubuffer = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
+    auto cubuffer = GpuBufferDouble(cpubuffer);
+    auto gpuview = GpuViewDouble(cubuffer.data(), cubuffer.size());
+    const auto const_gpuview = GpuViewDouble(cubuffer.data(), cubuffer.size());
 
-// __global__ void useGpuViewOnGPU(GpuViewDouble a, GpuViewDouble b){
-//     b[0] = a.front();
-//     b[1] = a.back();
-//     b[2] = *a.begin();
-//     b[3] = *(--a.end());
+    auto stdVecOfGpuView = gpuview.asStdVector();
+    auto const_stdVecOfGpuView = gpuview.asStdVector();
 
-//     a[0] = a[2];
-// }
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        stdVecOfGpuView.begin(), stdVecOfGpuView.end(), cpubuffer.begin(), cpubuffer.end());
+    BOOST_CHECK_EQUAL_COLLECTIONS(
+        stdVecOfGpuView.begin(), stdVecOfGpuView.end(), const_stdVecOfGpuView.begin(), const_stdVecOfGpuView.end());
+}
 
-// BOOST_AUTO_TEST_CASE(TestCreationAndIndexing)
-// {
-//     // A simple test to check that we can move data to and from the GPU
-//     auto cpubuffer = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-//     auto cubuffer = GpuBufferDouble(cpubuffer);
-//     auto gpuview = GpuViewDouble(cubuffer.data(), cubuffer.size());
-//     const auto const_gpuview = GpuViewDouble(cubuffer.data(), cubuffer.size());
+BOOST_AUTO_TEST_CASE(TestGpuViewOnCPUTypes)
+{
+    auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
+    auto cpuview = GpuViewDouble(buf.data(), buf.size());
+    const auto const_cpuview = GpuViewDouble(buf.data(), buf.size());
 
-//     auto stdVecOfGpuView = gpuview.asStdVector();
-//     auto const_stdVecOfGpuView = gpuview.asStdVector();
+    // check that indexing a const view produces a value
+    bool correct_type_of_const_cpu_front = std::is_same_v<double, decltype(const_cpuview.front())>;
+    bool correct_type_of_const_cpu_back = std::is_same_v<double, decltype(const_cpuview.back())>;
 
-//     BOOST_CHECK_EQUAL_COLLECTIONS(
-//         stdVecOfGpuView.begin(), stdVecOfGpuView.end(), cpubuffer.begin(), cpubuffer.end());
-//     BOOST_CHECK_EQUAL_COLLECTIONS(
-//         stdVecOfGpuView.begin(), stdVecOfGpuView.end(), const_stdVecOfGpuView.begin(), const_stdVecOfGpuView.end());
-// }
+    BOOST_CHECK(correct_type_of_const_cpu_front);
+    BOOST_CHECK(correct_type_of_const_cpu_back);
 
-// BOOST_AUTO_TEST_CASE(TestGpuViewOnCPUTypes)
-// {
-//     auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-//     auto cpuview = GpuViewDouble(buf.data(), buf.size());
-//     const auto const_cpuview = GpuViewDouble(buf.data(), buf.size());
+    // check that the values are correct
+    BOOST_CHECK(const_cpuview.front() == buf.front());
+    BOOST_CHECK(const_cpuview.back() == buf.back());
+}
 
-//     // check that indexing a const view produces a value
-//     bool correct_type_of_const_cpu_front = std::is_same_v<double, decltype(const_cpuview.front())>;
-//     bool correct_type_of_const_cpu_back = std::is_same_v<double, decltype(const_cpuview.back())>;
+BOOST_AUTO_TEST_CASE(TestGpuViewOnCPUWithSTLIteratorAlgorithm)
+{
+    auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
+    auto cpuview = GpuViewDouble(buf.data(), buf.size());
+    std::sort(buf.begin(), buf.end());
+    BOOST_CHECK(42.0 == cpuview[3]);
+}
 
-//     BOOST_CHECK(correct_type_of_const_cpu_front);
-//     BOOST_CHECK(correct_type_of_const_cpu_back);
+BOOST_AUTO_TEST_CASE(TestGpuViewOnGPU)
+{
+    auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
+    auto cubufA = GpuBufferDouble(buf);
+    auto gpuviewA = GpuViewDouble(cubufA.data(), cubufA.size());
+    auto cubufB = GpuBufferDouble(4);
+    auto gpuviewB = GpuViewDouble(cubufB.data(), cubufB.size());
 
-//     // check that the values are correct
-//     BOOST_CHECK(const_cpuview.front() == buf.front());
-//     BOOST_CHECK(const_cpuview.back() == buf.back());
-// }
+    useGpuViewOnGPU<<<1,1>>>(gpuviewA, gpuviewB);
 
-// BOOST_AUTO_TEST_CASE(TestGpuViewOnCPUWithSTLIteratorAlgorithm)
-// {
-//     auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-//     auto cpuview = GpuViewDouble(buf.data(), buf.size());
-//     std::sort(buf.begin(), buf.end());
-//     BOOST_CHECK(42.0 == cpuview[3]);
-// }
+    auto vecA = gpuviewA.asStdVector();
+    auto vecB = gpuviewB.asStdVector();
 
-// BOOST_AUTO_TEST_CASE(TestGpuViewOnGPU)
-// {
-//     auto buf = std::vector<double>({1.0, 2.0, 42.0, 59.9451743, 10.7132692});
-//     auto cubufA = GpuBufferDouble(buf);
-//     auto gpuviewA = GpuViewDouble(cubufA.data(), cubufA.size());
-//     auto cubufB = GpuBufferDouble(4);
-//     auto gpuviewB = GpuViewDouble(cubufB.data(), cubufB.size());
+    // checks that front/back/begin/end works
+    BOOST_CHECK(vecB[0] == buf[0]);
+    BOOST_CHECK(vecB[1] == buf[4]);
+    BOOST_CHECK(vecB[2] == buf[0]);
+    BOOST_CHECK(vecB[3] == buf[4]);
 
-//     useGpuViewOnGPU<<<1,1>>>(gpuviewA, gpuviewB);
-
-//     auto vecA = gpuviewA.asStdVector();
-//     auto vecB = gpuviewB.asStdVector();
-
-//     // checks that front/back/begin/end works
-//     BOOST_CHECK(vecB[0] == buf[0]);
-//     BOOST_CHECK(vecB[1] == buf[4]);
-//     BOOST_CHECK(vecB[2] == buf[0]);
-//     BOOST_CHECK(vecB[3] == buf[4]);
-
-//     // checks that view[0] = view[2] works
-//     BOOST_CHECK(buf[2] == vecA[0]);
-// }
+    // checks that view[0] = view[2] works
+    BOOST_CHECK(buf[2] == vecA[0]);
+}
