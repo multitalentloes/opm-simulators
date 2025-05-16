@@ -289,8 +289,11 @@ namespace gpuistl
             GpuGasWaterParams
         >;
 
+        // exit(50); // exits with this code
+
         auto materialLawParamsInVector = std::vector<ThreePhaseMaterialParams>(nParams);
         for (size_t i = 0; i < nParams; ++i) {
+            printf("%zu\n", i);
             materialLawParamsInVector[i] =
                 ::Opm::gpuistl::copy_to_gpu<
                 ContainerT<Scalar>,
