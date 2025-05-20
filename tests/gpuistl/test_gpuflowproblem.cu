@@ -551,7 +551,95 @@ int main(int realArgc, char** realArgv) {
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include "config.h"
+// #include "config.h"
+#define HAS_ATTRIBUTE_UNUSED 1
+#define HAS_ATTRIBUTE_DEPRECATED 1
+#define HAS_ATTRIBUTE_DEPRECATED_MSG 1
+/* #undef HAVE_ARRAY */
+/* #undef HAVE_BOOST_MAKE_SHARED_HPP */
+/* #undef HAVE_BOOST_SHARED_PTR_HPP */
+#define HAVE_DUNE_BOOST 1
+/* #undef HAVE_GMP */
+/* #undef HAVE_MAKE_SHARED */
+#define HAVE_MPI 1
+/* #undef HAVE_NULLPTR */
+/* #undef HAVE_STATIC_ASSERT */
+/* #undef HAVE_SHARED_PTR */
+#define MPI_2 1
+/* #undef SHARED_PTR_HEADER */
+/* #undef SHARED_PTR_NAMESPACE */
+/* #undef HAVE_TYPE_TRAITS */
+/* #undef HAVE_TR1_TUPLE */
+/* #undef HAVE_TUPLE */
+#define HAVE_CXA_DEMANGLE 1
+/* #undef HAVE_BOOST_FUSION */
+/* #undef HAVE_MEM_USAGE_T_EXPANSIONS */
+/* #undef HAVE_PARDISO */
+#define HAVE_BOOST 1
+/* #undef HAVE_PARMETIS */
+#define HAVE_SUPERLU 1
+#define HAVE_SUITESPARSE_UMFPACK 1
+#define SUPERLU_INT_TYPE int
+#define HAVE_OPENMP 1
+#define HAVE_VALGRIND 1
+/* #undef HAVE_FINAL */
+#define HAVE_ECL_INPUT 1
+#define HAVE_FNMATCH_H 1
+/* #undef HAVE_ALGLIB */
+/* #undef HAVE_UG */
+/* #undef HAVE_DUNE_FEM */
+/* #undef HAVE_GRIDTYPE */
+/* #undef HAVE_GRAPE */
+/* #undef HAVE_PSURFACE */
+/* #undef HAVE_AMIRAMESH */
+#define HAVE_ALBERTA 1
+/* #undef HAVE_STDINT_H */
+#define DUNE_GRID_EXPERIMENTAL_GRID_EXTENSIONS 1
+#define DUNE_ALBERTA_VERSION 0x300
+#define DUNE_GRID_VERSION_MAJOR 2
+#define DUNE_GRID_VERSION_MINOR 9
+#define DUNE_GRID_VERSION_REVISION 0
+#define DUNE_GEOMETRY_VERSION_MAJOR 2
+#define DUNE_GEOMETRY_VERSION_MINOR 9
+#define DUNE_GEOMETRY_VERSION_REVISION 0
+#define DUNE_COMMON_VERSION_MAJOR 2
+#define DUNE_COMMON_VERSION_MINOR 9
+#define DUNE_COMMON_VERSION_REVISION 1
+#define HAVE_DUNE_ISTL 1
+/* #undef HAVE_METIS */
+/* #undef HAVE_PTSCOTCH */
+#define IS_SCOTCH_METIS_HEADER 0
+#define HAVE_ZOLTAN 1
+#define HAVE_OPM_COMMON 1
+#define HAVE_OPM_GRID 1
+#define HAVE_PTHREAD 1
+/* #undef HAVE_EWOMS */
+/* #undef HAVE_PETSC */
+/* #undef COMPILE_GPU_BRIDGE */
+#define HAVE_CUDA 1
+#define HAVE_OPENCL 1
+#define HAVE_OPENCL_HPP 1
+#define HAVE_AMGCL 1
+/* #undef HAVE_AMGX */
+/* #undef HAVE_VEXCL */
+#define HAVE_ROCALUTION 1
+#define HAVE_ROCSPARSE 1
+#define HAVE_SUITESPARSE_UMFPACK_H 1
+#define HAVE_DUNE_COMMON 1
+/* #undef DUNE_ISTL_WITH_CHECKING */
+#define DUNE_ISTL_VERSION_MAJOR 2
+#define DUNE_ISTL_VERSION_MINOR 9
+#define DUNE_ISTL_VERSION_REVISION 0
+/* #undef HAVE_DAMARIS */
+#define HAVE_HDF5 1
+/* #undef HAVE_HYPRE */
+#define USE_HIP 1
+/* #undef USE_TRACY */
+/* #undef FLOW_INSTANTIATE_FLOAT */
+#define HAVE_FLOATING_POINT_FROM_CHARS 1
+#define OPM_COMPILE_COMPONENTS_TEMPLATE_LIST 2,3,4,5,6,7
+#define HAVE_DYNAMIC_BOOST_TEST 1
+
 
 // #define BOOST_TEST_MODULE TestFlowSimple
 
