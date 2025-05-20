@@ -50,6 +50,20 @@
 #include <cstddef>
 #include <memory>
 
+
+// Check if MaterialLawManager has gasWaterParams method using SFINAE
+template <typename T>
+class HasGasWaterParams {
+    template <typename U>
+    static auto test(int) -> decltype(std::declval<U>().gasWaterParams(), std::true_type{});
+    
+    template <typename>
+    static std::false_type test(...);
+    
+public:
+    static constexpr bool value = decltype(test<T>(0))::value;
+};
+
 namespace Opm::Parameters {
 
 // Do not merge parallel output files or warn about them
@@ -214,6 +228,7 @@ namespace Opm {
         // called by execute() or executeInitStep()
         int execute_(int (FlowMain::* runOrInitFunc)(), bool cleanup)
         {
+            printf("entering execute_()\n");
             auto logger = [this](const std::exception& e, const std::string& message_start) {
                 std::ostringstream message;
                 message  << message_start << e.what();
@@ -252,6 +267,23 @@ namespace Opm {
 
                 // if run, do the actual work, else just initialize
                 int exitCode = (this->*runOrInitFunc)();
+
+
+
+
+
+                auto sim1 = get_simulator();
+                assert(sim1 != nullptr);
+                auto& sim = sim1->getSimulator();
+                auto& problem = sim.problem();
+                auto& matLawParams = problem.materialLawParams(0);
+                if constexpr (HasGasWaterParams<decltype(matLawParams)>::value) {
+                    auto& gasWaterParams = matLawParams.gasWaterParams();
+                    gasWaterParams.printme();
+                }
+
+
+
                 if (cleanup) {
                     executeCleanup_();
                 }
@@ -267,6 +299,7 @@ namespace Opm {
                 executeCleanup_();
                 return exitCode;
             }
+            printf("exiting execute_()\n");
         }
 
         void executeCleanup_() {
@@ -479,6 +512,14 @@ namespace Opm {
 
         Grid& grid()
         { return modelSimulator_->vanguard().grid(); }
+
+    public:
+        auto get_simulator(){
+            if (!simulator_) {
+                throw std::runtime_error("Simulator not initialized");
+            }
+            return simulator_.get();
+        }
 
     private:
         std::unique_ptr<ModelSimulator> modelSimulator_;

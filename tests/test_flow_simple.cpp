@@ -16,8 +16,12 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
+#include <config.h>
 
-#include "config.h"
+#define BOOST_TEST_MODULE TestFlowSimple
+
+#include <boost/test/unit_test.hpp>
+
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/material/fluidmatrixinteractions/EclMaterialLawManagerSimple.hpp>
 #include <opm/models/discretization/common/tpfalinearizer.hh>
@@ -107,104 +111,30 @@ namespace Opm {
 
 }
 
-int main(int argc, char** argv)
+BOOST_AUTO_TEST_CASE(TestFlowSimple)
 {
-    // using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-    // auto mainObject = Opm::Main(argc, argv);
-    // return mainObject.runStatic<TypeTag>();
-//    return Opm::start<TypeTag>(argc, argv);
 
-
-
-using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-std::vector<std::string> args = {"./../../../super_build_release/opm-simulators/bin/flow_simple", "very_simple_deck.DATA", ""};
-std::vector<char*> argv2;
-for (auto& arg : args) {
-  argv2.push_back(static_cast<char*>(arg.data()));
-}
-
-// Check if the file specified in args[1] exists
-{
-  std::ifstream file(args[1]);
-  if (!file.good()) {
-    throw std::runtime_error("File not found: " + args[1]);
+  using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
+  BOOST_CHECK(true);
+  std::vector<std::string> args = {"test_flow_simple", "very_simple_deck.DATA"};
+  std::vector<char*> argv;
+  for (auto& arg : args) {
+    argv.push_back(static_cast<char*>(arg.data()));
   }
-}
 
-// Print argv with indices
-std::cout << "Command line arguments:" << std::endl;
-for (int i = 0; i < argc; ++i) {
-    std::cout << "  argv[" << i << "] = " << argv[i] << std::endl;
-}
-
-int argv2_size = argv2.size();
-std::cout << "Command line arguments:" << std::endl;
-for (int i = 0; i < argv2_size; ++i) {
-    std::cout << "  argv2[" << i << "] = " << argv2.data()[i] << std::endl;
-}
-auto mainObject = Opm::Main(argv2.size(), static_cast<char**>(argv2.data())); // does not work
-// auto mainObject = Opm::Main(argc, argv); // this works
-
-// char* argv2[] = {const_cast<char*>("very_simple_deck.DATA")};
-// auto mainObject = Opm::Main(1, argv2);
-mainObject.runStatic<TypeTag>();
-}
-
-/*
-int main(int argc, char** argv)
-{
-    using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-    auto mainObject = Opm::Main(argc, argv);
-    mainObject.runStatic<TypeTag>();
-}
-
-
-int main(int argc, char** argv)
-{
-    using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-    std::vector<std::string> args = {"./../../../super_build_release/opm-simulators/bin/flow_simple", "very_simple_deck.DATA"};
-    std::vector<char*> argv2;
-    for (auto& arg : args) {
-        argv2.push_back(static_cast<char*>(arg.data()));
+  // Check if the file specified in args[1] exists
+  {
+    std::ifstream file(args[1]);
+    if (!file.good()) {
+      throw std::runtime_error("File not found: " + args[1]);
     }
-
-    auto mainObject = Opm::Main(argv2.size(), static_cast<char**>(argv2.data())); // CRASH HERE
-    mainObject.runStatic<TypeTag>();
-}
-
-=======================
-
-using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-std::vector<std::string> args = {"./../../../super_build_release/opm-simulators/bin/flow_simple", "very_simple_deck.DATA"};
-std::vector<char*> argv2;
-for (auto& arg : args) {
-  argv2.push_back(static_cast<char*>(arg.data()));
-}
-
-// Check if the file specified in args[1] exists
-{
-  std::ifstream file(args[1]);
-  if (!file.good()) {
-    throw std::runtime_error("File not found: " + args[1]);
   }
+  BOOST_CHECK(true);
+  auto mainObject = Opm::Main(argv.size(), static_cast<char**>(argv.data()));
+  BOOST_CHECK(true);
+  
+  // char* argv[] = {const_cast<char*>("very_simple_deck.DATA")};
+  // auto mainObject = Opm::Main(1, argv);
+  mainObject.runStatic<TypeTag>();
+//    return Opm::start<TypeTag>(argc, argv);
 }
-
-// Print argv with indices
-std::cout << "Command line arguments:" << std::endl;
-for (int i = 0; i < argc; ++i) {
-    std::cout << "  argv[" << i << "] = " << argv[i] << std::endl;
-}
-
-int argv2_size = argv2.size();
-std::cout << "Command line arguments:" << std::endl;
-for (int i = 0; i < argv2_size; ++i) {
-    std::cout << "  argv2[" << i << "] = " << argv2.data()[i] << std::endl;
-}
-auto mainObject = Opm::Main(argv2.size(), static_cast<char**>(argv2.data())); // does not work
-// auto mainObject = Opm::Main(argc, argv); // this works
-
-// char* argv2[] = {const_cast<char*>("very_simple_deck.DATA")};
-// auto mainObject = Opm::Main(1, argv2);
-mainObject.runStatic<TypeTag>();
-
-*/

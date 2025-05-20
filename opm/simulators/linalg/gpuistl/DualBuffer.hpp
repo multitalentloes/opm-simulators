@@ -55,6 +55,8 @@ public:
     using ViewTypeT = typename ViewType<T>::type; // her må vi ha definert en ViewType<T> for de klassene vi trenger
     using GPUTypeT = typename GPUType<T>::type;
 
+    // This copy constructor looks a bit suspicious
+    // the GPUTypeT are not trivially copyable, so will the member depend on the outside vector still being alive?
     DualBuffer(std::vector<GPUTypeT>& cpuBuffer_)
         : m_cpuBuffer(cpuBuffer_)
     {

@@ -415,6 +415,7 @@ endif()
 # originally generated with the command:
 # find tests -name '*.cpp' -a ! -wholename '*/not-unit/*' -printf '\t%p\n' | sort
 list (APPEND TEST_SOURCE_FILES
+  tests/test_flow_simple.cpp
   tests/models/test_quadrature.cpp
   tests/models/test_propertysystem.cpp
   tests/models/test_tasklets.cpp

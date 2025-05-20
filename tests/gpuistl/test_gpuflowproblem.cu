@@ -261,66 +261,106 @@ __global__ void updateRelPermsFromFlowProblemBlackoilGpu(ProblemView prob, MobAr
   prob.updateRelperms(mob, dirPtr, fs, 0);
 }
 
+#include <opm/simulators/flow/Main.hpp>
+#include <opm/simulators/flow/FlowMain.hpp>
 
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
+
   using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-  // FIXTURE FROM TEST EQUIL
-  int argc1 = boost::unit_test::framework::master_test_suite().argc;
-  char** argv1 = boost::unit_test::framework::master_test_suite().argv;
+  BOOST_CHECK(true);
+  std::vector<std::string> args = {"test_gpuflowproblem", "very_simple_deck.DATA", ""};
+  std::vector<char*> argv;
+  for (auto& arg : args) {
+    argv.push_back(static_cast<char*>(arg.data()));
+  }
 
-#if HAVE_DUNE_FEM
-  Dune::Fem::MPIManager::initialize(argc1, argv1);
-#else
-  Dune::MPIHelper::instance(argc1, argv1);
-#endif
+  // Check if the file specified in args[1] exists
+  {
+    std::ifstream file(args[1]);
+    if (!file.good()) {
+      throw std::runtime_error("File not found: " + args[1]);
+    }
+  }
+  BOOST_CHECK(true);
+  auto mainObject = Opm::Main(argv.size(), static_cast<char**>(argv.data()));
+  BOOST_CHECK(true);
+  
+  // char* argv[] = {const_cast<char*>("very_simple_deck.DATA")};
+  // auto mainObject = Opm::Main(1, argv);
+  //auto& flowMainObject = mainObject.runStatic<TypeTag>();
+  mainObject.setupVanguard();
+  BOOST_CHECK(true);
+  auto flowMainObject = Opm::FlowMain<TypeTag>(argv.size(), argv.data(), false, false);
+  BOOST_CHECK(true);
+  // flowMainObject.runStatic<TypeTag>();
+  auto sim1 = flowMainObject.get_simulator();
+  BOOST_CHECK(true);
+  auto& sim = sim1->getSimulator();
+  BOOST_CHECK(true);
+  auto& problem = sim.problem();
+  auto& matLawParams = problem.materialLawParams(0);
+  auto& gasWaterParams = matLawParams.gasWaterParams();
+  gasWaterParams.printme();
 
-  using namespace Opm;
-  FlowGenericVanguard::setCommunication(std::make_unique<Opm::Parallel::Communication>());
-  Opm::ThreadManager::registerParameters();
-  BlackoilModelParameters<double>::registerParameters();
-  AdaptiveTimeStepping<TypeTag>::registerParameters();
-  Parameters::Register<Parameters::EnableTerminalOutput>("Dummy added for the well model to compile.");
-  registerAllParameters_<TypeTag>();
 
-  // END OF FIXTURE FROM TEST EQUIL
+//   using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
+//   // FIXTURE FROM TEST EQUIL
+//   int argc1 = boost::unit_test::framework::master_test_suite().argc;
+//   char** argv1 = boost::unit_test::framework::master_test_suite().argv;
 
-  using Simulator = Opm::GetPropType<TypeTag, Opm::Properties::Simulator>;
+// #if HAVE_DUNE_FEM
+//   Dune::Fem::MPIManager::initialize(argc1, argv1);
+// #else
+//   Dune::MPIHelper::instance(argc1, argv1);
+// #endif
 
-  // TODO: will this actually refer to the very_simple_deck.DATA inside the gpuistl folder,
-  // TODO: do we need to keep track of the path since it can be hipified?
-  const char* filename = "very_simple_deck.DATA";
-  const auto filenameArg = std::string {"--ecl-deck-file-name="} + filename;
+//   using namespace Opm;
+//   FlowGenericVanguard::setCommunication(std::make_unique<Opm::Parallel::Communication>());
+//   Opm::ThreadManager::registerParameters();
+//   BlackoilModelParameters<double>::registerParameters();
+//   AdaptiveTimeStepping<TypeTag>::registerParameters();
+//   Parameters::Register<Parameters::EnableTerminalOutput>("Dummy added for the well model to compile.");
+//   registerAllParameters_<TypeTag>();
 
-  const char* argv2[] = {
-      "test_gpuflowproblem",
-      filenameArg.c_str(),
-      "--check-satfunc-consistency=false",
-  };
+//   // END OF FIXTURE FROM TEST EQUIL
 
-  Opm::setupParameters_<TypeTag>(/*argc=*/sizeof(argv2)/sizeof(argv2[0]), argv2, /*registerParams=*/false);
+//   using Simulator = Opm::GetPropType<TypeTag, Opm::Properties::Simulator>;
 
-  Opm::FlowGenericVanguard::readDeck(filename);
+//   // TODO: will this actually refer to the very_simple_deck.DATA inside the gpuistl folder,
+//   // TODO: do we need to keep track of the path since it can be hipified?
+//   const char* filename = "very_simple_deck.DATA";
+//   const auto filenameArg = std::string {"--ecl-deck-file-name="} + filename;
 
-  auto sim = std::make_unique<Simulator>();
+//   const char* argv2[] = {
+//       "test_gpuflowproblem",
+//       filenameArg.c_str(),
+//       "--check-satfunc-consistency=false",
+//   };
 
-  using ThreePhaseTraits = typename GetPropType<TypeTag, Properties::MaterialLaw>::Traits;
+//   Opm::setupParameters_<TypeTag>(/*argc=*/sizeof(argv2)/sizeof(argv2[0]), argv2, /*registerParams=*/false);
 
-  // using ThreePhaseParams = TypeTag::MaterialLaw::EclMaterialLawManager::MaterialLawParams;
-  // using ThreePhaseParams = typename GetPropType<TypeTag, Properties::MaterialLaw>::EclMaterialLawManager::MaterialLawParams;
-  using ThreePhaseParams = typename ::Opm::EclMaterialLawManagerSimple<ThreePhaseTraits>::MaterialLawParams;
-  using CpuGasWaterTwoPhaseLaw = ThreePhaseParams::GasWaterParams;
+//   Opm::FlowGenericVanguard::readDeck(filename);
 
-  enum { waterPhaseIdx = ThreePhaseTraits::wettingPhaseIdx };
-  enum { oilPhaseIdx = ThreePhaseTraits::nonWettingPhaseIdx };
-  enum { gasPhaseIdx = ThreePhaseTraits::gasPhaseIdx };
-  enum { numPhases = ThreePhaseTraits::numPhases };
-  using GasWaterTraits = TwoPhaseMaterialTraits<double, waterPhaseIdx, gasPhaseIdx>;
+//   auto sim = std::make_unique<Simulator>();
 
-  using GPUBufferInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuBuffer<double>>;
-  using GPUViewInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuView<double>>;
+//   using ThreePhaseTraits = typename GetPropType<TypeTag, Properties::MaterialLaw>::Traits;
 
-  auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, Opm::gpuistl::DualBuffer, TypeTag, TypeTag>(sim->problem());
+//   // using ThreePhaseParams = TypeTag::MaterialLaw::EclMaterialLawManager::MaterialLawParams;
+//   // using ThreePhaseParams = typename GetPropType<TypeTag, Properties::MaterialLaw>::EclMaterialLawManager::MaterialLawParams;
+//   using ThreePhaseParams = typename ::Opm::EclMaterialLawManagerSimple<ThreePhaseTraits>::MaterialLawParams;
+//   using CpuGasWaterTwoPhaseLaw = ThreePhaseParams::GasWaterParams;
+
+//   enum { waterPhaseIdx = ThreePhaseTraits::wettingPhaseIdx };
+//   enum { oilPhaseIdx = ThreePhaseTraits::nonWettingPhaseIdx };
+//   enum { gasPhaseIdx = ThreePhaseTraits::gasPhaseIdx };
+//   enum { numPhases = ThreePhaseTraits::numPhases };
+//   using GasWaterTraits = TwoPhaseMaterialTraits<double, waterPhaseIdx, gasPhaseIdx>;
+
+//   using GPUBufferInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuBuffer<double>>;
+//   using GPUViewInterpolation = Opm::PiecewiseLinearTwoPhaseMaterialParams<GasWaterTraits, Opm::gpuistl::GpuView<double>>;
+
+//   auto problemGpuBuf = Opm::gpuistl::copy_to_gpu<double, Opm::gpuistl::GpuBuffer, Opm::gpuistl::DualBuffer, TypeTag, TypeTag>(sim->problem());
   // auto problemGpuView = Opm::gpuistl::make_view<Opm::gpuistl::GpuView, Opm::gpuistl::ValueAsPointer>(problemGpuBuf);
 
   // unsigned short satNumOnCpu;
