@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# Saved last 1 commands from history on ti. 20. mai 14:15:53 +0200 2025
+head ~/error.txt 

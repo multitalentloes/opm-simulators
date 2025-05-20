@@ -10,12 +10,12 @@
 Flow is a simulator for fully implicit three-phase black-oil flow, and is part of OPM.
 For more information visit: https://opm-project.org 
 
-Flow Version     =  2025.10-pre (06229a4b0*)
+Flow Version     =  2025.10-pre (5ece9d0ee*)
 Machine name     =  tobias-PC (Number of logical cores: 32, Memory size: 95760.09 MB) 
 Operating system =  Linux x86_64 (Kernel: 6.8.0-59-generic, #61~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue Apr 15 17:03:15 UTC 2 )
-Build time       =  2025-05-20 at 13:36:08 hrs
+Build time       =  2025-05-20 at 15:12:03 hrs
 User             =  tobias
-Simulation started on 20-05-2025 at 13:38:33 hrs
+Simulation started on 20-05-2025 at 15:14:01 hrs
 Using 1 MPI processes with 2 OMP threads on each 
 Parameters used by Flow:
 # [known parameters which were specified at run-time]
@@ -385,7 +385,7 @@ Starting time step 0, stepsize 1 days, at day 0/1, date = 01-Jan-1983
 
 Number of MPI processes:         1
 Threads per MPI process:         2
-Setup time:                      0.02 s
+Setup time:                      0.01 s
   Deck input:                    0.01 s
 Number of timesteps:             1
 Simulation time:                 0.00 s
