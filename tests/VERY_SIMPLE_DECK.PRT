@@ -10,13 +10,13 @@
 Flow is a simulator for fully implicit three-phase black-oil flow, and is part of OPM.
 For more information visit: https://opm-project.org 
 
-Flow Version     =  2025.10-pre (5ece9d0ee*)
+Flow Version     =  2025.10-pre (96a8a743d*)
 Machine name     =  tobias-PC (Number of logical cores: 32, Memory size: 95760.09 MB) 
 Operating system =  Linux x86_64 (Kernel: 6.8.0-59-generic, #61~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue Apr 15 17:03:15 UTC 2 )
-Build time       =  2025-05-20 at 15:12:03 hrs
+Build time       =  2025-05-20 at 16:56:09 hrs
 User             =  tobias
-Simulation started on 20-05-2025 at 15:14:01 hrs
-Using 1 MPI processes with 2 OMP threads on each 
+Simulation started on 20-05-2025 at 16:58:25 hrs
+Using 1 MPI processes with 1 OMP threads on each 
 Parameters used by Flow:
 # [known parameters which were specified at run-time]
 EclDeckFileName="very_simple_deck.DATA" # default: ""
@@ -368,45 +368,3 @@ CO2STORE/CO2SOL is enabled.
 The surface density of CO2 is 1.868433 KG/M3.
 The surface density of brine is 998.107723 KG/M3.
 The surface densities are computed using the reference pressure (1.013 BARSA) and reference temperature (15.56 C).
-
-
-================ Starting main simulation loop ===============
-
-
-Report step  0/1 at day 0/1, date = 01-Jan-1983
-Using Newton nonlinear solver.
-
-Starting time step 0, stepsize 1 days, at day 0/1, date = 01-Jan-1983
- Newton its= 2, linearizations= 3 (0.0sec), linear its=  0 (0.0sec)
-
-
-
-================    End of simulation     ===============
-
-Number of MPI processes:         1
-Threads per MPI process:         2
-Setup time:                      0.01 s
-  Deck input:                    0.01 s
-Number of timesteps:             1
-Simulation time:                 0.00 s
-  Assembly time:                 0.00 s (Wasted: 0.0 s; 0.0%)
-    Well assembly:               0.00 s (Wasted: 0.0 s; 0.0%)
-  Linear solve time:             0.00 s (Wasted: 0.0 s; 0.0%)
-    Linear setup:                0.00 s (Wasted: 0.0 s; 0.0%)
-  Props/update time:             0.00 s (Wasted: 0.0 s; 0.0%)
-  Pre/post step:                 0.00 s (Wasted: 0.0 s; 0.0%)
-  Output write time:             0.00 s
-Overall Linearizations:          3      (Wasted:     0; 0.0%)
-Overall Newton Iterations:       2      (Wasted:     0; 0.0%)
-Overall Linear Iterations:       0      (Wasted:     0; 0.0%)
-
-
-
-Error summary:
-Warnings          0
-Info              52
-Errors            0
-Bugs              0
-Debug             0
-Problems          0
-
