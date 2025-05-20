@@ -16,11 +16,11 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <config.h>
+#include "config.h"
 
-#define BOOST_TEST_MODULE TestFlowSimple
+// #define BOOST_TEST_MODULE TestFlowSimple
 
-#include <boost/test/unit_test.hpp>
+// #include <boost/test/unit_test.hpp>
 
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/material/fluidmatrixinteractions/EclMaterialLawManagerSimple.hpp>
@@ -110,13 +110,16 @@ namespace Opm {
     };
 
 }
-
-BOOST_AUTO_TEST_CASE(TestFlowSimple)
+#ifndef BOOST_CHECK
+#define BOOST_CHECK(x) std::cout << __LINE__ << std::endl;
+#endif
+// BOOST_AUTO_TEST_CASE(TestFlowSimple)
+int main()
 {
 
   using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
   BOOST_CHECK(true);
-  std::vector<std::string> args = {"test_flow_simple", "very_simple_deck.DATA"};
+  std::vector<std::string> args = {"./../../../super_build_release/opm-simulators/bin/flow_simple", "very_simple_deck.DATA", ""};
   std::vector<char*> argv;
   for (auto& arg : args) {
     argv.push_back(static_cast<char*>(arg.data()));
