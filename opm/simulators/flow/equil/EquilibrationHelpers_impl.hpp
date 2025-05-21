@@ -487,7 +487,9 @@ operator()(Scalar s) const
     }
     std::array<Scalar, FluidSystem::numPhases> pc{0.0};
     using MaterialLaw = typename MaterialLawManager::MaterialLaw;
+    printf("CALLING CAP PRESSURE\n");
     MaterialLaw::capillaryPressures(pc, matParams, fluidState);
+    printf("RETURNING CAP PRESSURE\n");
     Scalar sign = (phase_ == FluidSystem::waterPhaseIdx)? -1.0 : 1.0;
     Scalar pcPhase = pc[FluidSystem::oilPhaseIdx] + sign *  pc[phase_];
     return pcPhase - targetPc_;

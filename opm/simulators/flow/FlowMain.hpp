@@ -262,16 +262,7 @@ namespace Opm {
                 setupModelSimulator();
                 createSimulator();
 
-                this->deck_read_time_ = modelSimulator_->vanguard().setupTime();
-                this->total_setup_time_ = setupTimerAfterReadingDeck.elapsed() + this->deck_read_time_;
-
-                // if run, do the actual work, else just initialize
-                int exitCode = (this->*runOrInitFunc)();
-
-
-
-
-
+                printf("I WILL SOON CALL PRINTME()\n");
                 auto sim1 = get_simulator();
                 assert(sim1 != nullptr);
                 auto& sim = sim1->getSimulator();
@@ -281,6 +272,12 @@ namespace Opm {
                     auto& gasWaterParams = matLawParams.gasWaterParams();
                     gasWaterParams.printme();
                 }
+
+                this->deck_read_time_ = modelSimulator_->vanguard().setupTime();
+                this->total_setup_time_ = setupTimerAfterReadingDeck.elapsed() + this->deck_read_time_;
+
+                // if run, do the actual work, else just initialize
+                int exitCode = (this->*runOrInitFunc)();
 
 
 

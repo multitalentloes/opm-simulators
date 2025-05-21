@@ -601,6 +601,7 @@ deriveSaturations(const Position& x,
     this->setEvaluationPoint(x, reg, ptable);
     this->initializePhaseQuantities();
 
+    printf("DOING SOME THINGS IN INITSTATEEQUIL\n");
     if (ptable.gasActive())   { this->deriveGasSat();   }
 
     if (ptable.waterActive()) { this->deriveWaterSat(); }

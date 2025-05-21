@@ -1244,6 +1244,7 @@ protected:
         const auto& simulator = this->simulator();
 
         // initial condition corresponds to hydrostatic conditions.
+        printf("I MADE IT TO THE EQUILIBRIUM INITIALIZATION\n");
         EquilInitializer<TypeTag> equilInitializer(simulator, *(this->materialLawManager_));
 
         std::size_t numElems = this->model().numGridDof();
