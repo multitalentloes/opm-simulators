@@ -4,4 +4,4 @@ set -e
 cd ~/opm
 bash tmp.sh
 cd -
-./../../../super_build_release/opm-simulators/bin/test_gpuflowproblem
+./../../../super_build_debug/opm-simulators/bin/test_gpuflowproblem very_simple_deck.DATA
