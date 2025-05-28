@@ -57,6 +57,19 @@ void solveLowerLevelSet(T* reorderedMat,
                         int threadBlockSize,
                         cudaStream_t stream);
 
+template <class T, int blocksize>
+void solveLowerLevelSetNoReorder(const T* reorderedMat,
+                                const int* rowIndices,
+                                const int* colIndices,
+                                const size_t* indexConversion,
+                                int startIdx,
+                                int rowsInLevelSet,
+                                const T* dInv,
+                                const T* d,
+                                T* v,
+                                int threadBlockSize,
+                                cudaStream_t stream);
+
 /**
  * @brief Perform a lower solve on certain rows in a matrix that can safely be computed in parallel
  * @param reorderedUpperMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered
@@ -113,6 +126,18 @@ void solveUpperLevelSet(T* reorderedMat,
                         int threadBlockSize,
                         cudaStream_t stream);
 
+template <class T, int blocksize>
+void solveUpperLevelSetNoReorder(const T* reorderedMat,
+                                 const int* rowIndices,
+                                 const int* colIndices,
+                                 const size_t* indexConversion,
+                                 int startIdx,
+                                 int rowsInLevelSet,
+                                 const T* dInv,
+                                 T* v,
+                                 int threadBlockSize,
+                                 cudaStream_t stream);
+
 /**
  * @brief Perform an upper solve on certain rows in a matrix that can safely be computed in parallel
  * @param reorderedUpperMat pointer to GPU memory containing nonzerovalues of the sparse matrix. The matrix reordered
@@ -166,6 +191,16 @@ void computeDiluDiagonal(T* reorderedMat,
                          int rowsInLevelSet,
                          T* dInv,
                          int threadBlockSize);
+
+template <class T, int blocksize>
+void computeDiluDiagonalNoReorder(const T* reorderedMat,
+                                  const int* rowIndices,
+                                  const int* colIndices,
+                                  const size_t* indexConversion,
+                                  int startIdx,
+                                  int rowsInLevelSet,
+                                  T* dInv,
+                                  int threadBlockSize);
 
 /**
  * @brief Computes the ILU0 of the diagonal elements of the split reordered matrix and stores it in a reordered vector

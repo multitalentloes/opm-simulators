@@ -42,18 +42,22 @@ namespace Opm::gpuistl
 {
 
 template <class M, class X, class Y, int l>
-GpuDILU<M, X, Y, l>::GpuDILU(const typename GpuDILU<M, X, Y, l>::GPUMatrix& gpuMatrix, const M& cpuMatrix, bool splitMatrix, bool tuneKernels, int mixedPrecisionScheme)
+GpuDILU<M, X, Y, l>::GpuDILU(const typename GpuDILU<M, X, Y, l>::GPUMatrix& gpuMatrix, const M& cpuMatrix, bool splitMatrix, bool tuneKernels, int mixedPrecisionScheme, bool reorder)
     : m_levelSets(Opm::getMatrixRowColoring(cpuMatrix, Opm::ColoringType::LOWER))
     , m_reorderedToNatural(detail::createReorderedToNatural(m_levelSets))
     , m_naturalToReordered(detail::createNaturalToReordered(m_levelSets))
     , m_gpuMatrix(gpuMatrix)
     , m_gpuNaturalToReorder(m_naturalToReordered)
     , m_gpuReorderToNatural(m_reorderedToNatural)
+    , m_gpuLevelSets(300)//, m_gpuLevelSets(m_levelSets.dataPtr(), m_levelSets.dataSize())
     , m_gpuDInv(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
     , m_splitMatrix(splitMatrix)
     , m_tuneThreadBlockSizes(tuneKernels)
     , m_mixedPrecisionScheme(makeMatrixStorageMPScheme(mixedPrecisionScheme))
+    , m_reorder(reorder)
 {
+    cudaDeviceSynchronize();
+    printf("managed to run initializer list");
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
     OPM_ERROR_IF(cpuMatrix.N() != m_gpuMatrix.N(),
@@ -70,6 +74,9 @@ GpuDILU<M, X, Y, l>::GpuDILU(const typename GpuDILU<M, X, Y, l>::GPUMatrix& gpuM
                  fmt::format("CuSparse matrix not same number of non zeroes as DUNE matrix. {} vs {}. ",
                              m_gpuMatrix.nonzeroes(),
                              cpuMatrix.nonzeroes()));
+    if (m_reorder && (m_splitMatrix || m_mixedPrecisionScheme != MatrixStorageMPScheme::DOUBLE_DIAG_DOUBLE_OFFDIAG)) {
+        OPM_THROW(std::runtime_error, "Reordering is only supported for full precision matrices without matrix splitting.");
+    }
     if (m_splitMatrix) {
         m_gpuMatrixReorderedDiag = std::make_unique<GpuVector<field_type>>(blocksize_ * blocksize_ * cpuMatrix.N());
         std::tie(m_gpuMatrixReorderedLower, m_gpuMatrixReorderedUpper)
@@ -187,18 +194,33 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                     m_stream.get());
             }
         } else {
-            detail::DILU::solveLowerLevelSet<field_type, blocksize_>(
-                m_gpuMatrixReordered->getNonZeroValues().data(),
-                m_gpuMatrixReordered->getRowIndices().data(),
-                m_gpuMatrixReordered->getColumnIndices().data(),
-                m_gpuReorderToNatural.data(),
-                levelStartIdx,
-                numOfRowsInLevel,
-                m_gpuDInv.data(),
-                d.data(),
-                v.data(),
-                lowerSolveThreadBlockSize,
-                m_stream.get());
+            if (m_reorder) {
+                detail::DILU::solveLowerLevelSet<field_type, blocksize_>(
+                    m_gpuMatrixReordered->getNonZeroValues().data(),
+                    m_gpuMatrixReordered->getRowIndices().data(),
+                    m_gpuMatrixReordered->getColumnIndices().data(),
+                    m_gpuReorderToNatural.data(),
+                    levelStartIdx,
+                    numOfRowsInLevel,
+                    m_gpuDInv.data(),
+                    d.data(),
+                    v.data(),
+                    lowerSolveThreadBlockSize,
+                    m_stream.get());
+            } else {
+                detail::DILU::solveLowerLevelSetNoReorder<field_type, blocksize_>(
+                    m_gpuMatrix.getNonZeroValues().data(),
+                    m_gpuMatrix.getRowIndices().data(),
+                    m_gpuMatrix.getColumnIndices().data(),
+                    m_gpuLevelSets.data(),
+                    levelStartIdx,
+                    numOfRowsInLevel,
+                    m_gpuDInv.data(),
+                    d.data(),
+                    v.data(),
+                    lowerSolveThreadBlockSize,
+                    m_stream.get());
+            }
         }
         levelStartIdx += numOfRowsInLevel;
     }
@@ -247,17 +269,31 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d, int lowerSolveThreadBlockSize, int 
                     m_stream.get());
             }
         } else {
-            detail::DILU::solveUpperLevelSet<field_type, blocksize_>(
-                m_gpuMatrixReordered->getNonZeroValues().data(),
-                m_gpuMatrixReordered->getRowIndices().data(),
-                m_gpuMatrixReordered->getColumnIndices().data(),
-                m_gpuReorderToNatural.data(),
-                levelStartIdx,
-                numOfRowsInLevel,
-                m_gpuDInv.data(),
-                v.data(),
-                upperSolveThreadBlockSize,
-                m_stream.get());
+            if (m_reorder) {
+                detail::DILU::solveUpperLevelSet<field_type, blocksize_>(
+                    m_gpuMatrixReordered->getNonZeroValues().data(),
+                    m_gpuMatrixReordered->getRowIndices().data(),
+                    m_gpuMatrixReordered->getColumnIndices().data(),
+                    m_gpuReorderToNatural.data(),
+                    levelStartIdx,
+                    numOfRowsInLevel,
+                    m_gpuDInv.data(),
+                    v.data(),
+                    upperSolveThreadBlockSize,
+                    m_stream.get());
+            } else {
+                detail::DILU::solveUpperLevelSetNoReorder<field_type, blocksize_>(
+                    m_gpuMatrix.getNonZeroValues().data(),
+                    m_gpuMatrix.getRowIndices().data(),
+                    m_gpuMatrix.getColumnIndices().data(),
+                    m_gpuLevelSets.data(),
+                    levelStartIdx,
+                    numOfRowsInLevel,
+                    m_gpuDInv.data(),
+                    v.data(),
+                    upperSolveThreadBlockSize,
+                    m_stream.get());
+            }
         }
     }
 }
@@ -282,7 +318,13 @@ GpuDILU<M, X, Y, l>::update()
 {
     OPM_TIMEBLOCK(prec_update);
     {
-        reorderAndSplitMatrix(m_moveThreadBlockSize);
+        if (m_reorder) {
+            reorderAndSplitMatrix(m_moveThreadBlockSize);
+        }
+        else {
+            cudaDeviceSynchronize();
+            printf("reorder not run!");
+        }
         computeDiagonal(m_DILUFactorizationThreadBlockSize);
     }
 }
@@ -295,7 +337,13 @@ GpuDILU<M, X, Y, l>::update(int moveThreadBlockSize, int factorizationBlockSize)
     OPM_GPU_SAFE_CALL(cudaEventRecord(m_before.get(), 0));
     OPM_GPU_SAFE_CALL(cudaStreamWaitEvent(m_stream.get(), m_before.get(), 0));
 
-    reorderAndSplitMatrix(moveThreadBlockSize);
+    if (m_reorder) {
+        reorderAndSplitMatrix(m_moveThreadBlockSize);
+    }
+    else {
+        cudaDeviceSynchronize();
+        printf("reorder not run!");
+    }
     computeDiagonal(factorizationBlockSize);
 
     // ensure that main stream only continues after this stream is completed
@@ -396,16 +444,28 @@ GpuDILU<M, X, Y, l>::computeDiagonal(int factorizationBlockSize)
                     factorizationBlockSize);
             }
         } else {
-            detail::DILU::computeDiluDiagonal<field_type, blocksize_>(
-                m_gpuMatrixReordered->getNonZeroValues().data(),
-                m_gpuMatrixReordered->getRowIndices().data(),
-                m_gpuMatrixReordered->getColumnIndices().data(),
-                m_gpuReorderToNatural.data(),
-                m_gpuNaturalToReorder.data(),
-                levelStartIdx,
-                numOfRowsInLevel,
-                m_gpuDInv.data(),
-                factorizationBlockSize);
+            if (m_reorder) {
+                detail::DILU::computeDiluDiagonal<field_type, blocksize_>(
+                    m_gpuMatrixReordered->getNonZeroValues().data(),
+                    m_gpuMatrixReordered->getRowIndices().data(),
+                    m_gpuMatrixReordered->getColumnIndices().data(),
+                    m_gpuReorderToNatural.data(),
+                    m_gpuNaturalToReorder.data(),
+                    levelStartIdx,
+                    numOfRowsInLevel,
+                    m_gpuDInv.data(),
+                    factorizationBlockSize);
+            } else {
+                detail::DILU::computeDiluDiagonalNoReorder<field_type, blocksize_>(
+                    m_gpuMatrix.getNonZeroValues().data(),
+                    m_gpuMatrix.getRowIndices().data(),
+                    m_gpuMatrix.getColumnIndices().data(),
+                    m_gpuLevelSets.data(),
+                    levelStartIdx,
+                    numOfRowsInLevel,
+                    m_gpuDInv.data(),
+                    factorizationBlockSize);
+            }
         }
         levelStartIdx += numOfRowsInLevel;
     }

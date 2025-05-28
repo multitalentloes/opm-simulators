@@ -40,16 +40,27 @@ GpuBuffer<T>::GpuBuffer(const size_t numberOfElements)
     if (numberOfElements < 1) {
         OPM_THROW(std::invalid_argument, "Setting a GpuBuffer size to a non-positive number is not allowed");
     }
+    cudaDeviceSynchronize();
+    printf("[indirectly called ctor] Allocating GpuBuffer with %zu elements of type %s\n",
+          numberOfElements,
+          typeid(T).name());
     OPM_GPU_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * m_numberOfElements));
+    cudaDeviceSynchronize();
+    printf("[indrectly called ctor] successful\n");
 }
 
 template <class T>
 GpuBuffer<T>::GpuBuffer(const T* dataOnHost, const size_t numberOfElements)
     : GpuBuffer(numberOfElements)
 {
-
+    cudaDeviceSynchronize();
+    printf("[called ctor] Allocating GpuBuffer with %zu elements of type %s and copying data from host\n",
+          numberOfElements,
+          typeid(T).name());
     OPM_GPU_SAFE_CALL(cudaMemcpy(
         m_dataOnDevice, dataOnHost, m_numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+    cudaDeviceSynchronize();
+    printf("[called ctor] successful\n");
 }
 
 template <class T>
@@ -196,6 +207,7 @@ GpuBuffer<T>::copyToHost(std::vector<T>& data) const
     copyToHost(data.data(), data.size());
 }
 
+template class GpuBuffer<size_t>;
 template class GpuBuffer<double>;
 template class GpuBuffer<float>;
 template class GpuBuffer<int>;
