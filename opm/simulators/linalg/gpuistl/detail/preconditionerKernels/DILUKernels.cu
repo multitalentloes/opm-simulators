@@ -73,8 +73,8 @@ namespace
         const auto rawIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (rawIdx < rowsInLevelSet + startIdx) {
 
-            const size_t nnzIdx = rowIndices[rawIdx];
             const size_t realIdx = indexConversion[rawIdx];
+            const size_t nnzIdx = rowIndices[realIdx];
 
             T rhs[blocksize];
             for (int i = 0; i < blocksize; i++) {
@@ -163,8 +163,8 @@ namespace
     {
         const auto rawIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (rawIdx < rowsInLevelSet + startIdx) {
-            const size_t nnzIdxLim = rowIndices[rawIdx + 1];
             const size_t realIdx = indexConversion[rawIdx];
+            const size_t nnzIdxLim = rowIndices[realIdx + 1];
 
             T rhs[blocksize] = {0};
             for (int block = nnzIdxLim - 1; colIndices[block] > realIdx; --block) {
@@ -284,7 +284,7 @@ namespace
         if (rawIdx < rowsInLevelSet + startIdx) {
             // const int naturalRowIdx = reorderedToNatural[rawIdx];
             const size_t realRowIdx = indexConversion[rawIdx];
-            const size_t nnzIdx = rowIndices[rawIdx];
+            const size_t nnzIdx = rowIndices[realRowIdx];//rowIndices[rawIdx];
 
             int diagIdx = nnzIdx;
             while (colIndices[diagIdx] != realRowIdx) {

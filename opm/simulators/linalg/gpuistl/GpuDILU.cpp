@@ -49,15 +49,13 @@ GpuDILU<M, X, Y, l>::GpuDILU(const typename GpuDILU<M, X, Y, l>::GPUMatrix& gpuM
     , m_gpuMatrix(gpuMatrix)
     , m_gpuNaturalToReorder(m_naturalToReordered)
     , m_gpuReorderToNatural(m_reorderedToNatural)
-    , m_gpuLevelSets(300)//, m_gpuLevelSets(m_levelSets.dataPtr(), m_levelSets.dataSize())
+    , m_gpuLevelSets(m_levelSets.dataPtr(), m_levelSets.dataSize())
     , m_gpuDInv(m_gpuMatrix.N() * m_gpuMatrix.blockSize() * m_gpuMatrix.blockSize())
     , m_splitMatrix(splitMatrix)
     , m_tuneThreadBlockSizes(tuneKernels)
     , m_mixedPrecisionScheme(makeMatrixStorageMPScheme(mixedPrecisionScheme))
     , m_reorder(reorder)
 {
-    cudaDeviceSynchronize();
-    printf("managed to run initializer list");
     // TODO: Should in some way verify that this matrix is symmetric, only do it debug mode?
     // Some sanity check
     OPM_ERROR_IF(cpuMatrix.N() != m_gpuMatrix.N(),
@@ -100,12 +98,17 @@ GpuDILU<M, X, Y, l>::GpuDILU(const typename GpuDILU<M, X, Y, l>::GPUMatrix& gpuM
         }
     }
 
-    reorderAndSplitMatrix(m_moveThreadBlockSize);
+    if (m_reorder){
+        reorderAndSplitMatrix(m_moveThreadBlockSize);
+    }
+    else{
+    }
     computeDiagonal(m_DILUFactorizationThreadBlockSize);
 
     if (m_tuneThreadBlockSizes) {
         tuneThreadBlockSizes();
     }
+
 }
 
 template <class M, class X, class Y, int l>
@@ -321,10 +324,6 @@ GpuDILU<M, X, Y, l>::update()
         if (m_reorder) {
             reorderAndSplitMatrix(m_moveThreadBlockSize);
         }
-        else {
-            cudaDeviceSynchronize();
-            printf("reorder not run!");
-        }
         computeDiagonal(m_DILUFactorizationThreadBlockSize);
     }
 }
@@ -339,10 +338,6 @@ GpuDILU<M, X, Y, l>::update(int moveThreadBlockSize, int factorizationBlockSize)
 
     if (m_reorder) {
         reorderAndSplitMatrix(m_moveThreadBlockSize);
-    }
-    else {
-        cudaDeviceSynchronize();
-        printf("reorder not run!");
     }
     computeDiagonal(factorizationBlockSize);
 
