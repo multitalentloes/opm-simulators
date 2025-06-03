@@ -32,6 +32,8 @@
 #include <opm/simulators/linalg/gpuistl/GpuSparseMatrix.hpp>
 #endif
 
+#include <opm/simulators/linalg/gpuistl/PinnedMemoryHolder.hpp>
+
 #include <opm/simulators/linalg/gpuistl/detail/FlexibleSolverWrapper.hpp>
 
 namespace Opm::gpuistl
@@ -176,8 +178,13 @@ public:
 
         if (!m_x) {
             m_x = std::make_unique<GPUVector>(x);
+            m_pinnedXMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+                const_cast<real_type*>(&x[0][0]),
+                x.dim()
+            );
         } else {
-            m_x->copyFromHost(x);
+            // copy from host to device using stream 0 and asynchronous transfer
+            m_x->copyFromHost(x, 0);
         }
         m_gpuSolver->apply(*m_x, *m_rhs, result);
 
@@ -250,6 +257,10 @@ private:
             } else if (weightsType == "trueimpes") {
                 // Create CPU vector for the weights and initialize GPU vector
                 m_cpuWeights.resize(m_matrix->N());
+                m_pinnedWeightsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+                    const_cast<real_type*>(&m_cpuWeights[0][0]),
+                    m_cpuWeights.dim()
+                );
                 m_weights = std::make_unique<GPUVector>(m_cpuWeights);
 
                 // CPU implementation wrapped for GPU
@@ -262,15 +273,18 @@ private:
                                                  *m_element_chunks,
                                                   ThreadManager::threadId());
 
-                    // Copy CPU vector to GPU vector
-                    m_weights->copyFromHost(m_cpuWeights);
+                    // Copy CPU vector to GPU vector using stream 0 and asynchronous transfer
+                    m_weights->copyFromHost(m_cpuWeights, 0);
                     return *m_weights;
                 };
             } else if (weightsType == "trueimpesanalytic") {
                 // Create CPU vector for the weights and initialize GPU vector
                 m_cpuWeights.resize(m_matrix->N());
+                m_pinnedWeightsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+                    const_cast<real_type*>(&m_cpuWeights[0][0]),
+                    m_cpuWeights.dim()
+                );
                 m_weights = std::make_unique<GPUVector>(m_cpuWeights);
-
                 // CPU implementation wrapped for GPU
                 weightsCalculator = [this]() -> GPUVector& {
                     // Use the CPU implementation to calculate the weights
@@ -281,8 +295,8 @@ private:
                                                  *m_element_chunks,
                                                  ThreadManager::threadId());
 
-                    // Copy CPU vector to GPU vector
-                    m_weights->copyFromHost(m_cpuWeights);
+                    // Copy CPU vector to GPU vector using stream 0 and asynchronous transfer
+                    m_weights->copyFromHost(m_cpuWeights, 0);
                     return *m_weights;
                 };
             } else {
@@ -299,6 +313,10 @@ private:
     {
         if (!m_matrix) {
             m_matrix.reset(new auto(GPUMatrix::fromMatrix(M)));
+            m_pinnedMatrixMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+                const_cast<real_type*>(&M[0][0][0][0]),
+                M.nonzeroes() * M[0][0].N() * M[0][0].M()
+            );
             std::function<GPUVector&()> weightsCalculator = getWeightsCalculator();
             const bool parallel = false;
             m_gpuSolver = std::make_unique<SolverType>(
@@ -313,8 +331,13 @@ private:
     void updateRhs(const Vector& b) {
         if (!m_rhs) {
             m_rhs = std::make_unique<GPUVector>(b);
+            m_pinnedRhsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+                const_cast<real_type*>(&b[0][0]),
+                b.dim()
+            );
         } else {
-            m_rhs->copyFromHost(b);
+            // copy from host to device using stream 0 and asynchronous transfer
+            m_rhs->copyFromHost(b, 0);
         }
     }
 
@@ -333,6 +356,11 @@ private:
 
     std::unique_ptr<GPUVector> m_rhs;
     std::unique_ptr<GPUVector> m_x;
+
+    std::unique_ptr<PinnedMemoryHolder<real_type>> m_pinnedMatrixMemory;
+    std::unique_ptr<PinnedMemoryHolder<real_type>> m_pinnedRhsMemory;
+    std::unique_ptr<PinnedMemoryHolder<real_type>> m_pinnedXMemory;
+    std::unique_ptr<PinnedMemoryHolder<real_type>> m_pinnedWeightsMemory;
 
     Vector m_cpuWeights;
     std::unique_ptr<GPUVector> m_weights;
