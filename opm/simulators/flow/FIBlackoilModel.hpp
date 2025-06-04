@@ -78,6 +78,15 @@ public:
 
     void invalidateAndUpdateIntensiveQuantities(unsigned timeIdx) const
     {
+        // printf("FIBlackoil update intensive quantities for time index %u\n", timeIdx);
+        // here we iterate over DOFS (cells?) and compute properties
+        // this is where the GPU will call a kernel instead of this for loop
+
+        // measure time spent in this for-loop
+        auto startTime = std::chrono::high_resolution_clock::now();
+
+        
+
         this->invalidateIntensiveQuantitiesCache(timeIdx);
         OPM_BEGIN_PARALLEL_TRY_CATCH();
         if constexpr (gridIsUnchanging) {
@@ -101,6 +110,9 @@ public:
         }
         OPM_END_PARALLEL_TRY_CATCH("InvalideAndUpdateIntensiveQuantities: state error",
                                    this->simulator_.vanguard().grid().comm());
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
+        std::cout << "Time spent updating intensive quantities: " << duration << " microseconds" << std::endl;
     }
 
     void invalidateAndUpdateIntensiveQuantitiesOverlap(unsigned timeIdx) const

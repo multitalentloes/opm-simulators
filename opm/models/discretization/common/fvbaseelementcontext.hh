@@ -36,6 +36,8 @@
 
 #include <opm/models/utils/alignedallocator.hh>
 
+#include <chrono>
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -549,9 +551,12 @@ protected:
      */
     void updateIntensiveQuantities_(unsigned timeIdx, std::size_t numDof)
     {
+        // printf("(inside FvBaseElementContext::updateIntensiveQuantities_)\n");
         // update the intensive quantities for the whole history
         const SolutionVector& globalSol = model().solution(timeIdx);
 
+
+        
         // update the non-gradient quantities
         for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
             unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
@@ -559,17 +564,17 @@ protected:
             dofVars_[dofIdx].priVars[timeIdx] = &dofSol;
 
             dofVars_[dofIdx].thermodynamicHint[timeIdx] =
-                model().thermodynamicHint(globalIdx, timeIdx);
+            model().thermodynamicHint(globalIdx, timeIdx);
 
             const auto *cachedIntQuants = model().cachedIntensiveQuantities(globalIdx, timeIdx);
             if (cachedIntQuants) {
-                dofVars_[dofIdx].intensiveQuantities[timeIdx] = *cachedIntQuants;
+            dofVars_[dofIdx].intensiveQuantities[timeIdx] = *cachedIntQuants;
             }
             else {
-                updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
-                model().updateCachedIntensiveQuantities(dofVars_[dofIdx].intensiveQuantities[timeIdx],
-                                                        globalIdx,
-                                                        timeIdx);
+            updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
+            model().updateCachedIntensiveQuantities(dofVars_[dofIdx].intensiveQuantities[timeIdx],
+                                globalIdx,
+                                timeIdx);
             }
         }
     }

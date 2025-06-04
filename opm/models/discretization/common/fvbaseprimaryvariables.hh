@@ -37,6 +37,8 @@
 
 #include <opm/common/utility/gpuDecorators.hpp>
 
+#include <opm/models/discretization/common/fvbaseproperties.hh>
+#include <opm/models/discretization/common/linearizationtype.hh>
 
 #include <stdexcept>
 #include <type_traits>

@@ -78,6 +78,8 @@
 #include <utility>
 #include <vector>
 
+#include <chrono>
+
 namespace Opm {
 
 template<class TypeTag>
@@ -724,6 +726,7 @@ public:
 
     void invalidateAndUpdateIntensiveQuantities(unsigned timeIdx) const
     {
+        printf("Updating intensive quantities for time index\n");
         invalidateIntensiveQuantitiesCache(timeIdx);
 
         // loop over all elements...
@@ -745,6 +748,9 @@ public:
     template <class GridViewType>
     void invalidateAndUpdateIntensiveQuantities(unsigned timeIdx, const GridViewType& gridView) const
     {
+
+        printf("Updating intensive quantities for time index and gridView\n");
+
         // loop over all elements...
         ThreadedEntityIterator<GridViewType, /*codim=*/0> threadedElemIt(gridView);
 #ifdef _OPENMP
@@ -770,6 +776,8 @@ public:
                 elemCtx.updatePrimaryIntensiveQuantities(/*timeIdx=*/0);
             }
         }
+
+
     }
 
     /*!

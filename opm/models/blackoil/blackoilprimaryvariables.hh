@@ -166,13 +166,9 @@ public:
         Disabled, // The primary variable is not used
     };
 
-<<<<<<< HEAD
-    BlackOilPrimaryVariables()
-=======
     #if OPM_IS_INSIDE_DEVICE_FUNCTION
     OPM_HOST_DEVICE BlackOilPrimaryVariables()
         : ParentType(), pressureScale_(1.0) // TODO: Make the GPU branch fetch the pressure scale from static.
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
     {
         Valgrind::SetUndefined(*this);
         pvtRegionIdx_ = 0;
@@ -220,14 +216,6 @@ public:
             ("Scaling of pressure primary variable");
     }
 
-<<<<<<< HEAD
-    void setPressureScale(Scalar val)
-    { pressureScale_ = val; }
-
-    Evaluation
-    makeEvaluation(unsigned varIdx, unsigned timeIdx,
-                   LinearizationType linearizationType = LinearizationType()) const
-=======
     OPM_HOST_DEVICE void setPressureScale(Scalar val)
     {
         pressureScale_ = val;
@@ -235,7 +223,6 @@ public:
 
     OPM_HOST_DEVICE Evaluation
     makeEvaluation(unsigned varIdx, unsigned timeIdx, LinearizationType linearizationType = LinearizationType()) const
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
     {
         const Scalar scale = varIdx == pressureSwitchIdx ? this->pressureScale_ : Scalar{1.0};
         if (std::is_same_v<Evaluation, Scalar>) {
@@ -317,31 +304,20 @@ public:
      * \brief Set the interpretation which should be applied to the switching primary
      *        variables.
      */
-<<<<<<< HEAD
-    void setPrimaryVarsMeaningBrine(BrineMeaning newMeaning)
-    { primaryVarsMeaningBrine_ = newMeaning; }
-
-    SolventMeaning primaryVarsMeaningSolvent() const
-=======
 
     OPM_HOST_DEVICE void setPrimaryVarsMeaningBrine(BrineMeaning newMeaning)
     { primaryVarsMeaningBrine_ = newMeaning; }
 
 
     OPM_HOST_DEVICE SolventMeaning primaryVarsMeaningSolvent() const
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
     { return primaryVarsMeaningSolvent_; }
 
     /*!
      * \brief Set the interpretation which should be applied to the switching primary
      *        variables.
      */
-<<<<<<< HEAD
-    void setPrimaryVarsMeaningSolvent(SolventMeaning newMeaning)
-=======
 
      OPM_HOST_DEVICE void setPrimaryVarsMeaningSolvent(SolventMeaning newMeaning)
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
     { primaryVarsMeaningSolvent_ = newMeaning; }
 
     /*!
@@ -395,20 +371,11 @@ public:
 
         paramCache.updateAll(fsFlash);
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
-<<<<<<< HEAD
-            if (!FluidSystem::phaseIsActive(phaseIdx)) {
-=======
-            if (!fluidSystem_->phaseIsActive(phaseIdx))
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
+            if (!fluidSystem_->phaseIsActive(phaseIdx)) {
                 continue;
             }
 
-<<<<<<< HEAD
-            const Scalar rho =
-                FluidSystem::template density<FlashFluidState, Scalar>(fsFlash, paramCache, phaseIdx);
-=======
             Scalar rho = fluidSystem_->template density<FlashFluidState, Scalar>(fsFlash, paramCache, phaseIdx);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
             fsFlash.setDensity(phaseIdx, rho);
         }
 
@@ -416,11 +383,7 @@ public:
         ComponentVector globalMolarities(0.0);
         for (unsigned compIdx = 0; compIdx < numComponents; ++compIdx) {
             for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
-<<<<<<< HEAD
-                if (!FluidSystem::phaseIsActive(phaseIdx)) {
-=======
-                if (!fluidSystem_->phaseIsActive(phaseIdx))
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
+                if (!fluidSystem_->phaseIsActive(phaseIdx)) {
                     continue;
                 }
 
@@ -449,53 +412,18 @@ public:
         using FsEvaluation = std::remove_const_t<ConstEvaluation>;
         using FsToolbox = MathToolbox<FsEvaluation>;
 
-<<<<<<< HEAD
-        const bool gasPresent =
-            FluidSystem::phaseIsActive(gasPhaseIdx)
-                ? fluidState.saturation(gasPhaseIdx) > 0.0
-                : false;
-        const bool oilPresent =
-            FluidSystem::phaseIsActive(oilPhaseIdx)
-                ? fluidState.saturation(oilPhaseIdx) > 0.0
-                : false;
-        const bool waterPresent =
-            FluidSystem::phaseIsActive(waterPhaseIdx)
-                ? fluidState.saturation(waterPhaseIdx) > 0.0
-                : false;
-        const auto& saltSaturation =
-            BlackOil::getSaltSaturation_<FluidSystem, FluidState, Scalar>(fluidState, pvtRegionIdx_);
-        const bool precipitatedSaltPresent = enableSaltPrecipitation ? saltSaturation > 0.0 : false;
-        const bool oneActivePhases = FluidSystem::numActivePhases() == 1;
-=======
         bool gasPresent = fluidSystem_->phaseIsActive(gasPhaseIdx)?(fluidState.saturation(gasPhaseIdx) > 0.0):false;
         bool oilPresent = fluidSystem_->phaseIsActive(oilPhaseIdx)?(fluidState.saturation(oilPhaseIdx) > 0.0):false;
         bool waterPresent = fluidSystem_->phaseIsActive(waterPhaseIdx)?(fluidState.saturation(waterPhaseIdx) > 0.0):false;
         const auto& saltSaturation = BlackOil::getSaltSaturation_<FluidSystem, FluidState, Scalar>(fluidState, pvtRegionIdx_);
         bool precipitatedSaltPresent = enableSaltPrecipitation?(saltSaturation > 0.0):false;
         bool oneActivePhases = fluidSystem_->numActivePhases() == 1;
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
         // deal with the primary variables for the energy extension
         EnergyModule::assignPrimaryVars(*this, fluidState);
 
         // Determine the meaning of the pressure primary variables
         // Depending on the phases present, this variable is either interpreted as the
         // pressure of the oil phase, gas phase (if no oil) or water phase (if only water)
-<<<<<<< HEAD
-        if (gasPresent && FluidSystem::enableVaporizedOil() && !oilPresent) {
-            primaryVarsMeaningPressure_ = PressureMeaning::Pg;
-        }
-        else if (FluidSystem::phaseIsActive(oilPhaseIdx)) {
-            primaryVarsMeaningPressure_ = PressureMeaning::Po;
-        }
-        else if (waterPresent && FluidSystem::enableDissolvedGasInWater() && !gasPresent) {
-            primaryVarsMeaningPressure_ = PressureMeaning::Pw;
-        }
-        else if (FluidSystem::phaseIsActive(gasPhaseIdx)) {
-            primaryVarsMeaningPressure_ = PressureMeaning::Pg;
-        }
-        else {
-            assert(FluidSystem::phaseIsActive(waterPhaseIdx));
-=======
         if (gasPresent && fluidSystem_->enableVaporizedOil() && !oilPresent){
             primaryVarsMeaningPressure_ = PressureMeaning::Pg;
         } else if (fluidSystem_->phaseIsActive(oilPhaseIdx)) {
@@ -506,7 +434,6 @@ public:
             primaryVarsMeaningPressure_ = PressureMeaning::Pg;
         } else {
             assert(fluidSystem_->phaseIsActive(waterPhaseIdx));
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
             primaryVarsMeaningPressure_ = PressureMeaning::Pw;
         }
 
@@ -516,22 +443,11 @@ public:
         // For two-phase gas-oil models and one-phase case the variable is disabled.
         if (waterPresent && gasPresent) {
             primaryVarsMeaningWater_ = WaterMeaning::Sw;
-<<<<<<< HEAD
-        }
-        else if (gasPresent && FluidSystem::enableVaporizedWater()) {
-            primaryVarsMeaningWater_ = WaterMeaning::Rvw;
-        }
-        else if (waterPresent && FluidSystem::enableDissolvedGasInWater()) {
-            primaryVarsMeaningWater_ = WaterMeaning::Rsw;
-        }
-        else if (FluidSystem::phaseIsActive(waterPhaseIdx) && !oneActivePhases) {
-=======
         } else if (gasPresent && fluidSystem_->enableVaporizedWater()) {
             primaryVarsMeaningWater_ = WaterMeaning::Rvw;
         } else if (waterPresent && fluidSystem_->enableDissolvedGasInWater()) {
             primaryVarsMeaningWater_ = WaterMeaning::Rsw;
         } else if (fluidSystem_->phaseIsActive(waterPhaseIdx) && !oneActivePhases) {
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
             primaryVarsMeaningWater_ = WaterMeaning::Sw;
         }
         else {
@@ -545,22 +461,11 @@ public:
         // For two-phase water-oil and water-gas models and one-phase case the variable is disabled.
         if (gasPresent && oilPresent) {
             primaryVarsMeaningGas_ = GasMeaning::Sg;
-<<<<<<< HEAD
-        }
-        else if (oilPresent && FluidSystem::enableDissolvedGas()) {
-            primaryVarsMeaningGas_ = GasMeaning::Rs;
-        }
-        else if (gasPresent && FluidSystem::enableVaporizedOil()) {
-            primaryVarsMeaningGas_ = GasMeaning::Rv;
-        }
-        else if (FluidSystem::phaseIsActive(gasPhaseIdx) && FluidSystem::phaseIsActive(oilPhaseIdx)) {
-=======
         } else if (oilPresent && fluidSystem_->enableDissolvedGas()) {
             primaryVarsMeaningGas_ = GasMeaning::Rs;
         } else if (gasPresent && fluidSystem_->enableVaporizedOil()){
             primaryVarsMeaningGas_ = GasMeaning::Rv;
         } else if (fluidSystem_->phaseIsActive(gasPhaseIdx) && fluidSystem_->phaseIsActive(oilPhaseIdx)) {
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
             primaryVarsMeaningGas_ = GasMeaning::Sg;
         }
         else {
@@ -581,65 +486,6 @@ public:
         }
 
         // assign the actual primary variables
-<<<<<<< HEAD
-        switch (primaryVarsMeaningPressure()) {
-        case PressureMeaning::Po:
-            this->setScaledPressure_(FsToolbox::value(fluidState.pressure(oilPhaseIdx)));
-            break;
-        case PressureMeaning::Pg:
-            this->setScaledPressure_(FsToolbox::value(fluidState.pressure(gasPhaseIdx)));
-            break;
-        case PressureMeaning::Pw:
-            this->setScaledPressure_(FsToolbox::value(fluidState.pressure(waterPhaseIdx)));
-            break;
-        default:
-            throw std::logic_error("No valid primary variable selected for pressure");
-        }
-
-        switch (primaryVarsMeaningWater()) {
-        case WaterMeaning::Sw:
-        {
-            (*this)[waterSwitchIdx] = FsToolbox::value(fluidState.saturation(waterPhaseIdx));
-            break;
-        }
-        case WaterMeaning::Rvw:
-        {
-            const auto& rvw = BlackOil::getRvw_<FluidSystem, FluidState, Scalar>(fluidState, pvtRegionIdx_);
-            (*this)[waterSwitchIdx] = rvw;
-            break;
-        }
-        case WaterMeaning::Rsw:
-        {
-            const auto& Rsw = BlackOil::getRsw_<FluidSystem, FluidState, Scalar>(fluidState, pvtRegionIdx_);
-            (*this)[waterSwitchIdx] = Rsw;
-            break;
-        }
-        case WaterMeaning::Disabled:
-            break;
-        default:
-            throw std::logic_error("No valid primary variable selected for water");
-        }
-        switch (primaryVarsMeaningGas()) {
-        case GasMeaning::Sg:
-            (*this)[compositionSwitchIdx] = FsToolbox::value(fluidState.saturation(gasPhaseIdx));
-            break;
-        case GasMeaning::Rs:
-        {
-            const auto& rs = BlackOil::getRs_<FluidSystem, FluidState, Scalar>(fluidState, pvtRegionIdx_);
-            (*this)[compositionSwitchIdx] = rs;
-            break;
-        }
-        case GasMeaning::Rv:
-        {
-            const auto& rv = BlackOil::getRv_<FluidSystem, FluidState, Scalar>(fluidState, pvtRegionIdx_);
-            (*this)[compositionSwitchIdx] = rv;
-            break;
-        }
-        case GasMeaning::Disabled:
-            break;
-        default:
-            throw std::logic_error("No valid primary variable selected for composision");
-=======
         switch(primaryVarsMeaningPressure()) {
             case PressureMeaning::Po:
                 this->setScaledPressure_(FsToolbox::value(fluidState.pressure(oilPhaseIdx)));
@@ -704,7 +550,6 @@ public:
             {
                 OPM_THROW(std::logic_error, "No valid primary variable selected for composision");
             }
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
         }
     }
 
@@ -812,12 +657,8 @@ public:
         // If dissolved gas in water is enabled we shouldn't enter
         // here but instead switch to Rsw as primary variable
         // as sw >= 1.0 -> gas <= 0 (i.e. gas phase disappears)
-<<<<<<< HEAD
-        if (sw >= thresholdWaterFilledCell && !FluidSystem::enableDissolvedGasInWater()) {
-=======
         if (sw >= thresholdWaterFilledCell && !fluidSystem_->enableDissolvedGasInWater()) {
 
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
             // make sure water saturations does not exceed sw_maximum. Default to 1.0
             if constexpr (waterEnabled) {
                 (*this)[Indices::waterSwitchIdx] = std::min(swMaximum, sw);
@@ -854,11 +695,7 @@ public:
             case WaterMeaning::Sw:
             {
                 // if water phase disappeares:  Sw (water saturation) -> Rvw (fraction of water in gas phase)
-<<<<<<< HEAD
-                if (sw < -eps && sg > eps && FluidSystem::enableVaporizedWater()) {
-=======
                 if(sw < -eps && sg > eps && fluidSystem_->enableVaporizedWater()) {
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                     Scalar p = this->pressure_();
                     if (primaryVarsMeaningPressure() == PressureMeaning::Po) {
                         std::array<Scalar, numPhases> pC{};
@@ -867,18 +704,10 @@ public:
                         computeCapillaryPressures_(pC, so, sg + solventSaturation_(), /*sw=*/ 0.0, matParams);
                         p += pcFactor_ * (pC[gasPhaseIdx] - pC[oilPhaseIdx]);
                     }
-<<<<<<< HEAD
-                    const Scalar rvwSat =
-                        FluidSystem::gasPvt().saturatedWaterVaporizationFactor(pvtRegionIdx_,
-                                                                               T,
-                                                                               p,
-                                                                               saltConcentration);
-=======
                     Scalar rvwSat = fluidSystem_->gasPvt().saturatedWaterVaporizationFactor(pvtRegionIdx_,
                                                                                    T,
                                                                                    p,
                                                                                    saltConcentration);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                     setPrimaryVarsMeaningWater(WaterMeaning::Rvw);
                     (*this)[Indices::waterSwitchIdx] = rvwSat; // primary variable becomes Rvw
                     changed = true;
@@ -886,31 +715,18 @@ public:
                 }
                 // if gas phase disappeares:  Sw (water saturation) -> Rsw (fraction of gas in water phase)
                 // and Pg (gas pressure) -> Pw ( water pressure)
-<<<<<<< HEAD
-                if (sg < -eps && sw > eps && FluidSystem::enableDissolvedGasInWater()) {
-=======
                 if(sg < -eps && sw > eps && fluidSystem_->enableDissolvedGasInWater()) {
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                     const Scalar pg = this->pressure_();
                     assert(primaryVarsMeaningPressure() == PressureMeaning::Pg);
                     std::array<Scalar, numPhases> pC = { 0.0 };
                     const MaterialLawParams& matParams = problem.materialLawParams(globalDofIdx);
                     const Scalar so = 1.0 - sw - solventSaturation_();
                     computeCapillaryPressures_(pC, so,  /*sg=*/ 0.0, sw, matParams);
-<<<<<<< HEAD
-                    const Scalar pw = pg + pcFactor_ * (pC[waterPhaseIdx] - pC[gasPhaseIdx]);
-                    const Scalar rswSat =
-                        FluidSystem::waterPvt().saturatedGasDissolutionFactor(pvtRegionIdx_,
-                                                                              T,
-                                                                              pw,
-                                                                              saltConcentration);
-=======
                     Scalar pw = pg + pcFactor_ * (pC[waterPhaseIdx] - pC[gasPhaseIdx]);
                     Scalar rswSat = fluidSystem_->waterPvt().saturatedGasDissolutionFactor(pvtRegionIdx_,
                                                                                    T,
                                                                                    pw,
                                                                                    saltConcentration);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                     setPrimaryVarsMeaningWater(WaterMeaning::Rsw);
                     const Scalar rswMax = problem.maxGasDissolutionFactor(/*timeIdx=*/0, globalDofIdx);
                     (*this)[Indices::waterSwitchIdx] = min(rswSat, rswMax); //primary variable becomes Rsw
@@ -932,18 +748,10 @@ public:
                     computeCapillaryPressures_(pC, so, sg + solventSaturation_(), /*sw=*/ 0.0, matParams);
                     p += pcFactor_ * (pC[gasPhaseIdx] - pC[oilPhaseIdx]);
                 }
-<<<<<<< HEAD
-                const Scalar rvwSat =
-                    FluidSystem::gasPvt().saturatedWaterVaporizationFactor(pvtRegionIdx_,
-                                                                           T,
-                                                                           p,
-                                                                           saltConcentration);
-=======
                 Scalar rvwSat = fluidSystem_->gasPvt().saturatedWaterVaporizationFactor(pvtRegionIdx_,
                                                                                    T,
                                                                                    p,
                                                                                    saltConcentration);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                 // if water phase appears: Rvw (fraction of water in gas phase) -> Sw (water saturation)
                 if (rvw > rvwSat * (1.0 + eps)) {
                     setPrimaryVarsMeaningWater(WaterMeaning::Sw);
@@ -959,18 +767,10 @@ public:
                 // than what saturated water can hold.
                 const Scalar& pw = this->pressure_();
                 assert(primaryVarsMeaningPressure() == PressureMeaning::Pw);
-<<<<<<< HEAD
-                const Scalar rswSat =
-                    FluidSystem::waterPvt().saturatedGasDissolutionFactor(pvtRegionIdx_,
-                                                                          T,
-                                                                          pw,
-                                                                          saltConcentration);
-=======
                 Scalar rswSat = fluidSystem_->waterPvt().saturatedGasDissolutionFactor(pvtRegionIdx_,
                                                                                    T,
                                                                                    pw,
                                                                                    saltConcentration);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
 
                 const Scalar rsw = (*this)[Indices::waterSwitchIdx];
                 const Scalar rswMax = problem.maxGasDissolutionFactor(/*timeIdx=*/0, globalDofIdx);
@@ -1004,27 +804,6 @@ public:
         switch (primaryVarsMeaningGas()) {
             case GasMeaning::Sg:
             {
-<<<<<<< HEAD
-                const Scalar s = 1.0 - sw - solventSaturation_();
-                if (sg < -eps && s > 0.0 && FluidSystem::enableDissolvedGas()) {
-                    const Scalar po = this->pressure_();
-                    setPrimaryVarsMeaningGas(GasMeaning::Rs);
-                    const Scalar soMax = std::max(s, problem.maxOilSaturation(globalDofIdx));
-                    const Scalar rsMax = problem.maxGasDissolutionFactor(/*timeIdx=*/0, globalDofIdx);
-                    const Scalar rsSat =
-                        enableExtbo
-                            ? ExtboModule::rs(pvtRegionIndex(), po, zFraction_())
-                            : FluidSystem::oilPvt().saturatedGasDissolutionFactor(pvtRegionIdx_,
-                                                                                  T,
-                                                                                  po,
-                                                                                  s,
-                                                                                  soMax);
-                    (*this)[Indices::compositionSwitchIdx] = std::min(rsMax, rsSat);
-                    changed = true;
-                }
-                const Scalar so = 1.0 - sw - solventSaturation_() - sg;
-                if (so < -eps && sg > 0.0 && FluidSystem::enableVaporizedOil()) {
-=======
                 Scalar s = 1.0 - sw - solventSaturation_();
                 if (sg < -eps && s > 0.0 && fluidSystem_->enableDissolvedGas()) {
                     const Scalar po = this->pressure_();
@@ -1044,7 +823,6 @@ public:
                 }
                 Scalar so = 1.0 - sw - solventSaturation_() - sg;
                 if (so < -eps && sg > 0.0 && fluidSystem_->enableVaporizedOil()) {
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                     // the oil phase disappeared and some hydrocarbon gas phase is still
                     // present, i.e., switch the primary variables to GasMeaning::Rv.
                     // we only have the oil pressure readily available, but we need the gas
@@ -1059,18 +837,6 @@ public:
                     // hydrocarbon gas
                     setPrimaryVarsMeaningPressure(PressureMeaning::Pg);
                     this->setScaledPressure_(pg);
-<<<<<<< HEAD
-                    const Scalar soMax = problem.maxOilSaturation(globalDofIdx);
-                    const Scalar rvMax = problem.maxOilVaporizationFactor(/*timeIdx=*/0, globalDofIdx);
-                    const Scalar rvSat =
-                        enableExtbo
-                            ? ExtboModule::rv(pvtRegionIndex(), pg, zFraction_())
-                            : FluidSystem::gasPvt().saturatedOilVaporizationFactor(pvtRegionIdx_,
-                                                                                   T,
-                                                                                   pg,
-                                                                                   Scalar(0),
-                                                                                   soMax);
-=======
                     Scalar soMax = problem.maxOilSaturation(globalDofIdx);
                     Scalar rvMax = problem.maxOilVaporizationFactor(/*timeIdx=*/0, globalDofIdx);
                     Scalar rvSat = enableExtbo ? ExtboModule::rv(pvtRegionIndex(),
@@ -1081,7 +847,6 @@ public:
                                                                                         pg,
                                                                                         Scalar(0),
                                                                                         soMax);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
                     setPrimaryVarsMeaningGas(GasMeaning::Rv);
                     (*this)[Indices::compositionSwitchIdx] = std::min(rvMax, rvSat);
                     changed = true;
@@ -1094,19 +859,6 @@ public:
                 // appears as soon as more of the gas component is present in the oil phase
                 // than what saturated oil can hold.
                 const Scalar po = this->pressure_();
-<<<<<<< HEAD
-                const Scalar so = 1.0 - sw - solventSaturation_();
-                const Scalar soMax = std::max(so, problem.maxOilSaturation(globalDofIdx));
-                const Scalar rsMax = problem.maxGasDissolutionFactor(/*timeIdx=*/0, globalDofIdx);
-                const Scalar rsSat =
-                    enableExtbo
-                        ? ExtboModule::rs(pvtRegionIndex(), po, zFraction_())
-                        : FluidSystem::oilPvt().saturatedGasDissolutionFactor(pvtRegionIdx_,
-                                                                              T,
-                                                                              po,
-                                                                              so,
-                                                                              soMax);
-=======
                 Scalar so = 1.0 - sw - solventSaturation_();
                 Scalar soMax = std::max(so, problem.maxOilSaturation(globalDofIdx));
                 Scalar rsMax = problem.maxGasDissolutionFactor(/*timeIdx=*/0, globalDofIdx);
@@ -1118,7 +870,6 @@ public:
                                                                                po,
                                                                                so,
                                                                                soMax);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
 
                 const Scalar rs = (*this)[Indices::compositionSwitchIdx];
                 if (rs > std::min(rsMax, rsSat * (Scalar{1.0} + eps))) {
@@ -1136,18 +887,6 @@ public:
                 // than what saturated gas contains. Note that we use the blackoil specific
                 // low-level PVT objects here for performance reasons.
                 const Scalar pg = this->pressure_();
-<<<<<<< HEAD
-                const Scalar soMax = problem.maxOilSaturation(globalDofIdx);
-                const Scalar rvMax = problem.maxOilVaporizationFactor(/*timeIdx=*/0, globalDofIdx);
-                const Scalar rvSat =
-                    enableExtbo
-                        ? ExtboModule::rv(pvtRegionIndex(), pg, zFraction_())
-                        : FluidSystem::gasPvt().saturatedOilVaporizationFactor(pvtRegionIdx_,
-                                                                               T,
-                                                                               pg,
-                                                                               /*so=*/Scalar(0.0),
-                                                                               soMax);
-=======
                 Scalar soMax = problem.maxOilSaturation(globalDofIdx);
                 Scalar rvMax = problem.maxOilVaporizationFactor(/*timeIdx=*/0, globalDofIdx);
                 Scalar rvSat = enableExtbo ? ExtboModule::rv(pvtRegionIndex(),
@@ -1158,7 +897,6 @@ public:
                                                                                     pg,
                                                                                     /*so=*/Scalar(0.0),
                                                                                     soMax);
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
 
                 const Scalar rv = (*this)[Indices::compositionSwitchIdx];
                 if (rv > std::min(rvMax, rvSat * (Scalar{1.0} + eps))) {
@@ -1191,12 +929,7 @@ public:
         return changed;
     }
 
-<<<<<<< HEAD
-    bool chopAndNormalizeSaturations()
-    {
-=======
     OPM_HOST_DEVICE bool chopAndNormalizeSaturations(){
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
         if (primaryVarsMeaningWater() == WaterMeaning::Disabled &&
             primaryVarsMeaningGas() == GasMeaning::Disabled)
         {
@@ -1358,16 +1091,11 @@ private:
         }
         else if constexpr (enableTemperature) {
             return problem.temperature(globalDofIdx, /*timeIdx*/ 0);
-<<<<<<< HEAD
         }
-        else {
-            return FluidSystem::reservoirTemperature();
-        }
-=======
-
         else
+        {
             return fluidSystem_->reservoirTemperature();
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
+        }
     }
 
     OPM_HOST_DEVICE Scalar microbialConcentration_() const
@@ -1447,13 +1175,6 @@ private:
         MaterialLaw::capillaryPressures(result, matParams, fluidState);
     }
 
-<<<<<<< HEAD
-    Scalar pressure_() const
-    { return (*this)[Indices::pressureSwitchIdx] * this->pressureScale_; }
-
-    void setScaledPressure_(Scalar pressure)
-    { (*this)[Indices::pressureSwitchIdx] = pressure / (this->pressureScale_); }
-=======
     OPM_HOST_DEVICE Scalar pressure_() const
     {
         return (*this)[Indices::pressureSwitchIdx] * this->pressureScale_;
@@ -1463,7 +1184,6 @@ private:
     {
         (*this)[Indices::pressureSwitchIdx] = pressure / (this->pressureScale_);
     }
->>>>>>> 8cbb5bce4 (make flowproblem and other classes work on GPU)
 
     WaterMeaning primaryVarsMeaningWater_{WaterMeaning::Disabled};
     PressureMeaning primaryVarsMeaningPressure_{PressureMeaning::Po};
