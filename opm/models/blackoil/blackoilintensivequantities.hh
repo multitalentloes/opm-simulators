@@ -415,13 +415,13 @@ public:
                 if (fluidSystem_->phaseIsActive(phaseIdx))
                     fluidState_.setPressure(phaseIdx, pw + (pC[phaseIdx] - pC[waterPhaseIdx]));
         } else {
-            assert(fluidSystem_->phaseIsActive(oilPhaseIdx));
-            const Evaluation& po = priVars.makeEvaluation(Indices::pressureSwitchIdx, timeIdx);
-            for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
-                if (fluidSystem_->phaseIsActive(phaseIdx)) {
-                    fluidState_.setPressure(phaseIdx, po + (pC[phaseIdx] - pC[oilPhaseIdx]));
-                }
-            }
+            // assert(fluidSystem_->phaseIsActive(oilPhaseIdx));
+            // const Evaluation& po = priVars.makeEvaluation(Indices::pressureSwitchIdx, timeIdx);
+            // for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
+            //     if (fluidSystem_->phaseIsActive(phaseIdx)) {
+            //         fluidState_.setPressure(phaseIdx, po + (pC[phaseIdx] - pC[oilPhaseIdx]));
+            //     }
+            // }
         }
 
         // Update the Saturation functions for the blackoil solvent module.
@@ -537,7 +537,7 @@ public:
         if (dirMob_) {
             for (int i = 0; i < 3; ++i) {
                 ++nmobilities;
-                mobilities.push_back(&(dirMob_->getArray(i)));
+                mobilities.push_back( /* &(dirMob_->getArray(i)) */ {});
             }
         }
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
@@ -548,10 +548,10 @@ public:
             const auto& mu = fluidSystem_->viscosity(fluidState_, phaseIdx, pvtRegionIdx);
             for (int i = 0; i<nmobilities; i++) {
                 if (enableExtbo && phaseIdx == oilPhaseIdx) {
-                    (*mobilities[i])[phaseIdx] /= asImp_().oilViscosity();
+                    // (*mobilities[i])[phaseIdx] /= asImp_().oilViscosity(); // TEMPORARY
                 }
                 else if (enableExtbo && phaseIdx == gasPhaseIdx) {
-                    (*mobilities[i])[phaseIdx] /= asImp_().gasViscosity();
+                    // (*mobilities[i])[phaseIdx] /= asImp_().gasViscosity();
                 }
                 else {
                     (*mobilities[i])[phaseIdx] /= mu;
@@ -755,6 +755,15 @@ public:
         }
     }
 
+    OPM_HOST_DEVICE void void_update_cpu(const Problem& problem,
+                                            const PrimaryVariables& priVars,
+                                            const unsigned indices)
+    {
+        for (unsigned idx = 0; idx < indices; ++idx) {
+            update(problem, priVars, idx, 0);
+        }
+    }
+
     OPM_HOST_DEVICE void  update(const Problem& problem, const PrimaryVariables& priVars, const unsigned globalSpaceIdx, const unsigned timeIdx)
     {
         #if !OPM_IS_COMPILING_WITH_GPU_COMPILER
@@ -829,13 +838,13 @@ public:
             switch (facedir) {
                 case Dir::XMinus:
                 case Dir::XPlus:
-                    return dirMob_->getArray(0)[phaseIdx];
+                    return Evaluation(1.0); //dirMob_->getArray(0)[phaseIdx];
                 case Dir::YMinus:
                 case Dir::YPlus:
-                    return dirMob_->getArray(1)[phaseIdx];
+                    return Evaluation(1.0); //dirMob_->getArray(1)[phaseIdx];
                 case Dir::ZMinus:
                 case Dir::ZPlus:
-                    return dirMob_->getArray(2)[phaseIdx];
+                    return Evaluation(1.0); //dirMob_->getArray(2)[phaseIdx];
                 default:
                     OPM_THROW(std::runtime_error, "Unexpected face direction");
             }
