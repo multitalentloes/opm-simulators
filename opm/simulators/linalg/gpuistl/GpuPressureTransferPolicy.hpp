@@ -72,107 +72,107 @@ public:
 
     void createCoarseLevelSystem(const FineOperator& fineOperator)
     {
-        const auto& fineLevelMatrix = fineOperator.getmat();
-        // Create coarse level matrix on GPU with block size 1 but same sparsity pattern
-        coarseLevelMatrix_ = std::make_shared<GpuMatrixType>(
-            fineLevelMatrix.getRowIndices(),
-            fineLevelMatrix.getColumnIndices(),
-            1 // block size 1
-        );
+        // const auto& fineLevelMatrix = fineOperator.getmat();
+        // // Create coarse level matrix on GPU with block size 1 but same sparsity pattern
+        // coarseLevelMatrix_ = std::make_shared<GpuMatrixType>(
+        //     fineLevelMatrix.getRowIndices(),
+        //     fineLevelMatrix.getColumnIndices(),
+        //     1 // block size 1
+        // );
 
-        // Calculate entries for coarse matrix
-        calculateCoarseEntries(fineOperator);
+        // // Calculate entries for coarse matrix
+        // calculateCoarseEntries(fineOperator);
 
-        if (!lhs_)
-            // We also set lhs to .N() (and not .M()) because we assume a square matrix
-            lhs_ = std::make_shared<FineDomainType>(coarseLevelMatrix_->N());
-        if (!rhs_)
-            rhs_ = std::make_shared<FineRangeType>(coarseLevelMatrix_->N());
+        // if (!lhs_)
+        //     // We also set lhs to .N() (and not .M()) because we assume a square matrix
+        //     lhs_ = std::make_shared<FineDomainType>(coarseLevelMatrix_->N());
+        // if (!rhs_)
+        //     rhs_ = std::make_shared<FineRangeType>(coarseLevelMatrix_->N());
 
-        // Create a MatrixAdapter that wraps the matrix without copying it
-        operator_ = std::make_shared<CoarseOperator>(*coarseLevelMatrix_);
+        // // Create a MatrixAdapter that wraps the matrix without copying it
+        // operator_ = std::make_shared<CoarseOperator>(*coarseLevelMatrix_);
     }
 
     void calculateCoarseEntries(const FineOperator& fineOperator)
     {
-        const auto& fineLevelMatrix = fineOperator.getmat();
+        // const auto& fineLevelMatrix = fineOperator.getmat();
 
-        // Set coarse matrix to zero
-        coarseLevelMatrix_->getNonZeroValues() = 0.0;
+        // // Set coarse matrix to zero
+        // coarseLevelMatrix_->getNonZeroValues() = 0.0;
 
-        // Calculate coarse entries on GPU
-        detail::calculateCoarseEntries(
-            fineLevelMatrix,
-            *coarseLevelMatrix_,
-            weights_,
-            pressure_var_index_,
-            transpose
-        );
+        // // Calculate coarse entries on GPU
+        // detail::calculateCoarseEntries(
+        //     fineLevelMatrix,
+        //     *coarseLevelMatrix_,
+        //     weights_,
+        //     pressure_var_index_,
+        //     transpose
+        // );
     }
 
     void moveToCoarseLevel(const FineRangeType& fine)
     {
-        // Set coarse vector to zero
-        *rhs_ = 0;
+        // // Set coarse vector to zero
+        // *rhs_ = 0;
 
-        // Restrict vector on GPU
-        detail::restrictVector(
-            fine,
-            *rhs_,
-            weights_,
-            pressure_var_index_,
-            transpose
-        );
+        // // Restrict vector on GPU
+        // detail::restrictVector(
+        //     fine,
+        //     *rhs_,
+        //     weights_,
+        //     pressure_var_index_,
+        //     transpose
+        // );
 
-        *lhs_ = 0;
+        // *lhs_ = 0;
     }
 
     void moveToFineLevel(FineDomainType& fine)
     {
-        // Prolongate vector on GPU
-        detail::prolongateVector(
-            *lhs_,
-            fine,
-            weights_,
-            pressure_var_index_,
-            transpose
-        );
+        // // Prolongate vector on GPU
+        // detail::prolongateVector(
+        //     *lhs_,
+        //     fine,
+        //     weights_,
+        //     pressure_var_index_,
+        //     transpose
+        // );
     }
 
     GpuPressureTransferPolicy* clone() const
     {
-        return new GpuPressureTransferPolicy(*this);
+        // return new GpuPressureTransferPolicy(*this);
     }
 
     std::size_t getPressureIndex() const
     {
-        return pressure_var_index_;
+        // return pressure_var_index_;
     }
 
 
     std::shared_ptr<CoarseOperator>& getCoarseLevelOperator()
     {
-        return operator_;
+        // return operator_;
     }
 
     CoarseRangeType& getCoarseLevelRhs()
     {
-        return *rhs_;
+        // return *rhs_;
     }
 
     CoarseDomainType& getCoarseLevelLhs()
     {
-        return *lhs_;
+        // return *lhs_;
     }
 
     Communication& getCoarseLevelCommunication()
     {
-        return *communication_;
+        // return *communication_;
     }
 
     const Communication& getCoarseLevelCommunication() const
     {
-        return *communication_;
+        // return *communication_;
     }
 
 private:

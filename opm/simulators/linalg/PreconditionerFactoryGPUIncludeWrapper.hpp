@@ -30,6 +30,7 @@
 #include <opm/simulators/linalg/gpuistl_hip/PreconditionerAdapter.hpp>
 #include <opm/simulators/linalg/gpuistl_hip/PreconditionerConvertFieldTypeAdapter.hpp>
 #include <opm/simulators/linalg/gpuistl_hip/detail/gpu_safe_call.hpp>
+#include <opm/simulators/linalg/gpuistl_hip/GpuPressureTransferPolicy.hpp>
 #else
 #include <opm/simulators/linalg/gpuistl/GpuBlockPreconditioner.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuDILU.hpp>
@@ -41,5 +42,6 @@
 #include <opm/simulators/linalg/gpuistl/PreconditionerAdapter.hpp>
 #include <opm/simulators/linalg/gpuistl/PreconditionerConvertFieldTypeAdapter.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuPressureTransferPolicy.hpp>
 #endif
 #endif

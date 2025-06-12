@@ -79,23 +79,24 @@ GpuSparseMatrixGeneric<T>::GpuSparseMatrixGeneric(const T* nonZeroElements,
 
     // Create matrix descriptor based on blockSize
     if (blockSize > 1) {
+        OPM_THROW(std::runtime_error, "scalar matrices not supported for AMD");
         // Use BSR format for blocked matrices
-        OPM_CUSPARSE_SAFE_CALL(cusparseCreateBsr(
-            &m_matrixDescriptor,
-            m_numberOfRows,
-            m_numberOfRows,
-            m_numberOfNonzeroBlocks,
-            m_blockSize,
-            m_blockSize,
-            m_rowIndices.data(),
-            m_columnIndices.data(),
-            m_nonZeroElements.data(),
-            CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_BASE_ZERO,
-            getDataType(),
-            CUSPARSE_ORDER_ROW
-        ));
+        // OPM_CUSPARSE_SAFE_CALL(cusparseCreateBsr(
+        //     &m_matrixDescriptor,
+        //     m_numberOfRows,
+        //     m_numberOfRows,
+        //     m_numberOfNonzeroBlocks,
+        //     m_blockSize,
+        //     m_blockSize,
+        //     m_rowIndices.data(),
+        //     m_columnIndices.data(),
+        //     m_nonZeroElements.data(),
+        //     CUSPARSE_INDEX_32I,
+        //     CUSPARSE_INDEX_32I,
+        //     CUSPARSE_INDEX_BASE_ZERO,
+        //     getDataType(),
+        //     CUSPARSE_ORDER_ROW
+        // ));
     } else {
         // Use CSR format for scalar matrices
         OPM_CUSPARSE_SAFE_CALL(cusparseCreateCsr(
@@ -134,23 +135,24 @@ GpuSparseMatrixGeneric<T>::GpuSparseMatrixGeneric(const GpuVector<int>& rowIndic
 {
     // Create matrix descriptor based on blockSize
     if (blockSize > 1) {
+        OPM_THROW(std::runtime_error, "scalar matrices not supported for AMD");
         // Use BSR format for blocked matrices
-        OPM_CUSPARSE_SAFE_CALL(cusparseCreateBsr(
-            &m_matrixDescriptor,
-            m_numberOfRows,
-            m_numberOfRows,
-            m_numberOfNonzeroBlocks,
-            m_blockSize,
-            m_blockSize,
-            m_rowIndices.data(),
-            m_columnIndices.data(),
-            m_nonZeroElements.data(),
-            CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_BASE_ZERO,
-            getDataType(),
-            CUSPARSE_ORDER_ROW
-        ));
+        // OPM_CUSPARSE_SAFE_CALL(cusparseCreateBsr(
+        //     &m_matrixDescriptor,
+        //     m_numberOfRows,
+        //     m_numberOfRows,
+        //     m_numberOfNonzeroBlocks,
+        //     m_blockSize,
+        //     m_blockSize,
+        //     m_rowIndices.data(),
+        //     m_columnIndices.data(),
+        //     m_nonZeroElements.data(),
+        //     CUSPARSE_INDEX_32I,
+        //     CUSPARSE_INDEX_32I,
+        //     CUSPARSE_INDEX_BASE_ZERO,
+        //     getDataType(),
+        //     CUSPARSE_ORDER_ROW
+        // ));
     } else {
         // Use CSR format for scalar matrices
         OPM_CUSPARSE_SAFE_CALL(cusparseCreateCsr(
@@ -187,23 +189,24 @@ GpuSparseMatrixGeneric<T>::GpuSparseMatrixGeneric(const GpuSparseMatrixGeneric<T
 {
     // Create a new matrix descriptor with the same properties
     if (other.blockSize() > 1) {
+        OPM_THROW(std::runtime_error, "scalar matrices not supported for AMD");
         // Use BSR format for blocked matrices
-        OPM_CUSPARSE_SAFE_CALL(cusparseCreateBsr(
-            &m_matrixDescriptor,
-            m_numberOfRows,
-            m_numberOfRows,
-            m_numberOfNonzeroBlocks,
-            m_blockSize,
-            m_blockSize,
-            m_rowIndices.data(),
-            m_columnIndices.data(),
-            m_nonZeroElements.data(),
-            CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_32I,
-            CUSPARSE_INDEX_BASE_ZERO,
-            getDataType(),
-            CUSPARSE_ORDER_ROW
-        ));
+        // OPM_CUSPARSE_SAFE_CALL(cusparseCreateBsr(
+        //     &m_matrixDescriptor,
+        //     m_numberOfRows,
+        //     m_numberOfRows,
+        //     m_numberOfNonzeroBlocks,
+        //     m_blockSize,
+        //     m_blockSize,
+        //     m_rowIndices.data(),
+        //     m_columnIndices.data(),
+        //     m_nonZeroElements.data(),
+        //     CUSPARSE_INDEX_32I,
+        //     CUSPARSE_INDEX_32I,
+        //     CUSPARSE_INDEX_BASE_ZERO,
+        //     getDataType(),
+        //     CUSPARSE_ORDER_ROW
+        // ));
     } else {
         // Use CSR format for scalar matrices
         OPM_CUSPARSE_SAFE_CALL(cusparseCreateCsr(

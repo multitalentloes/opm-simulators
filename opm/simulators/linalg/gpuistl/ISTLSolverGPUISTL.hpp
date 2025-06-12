@@ -232,81 +232,83 @@ private:
     // Weights to make approximate pressure equations.
     std::function<GPUVector&()> getWeightsCalculator()
     {
-        std::function<GPUVector&()> weightsCalculator;
+        OPM_THROW(std::runtime_error, "getWeightsCalculator() not implemented for GPU backend. "
+                       "This function should be overridden in derived classes if needed.");
+        // std::function<GPUVector&()> weightsCalculator;
 
-        using namespace std::string_literals;
+        // using namespace std::string_literals;
 
-        auto preconditionerType = m_propertyTree.get("preconditioner.type"s, "cpr"s);
-        // Make the preconditioner type lowercase for internal canonical representation
-        std::transform(preconditionerType.begin(), preconditionerType.end(), preconditionerType.begin(), ::tolower);
-        if (preconditionerType == "cpr" || preconditionerType == "cprt"
-            || preconditionerType == "cprw" || preconditionerType == "cprwt") {
-            const bool transpose = preconditionerType == "cprt" || preconditionerType == "cprwt";
-            const auto weightsType = m_propertyTree.get("preconditioner.weight_type"s, "quasiimpes"s);
-            if (weightsType == "quasiimpes") {
-                m_weights = std::make_unique<GPUVector>(m_matrix->N() * m_matrix->blockSize());
-                // Pre-compute diagonal indices once when setting up the calculator
-                auto diagonalIndices = ::Opm::Amg::precomputeDiagonalIndices(*m_matrix);
-                m_diagonalIndices = std::make_unique<GPUVectorInt>(diagonalIndices);
+        // auto preconditionerType = m_propertyTree.get("preconditioner.type"s, "cpr"s);
+        // // Make the preconditioner type lowercase for internal canonical representation
+        // std::transform(preconditionerType.begin(), preconditionerType.end(), preconditionerType.begin(), ::tolower);
+        // if (preconditionerType == "cpr" || preconditionerType == "cprt"
+        //     || preconditionerType == "cprw" || preconditionerType == "cprwt") {
+        //     const bool transpose = preconditionerType == "cprt" || preconditionerType == "cprwt";
+        //     const auto weightsType = m_propertyTree.get("preconditioner.weight_type"s, "quasiimpes"s);
+        //     if (weightsType == "quasiimpes") {
+        //         m_weights = std::make_unique<GPUVector>(m_matrix->N() * m_matrix->blockSize());
+        //         // Pre-compute diagonal indices once when setting up the calculator
+        //         auto diagonalIndices = ::Opm::Amg::precomputeDiagonalIndices(*m_matrix);
+        //         m_diagonalIndices = std::make_unique<GPUVectorInt>(diagonalIndices);
 
-                weightsCalculator = [this, transpose]() -> GPUVector& { 
-                    // GPU implementation for quasiimpes weights
-                    ::Opm::Amg::getQuasiImpesWeights(*m_matrix, pressureIndex, transpose, *m_weights, *m_diagonalIndices);
-                    return *m_weights;
-                };
-            } else if (weightsType == "trueimpes") {
-                // Create CPU vector for the weights and initialize GPU vector
-                m_cpuWeights.resize(m_matrix->N());
-                m_pinnedWeightsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
-                    const_cast<real_type*>(&m_cpuWeights[0][0]),
-                    m_cpuWeights.dim()
-                );
-                m_weights = std::make_unique<GPUVector>(m_cpuWeights);
+        //         weightsCalculator = [this, transpose]() -> GPUVector& { 
+        //             // GPU implementation for quasiimpes weights
+        //             ::Opm::Amg::getQuasiImpesWeights(*m_matrix, pressureIndex, transpose, *m_weights, *m_diagonalIndices);
+        //             return *m_weights;
+        //         };
+        //     } else if (weightsType == "trueimpes") {
+        //         // Create CPU vector for the weights and initialize GPU vector
+        //         m_cpuWeights.resize(m_matrix->N());
+        //         m_pinnedWeightsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+        //             const_cast<real_type*>(&m_cpuWeights[0][0]),
+        //             m_cpuWeights.dim()
+        //         );
+        //         m_weights = std::make_unique<GPUVector>(m_cpuWeights);
 
-                // CPU implementation wrapped for GPU
-                weightsCalculator = [this]() -> GPUVector& {
-                    // Use the CPU implementation to calculate the weights
-                    ElementContext elemCtx(m_simulator);
+        //         // CPU implementation wrapped for GPU
+        //         weightsCalculator = [this]() -> GPUVector& {
+        //             // Use the CPU implementation to calculate the weights
+        //             ElementContext elemCtx(m_simulator);
 
-                    ::Opm::Amg::getTrueImpesWeights(pressureIndex, m_cpuWeights,
-                                                 elemCtx, m_simulator.model(),
-                                                 *m_element_chunks,
-                                                  ThreadManager::threadId());
+        //             ::Opm::Amg::getTrueImpesWeights(pressureIndex, m_cpuWeights,
+        //                                          elemCtx, m_simulator.model(),
+        //                                          *m_element_chunks,
+        //                                           ThreadManager::threadId());
 
-                    // Copy CPU vector to GPU vector using stream 0 and asynchronous transfer
-                    m_weights->copyFromHost(m_cpuWeights, 0);
-                    return *m_weights;
-                };
-            } else if (weightsType == "trueimpesanalytic") {
-                // Create CPU vector for the weights and initialize GPU vector
-                m_cpuWeights.resize(m_matrix->N());
-                m_pinnedWeightsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
-                    const_cast<real_type*>(&m_cpuWeights[0][0]),
-                    m_cpuWeights.dim()
-                );
-                m_weights = std::make_unique<GPUVector>(m_cpuWeights);
-                // CPU implementation wrapped for GPU
-                weightsCalculator = [this]() -> GPUVector& {
-                    // Use the CPU implementation to calculate the weights
-                    ElementContext elemCtx(m_simulator);
+        //             // Copy CPU vector to GPU vector using stream 0 and asynchronous transfer
+        //             m_weights->copyFromHost(m_cpuWeights, 0);
+        //             return *m_weights;
+        //         };
+        //     } else if (weightsType == "trueimpesanalytic") {
+        //         // Create CPU vector for the weights and initialize GPU vector
+        //         m_cpuWeights.resize(m_matrix->N());
+        //         m_pinnedWeightsMemory = std::make_unique<PinnedMemoryHolder<real_type>>(
+        //             const_cast<real_type*>(&m_cpuWeights[0][0]),
+        //             m_cpuWeights.dim()
+        //         );
+        //         m_weights = std::make_unique<GPUVector>(m_cpuWeights);
+        //         // CPU implementation wrapped for GPU
+        //         weightsCalculator = [this]() -> GPUVector& {
+        //             // Use the CPU implementation to calculate the weights
+        //             ElementContext elemCtx(m_simulator);
 
-                    ::Opm::Amg::getTrueImpesWeightsAnalytic(pressureIndex, m_cpuWeights,
-                                                 elemCtx, m_simulator.model(),
-                                                 *m_element_chunks,
-                                                 ThreadManager::threadId());
+        //             ::Opm::Amg::getTrueImpesWeightsAnalytic(pressureIndex, m_cpuWeights,
+        //                                          elemCtx, m_simulator.model(),
+        //                                          *m_element_chunks,
+        //                                          ThreadManager::threadId());
 
-                    // Copy CPU vector to GPU vector using stream 0 and asynchronous transfer
-                    m_weights->copyFromHost(m_cpuWeights, 0);
-                    return *m_weights;
-                };
-            } else {
-                OPM_THROW(std::invalid_argument,
-                          "Weights type " + weightsType +
-                          " not implemented for cpr."
-                          " Please use quasiimpes, trueimpes or trueimpesanalytic.");
-            }
-        }
-        return weightsCalculator;
+        //             // Copy CPU vector to GPU vector using stream 0 and asynchronous transfer
+        //             m_weights->copyFromHost(m_cpuWeights, 0);
+        //             return *m_weights;
+        //         };
+        //     } else {
+        //         OPM_THROW(std::invalid_argument,
+        //                   "Weights type " + weightsType +
+        //                   " not implemented for cpr."
+        //                   " Please use quasiimpes, trueimpes or trueimpesanalytic.");
+        //     }
+        // }
+        // return weightsCalculator;
     }
 
     void updateMatrix(const Matrix& M)

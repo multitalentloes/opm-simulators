@@ -26,7 +26,11 @@
 #endif
 
 #if HAVE_CUDA
+#if USE_HIP
+#include <opm/simulators/linalg/gpuistl_hip/ISTLSolverGPUISTL.hpp>
+#else
 #include <opm/simulators/linalg/gpuistl/ISTLSolverGPUISTL.hpp>
+#endif
 #endif 
 
 namespace Opm
