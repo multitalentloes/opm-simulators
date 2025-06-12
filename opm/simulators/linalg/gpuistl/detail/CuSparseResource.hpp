@@ -92,6 +92,7 @@ private:
     T m_resource;
 
     DeleterType m_deleter;
+    CreatorType m_creator;
 };
 
 } // namespace Opm::gpuistl::impl

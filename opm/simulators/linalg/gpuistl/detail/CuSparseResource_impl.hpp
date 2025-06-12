@@ -80,7 +80,7 @@ namespace
 } // namespace
 template <class T>
 CuSparseResource<T>::CuSparseResource(CreatorType creator, DeleterType deleter)
-    : m_deleter(deleter)
+    : m_deleter(deleter), m_creator(creator)
 {
     // TODO: This should probably not use this macro since it will disguise the
     // proper name of the function being called.

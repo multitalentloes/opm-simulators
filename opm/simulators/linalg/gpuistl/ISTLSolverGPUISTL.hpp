@@ -232,9 +232,9 @@ private:
     // Weights to make approximate pressure equations.
     std::function<GPUVector&()> getWeightsCalculator()
     {
-        OPM_THROW(std::runtime_error, "getWeightsCalculator() not implemented for GPU backend. "
-                       "This function should be overridden in derived classes if needed.");
-        // std::function<GPUVector&()> weightsCalculator;
+        // OPM_THROW(std::runtime_error, "getWeightsCalculator() not implemented for GPU backend. "
+        //                "This function should be overridden in derived classes if needed.");
+        return std::function<GPUVector&()>();
 
         // using namespace std::string_literals;
 
