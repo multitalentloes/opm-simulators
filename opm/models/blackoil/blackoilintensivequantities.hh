@@ -216,7 +216,7 @@ public:
     using Problem = GetPropType<TypeTag, Properties::Problem>;
     OPM_HOST_DEVICE BlackOilIntensiveQuantities()
     {
-        static_assert(std::is_empty_v<FluidSystem>, "BlackOilIntensiveQuantities should not be default constructed with nonstatic FluidSystem");
+        static_assert(std::is_empty_v<FluidSystem>, "BlackOilIntensiveQuantities should not be default constructed with nonstati c FluidSystem");
         if (compositionSwitchEnabled) {
             fluidState_.setRs(0.0);
             fluidState_.setRv(0.0);
