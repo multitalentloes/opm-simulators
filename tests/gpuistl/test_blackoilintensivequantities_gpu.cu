@@ -363,18 +363,16 @@ using TypeTagDummyCpu = Opm::Properties::TTag::FlowSimpleDummyProblemCPU;
 #endif
 namespace {
 
-__host__ __device__ void wrapper(BlackOilFluidSystemView& fs, size_t idx) {
-    DummyProblem<TypeTagDummyGpu> problem;
-    Opm::BlackOilPrimaryVariables<TypeTagDummyGpu, Opm::gpuistl::dense::FieldVector> primaryVariables;
+__host__ __device__ void wrapper(BlackOilFluidSystemView& fs, DummyProblem<TypeTagDummyGpu> p, Opm::BlackOilPrimaryVariables<TypeTagDummyGpu, Opm::gpuistl::dense::FieldVector> primvar, size_t idx) {
     Opm::BlackOilIntensiveQuantities<TypeTagDummyGpu> intensiveQuantities (&fs);
 
-    intensiveQuantities.void_update(problem, primaryVariables, idx);
+    intensiveQuantities.void_update(p, primvar, idx);
 }
 
-  __global__ void fake_update_gpu(BlackOilFluidSystemView fs, size_t lim) {
+  __global__ void fake_update_gpu(BlackOilFluidSystemView fs, DummyProblem<TypeTagDummyGpu> p, Opm::BlackOilPrimaryVariables<TypeTagDummyGpu, Opm::gpuistl::dense::FieldVector>  primvar, size_t lim) {
       const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
       if (idx < lim) {
-          wrapper(fs, idx);
+          wrapper(fs, p, primvar, idx);
       }
   }
 
@@ -422,7 +420,7 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     DummyProblem<TypeTagDummyCpu> problem;
     Opm::BlackOilPrimaryVariables<TypeTagDummyCpu> primaryVariables;
     auto start_time = std::chrono::high_resolution_clock::now();
-    intensiveQuantities.void_update(problem, primaryVariables, 19683);
+    intensiveQuantities.void_update(problem, primaryVariables, 512000);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
     std::cout << "CPU void_update execution time: " << duration << " microseconds" << std::endl;
@@ -430,11 +428,14 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     // using PrimaryVariables = Opm::GetPropType<TypeTag, Opm::Properties::PrimaryVariables>;
     // std::cout << typeid(PrimaryVariables).name() << std::endl;
 
-    size_t cells = 19683;
+    size_t cells = 512000; // 80*80*80
     size_t threads = 256;
     size_t blocks = (cells + threads - 1) / threads;
+    DummyProblem<TypeTagDummyGpu> gpuProblem;
+    Opm::BlackOilPrimaryVariables<TypeTagDummyGpu, Opm::gpuistl::dense::FieldVector> primaryVariablesGpu;
+    // Opm::BlackOilIntensiveQuantities<TypeTagDummyGpu>
     auto gpu_start_time = std::chrono::high_resolution_clock::now();
-    fake_update_gpu<<<blocks, threads>>>(dynamicGpuFluidSystemView, cells);
+    fake_update_gpu<<<blocks, threads>>>(dynamicGpuFluidSystemView, gpuProblem, primaryVariablesGpu, cells);
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
     OPM_GPU_SAFE_CALL(cudaGetLastError());
     auto gpu_end_time = std::chrono::high_resolution_clock::now();
