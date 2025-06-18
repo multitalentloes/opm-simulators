@@ -78,12 +78,14 @@
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 #include <opm/simulators/wells/BlackoilWellModel.hpp>
 
+#include <chrono>
+
 
 static constexpr const char* deckString1 =
 "-- =============== RUNSPEC\n"
 "RUNSPEC\n"
 "DIMENS\n"
-"3 3 3 /\n"
+"80 80 80 /\n"
 "EQLDIMS\n"
 "/\n"
 "TABDIMS\n"
@@ -97,17 +99,17 @@ static constexpr const char* deckString1 =
 "GRIDFILE\n"
 "0 0 /\n"
 "DX\n"
-"27*1 /\n"
+"512000*1 /\n"
 "DY\n"
-"27*1 /\n"
+"512000*1 /\n"
 "DZ\n"
-"27*1 /\n"
+"512000*1 /\n"
 "TOPS\n"
-"9*0 /\n"
+"6400*0 /\n"
 "PERMX\n"
-"27*1013.25 /\n"
+"512000*1013.25 /\n"
 "PORO\n"
-"27*0.25 /\n"
+"512000*0.25 /\n"
 "COPY\n"
 "PERMX PERMY /\n"
 "PERMX PERMZ /\n"
@@ -361,21 +363,19 @@ using TypeTagDummyCpu = Opm::Properties::TTag::FlowSimpleDummyProblemCPU;
 #endif
 namespace {
 
-__host__ __device__ void wrapper(BlackOilFluidSystemView& fs) {
+__host__ __device__ void wrapper(BlackOilFluidSystemView& fs, size_t idx) {
     DummyProblem<TypeTagDummyGpu> problem;
     Opm::BlackOilPrimaryVariables<TypeTagDummyGpu, Opm::gpuistl::dense::FieldVector> primaryVariables;
     Opm::BlackOilIntensiveQuantities<TypeTagDummyGpu> intensiveQuantities (&fs);
-    auto& state = intensiveQuantities.fluidState();
-    printf("BlackOilState density before update: %f\n", state.density(0).value());
-    intensiveQuantities.updatePhaseDensities();
-    printf("BlackOilState density after update: %f\n", state.density(0).value());
 
-    intensiveQuantities.update(problem, primaryVariables, 0, 0);
-    printf("Updating succeeded");
+    intensiveQuantities.void_update(problem, primaryVariables, idx);
 }
 
-  __global__ void testCreationGPU(BlackOilFluidSystemView fs) {
-        wrapper(fs);
+  __global__ void fake_update_gpu(BlackOilFluidSystemView fs, size_t lim) {
+      const size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+      if (idx < lim) {
+          wrapper(fs, idx);
+      }
   }
 
 //   template<class ProblemType>
@@ -413,22 +413,34 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     // Opm::BlackOilIntensiveQuantities<TypeTag> intensiveQuantities;
     Opm::BlackOilIntensiveQuantities<TypeTagDummyCpu> intensiveQuantities;
 
-    intensiveQuantities.printme();
-    auto& state = intensiveQuantities.fluidState();
-    printf("(CPU) BlackOilState density before update: %f\n", state.density(0).value());
-    intensiveQuantities.updatePhaseDensities();
-    printf("(CPU) BlackOilState density after update: %f\n", state.density(0).value());
+    // intensiveQuantities.printme();
+    // auto& state = intensiveQuantities.fluidState();
+    // printf("(CPU) BlackOilState density before update: %f\n", state.density(0).value());
+    // intensiveQuantities.updatePhaseDensities();
+    // printf("(CPU) BlackOilState density after update: %f\n", state.density(0).value());
 
     DummyProblem<TypeTagDummyCpu> problem;
     Opm::BlackOilPrimaryVariables<TypeTagDummyCpu> primaryVariables;
-    intensiveQuantities.void_update_cpu(problem, primaryVariables, 19683);
+    auto start_time = std::chrono::high_resolution_clock::now();
+    intensiveQuantities.void_update(problem, primaryVariables, 19683);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+    std::cout << "CPU void_update execution time: " << duration << " microseconds" << std::endl;
 
-    using PrimaryVariables = Opm::GetPropType<TypeTag, Opm::Properties::PrimaryVariables>;
-    std::cout << typeid(PrimaryVariables).name() << std::endl;
-    testCreationGPU<<<1, 1>>>(dynamicGpuFluidSystemView);
+    // using PrimaryVariables = Opm::GetPropType<TypeTag, Opm::Properties::PrimaryVariables>;
+    // std::cout << typeid(PrimaryVariables).name() << std::endl;
+
+    size_t cells = 19683;
+    size_t threads = 256;
+    size_t blocks = (cells + threads - 1) / threads;
+    auto gpu_start_time = std::chrono::high_resolution_clock::now();
+    fake_update_gpu<<<blocks, threads>>>(dynamicGpuFluidSystemView, cells);
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
     OPM_GPU_SAFE_CALL(cudaGetLastError());
-    printf("GPU testCreationGPU finished\n");
+    auto gpu_end_time = std::chrono::high_resolution_clock::now();
+    auto gpu_duration = std::chrono::duration_cast<std::chrono::microseconds>(gpu_end_time - gpu_start_time).count();
+    std::cout << "GPU void_update execution time: " << gpu_duration << " microseconds" << std::endl;
+    printf("GPU void_update finished\n");
 }
 
 

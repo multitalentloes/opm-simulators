@@ -755,13 +755,18 @@ public:
         }
     }
 
-    OPM_HOST_DEVICE void void_update_cpu(const Problem& problem,
+    OPM_HOST_DEVICE void void_update(const Problem& problem,
                                             const PrimaryVariables& priVars,
                                             const unsigned indices)
     {
-        for (unsigned idx = 0; idx < indices; ++idx) {
-            update(problem, priVars, idx, 0);
-        }
+        #if OPM_IS_INSIDE_DEVICE_FUNCTION
+            const unsigned index = indices; // in this case the indices is not the limit, but the actual index this thread should update
+            update(problem, priVars, indices, 0);
+        #else
+            for (unsigned idx = 0; idx < indices; ++idx) {
+                update(problem, priVars, idx, 0);
+            }
+        #endif
     }
 
     OPM_HOST_DEVICE void  update(const Problem& problem, const PrimaryVariables& priVars, const unsigned globalSpaceIdx, const unsigned timeIdx)
