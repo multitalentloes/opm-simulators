@@ -62,6 +62,11 @@
 #include <utility>
 #include <vector>
 
+
+#if HAVE_OPENMP
+#include <omp.h>
+#endif
+
 namespace Opm {
 
 // template<class T>
@@ -763,8 +768,23 @@ public:
             const unsigned index = indices; // in this case the indices is not the limit, but the actual index this thread should update
             update(problem, priVars, indices, 0);
         #else
-            for (unsigned idx = 0; idx < indices; ++idx) {
-                update(problem, priVars, idx, 0);
+            int numThreads = 0;
+            int maxThreads = omp_get_max_threads();
+            std::cout << std::getenv("OMP_NUM_THREADS") << std::endl;
+            omp_set_num_threads(16);
+
+            #pragma omp parallel
+            {
+                numThreads = omp_get_num_threads();
+            }
+
+            std::cout << "Number of threads used for OpenMP parallel loop: " << numThreads << ", (max: " << maxThreads << ")\n";
+
+            #pragma omp parallel for num_threads(maxThreads)
+            for (unsigned idx = 0; idx < indices; idx++) {
+                printf("hello from thread %d, idx %d\n", omp_get_thread_num(), idx);
+                const unsigned idx_copy = idx;
+                update(problem, priVars, idx_copy, 0);
             }
         #endif
     }

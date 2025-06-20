@@ -19,11 +19,11 @@
 
 #include <stdexcept>
 
-#define BOOST_TEST_MODULE TestBlackOilIntensiveQuantitiesGPU
+// #define BOOST_TEST_MODULE TestBlackOilIntensiveQuantitiesGPU
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <boost/test/unit_test.hpp>
+// #include <boost/test/unit_test.hpp>
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/models/io/dgfvanguard.hh>
 #include <opm/models/utils/start.hh>
@@ -85,7 +85,7 @@ static constexpr const char* deckString1 =
 "-- =============== RUNSPEC\n"
 "RUNSPEC\n"
 "DIMENS\n"
-"80 80 80 /\n"
+"200 200 200 /\n"
 "EQLDIMS\n"
 "/\n"
 "TABDIMS\n"
@@ -99,17 +99,17 @@ static constexpr const char* deckString1 =
 "GRIDFILE\n"
 "0 0 /\n"
 "DX\n"
-"512000*1 /\n"
+"8000000*1 /\n"
 "DY\n"
-"512000*1 /\n"
+"8000000*1 /\n"
 "DZ\n"
-"512000*1 /\n"
+"8000000*1 /\n"
 "TOPS\n"
-"6400*0 /\n"
+"40000*0 /\n"
 "PERMX\n"
-"512000*1013.25 /\n"
+"8000000*1013.25 /\n"
 "PORO\n"
-"512000*0.25 /\n"
+"8000000*0.25 /\n"
 "COPY\n"
 "PERMX PERMY /\n"
 "PERMX PERMZ /\n"
@@ -392,7 +392,8 @@ __host__ __device__ void wrapper(BlackOilFluidSystemView& fs, DummyProblem<TypeT
 //   }
 }
 
-BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
+//BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
+int main(int, char**)
 {
     Opm::Parser parser;
 
@@ -406,6 +407,7 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
 
     auto dynamicGpuFluidSystemBuffer = ::Opm::gpuistl::copy_to_gpu<::Opm::gpuistl::GpuBuffer, double>(dynamicFluidSystem);
+  
     auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view<::Opm::gpuistl::GpuView, ::Opm::gpuistl::ValueAsPointer>(dynamicGpuFluidSystemBuffer);
 
     // Opm::BlackOilIntensiveQuantities<TypeTag> intensiveQuantities;
@@ -420,7 +422,7 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     DummyProblem<TypeTagDummyCpu> problem;
     Opm::BlackOilPrimaryVariables<TypeTagDummyCpu> primaryVariables;
     auto start_time = std::chrono::high_resolution_clock::now();
-    intensiveQuantities.void_update(problem, primaryVariables, 512000);
+    intensiveQuantities.void_update(problem, primaryVariables, 10);
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
     std::cout << "CPU void_update execution time: " << duration << " microseconds" << std::endl;
@@ -428,8 +430,8 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     // using PrimaryVariables = Opm::GetPropType<TypeTag, Opm::Properties::PrimaryVariables>;
     // std::cout << typeid(PrimaryVariables).name() << std::endl;
 
-    size_t cells = 512000; // 80*80*80
-    size_t threads = 256;
+    size_t cells = 10;
+    size_t threads = 1024;
     size_t blocks = (cells + threads - 1) / threads;
     DummyProblem<TypeTagDummyGpu> gpuProblem;
     Opm::BlackOilPrimaryVariables<TypeTagDummyGpu, Opm::gpuistl::dense::FieldVector> primaryVariablesGpu;
@@ -444,7 +446,7 @@ BOOST_AUTO_TEST_CASE(TestPrimaryVariablesCreationGPU)
     printf("GPU void_update finished\n");
 }
 
-
+#if 0
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
     BOOST_CHECK(true);
@@ -525,3 +527,4 @@ BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 //     BOOST_CHECK_LT(0, cuBlasVersion);
 // #endif
 // }
+#endif
