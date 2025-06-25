@@ -38,6 +38,68 @@
 #include <utility>
 #include <string>
 
+#include <chrono>
+
+class OPM_DILU_U {
+public:
+    // Constructor starts the timer
+    OPM_DILU_U() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~OPM_DILU_U() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/update. This update: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Updates: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long OPM_DILU_U::total_time_spent = 0;
+int OPM_DILU_U::instance_count = 0;
+
+class OPM_DILU_A {
+public:
+    // Constructor starts the timer
+    OPM_DILU_A() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~OPM_DILU_A() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/Apply. This Apply: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Applys: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long OPM_DILU_A::total_time_spent = 0;
+int OPM_DILU_A::instance_count = 0;
+
 namespace Opm::gpuistl
 {
 
@@ -111,6 +173,8 @@ template <class M, class X, class Y, int l>
 void
 GpuDILU<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    cudaDeviceSynchronize();
+    OPM_DILU_A dilu_apply_timer;
     // ensure that this stream only starts doing work when main stream is completed up to this point
     OPM_GPU_SAFE_CALL(cudaEventRecord(m_before.get(), 0));
     OPM_GPU_SAFE_CALL(cudaStreamWaitEvent(m_stream.get(), m_before.get(), 0));
@@ -136,6 +200,7 @@ GpuDILU<M, X, Y, l>::apply(X& v, const Y& d)
     // ensure that main stream only continues after this stream is completed
     OPM_GPU_SAFE_CALL(cudaEventRecord(m_after.get(), m_stream.get()));
     OPM_GPU_SAFE_CALL(cudaStreamWaitEvent(0, m_after.get(), 0));
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>
@@ -280,11 +345,14 @@ template <class M, class X, class Y, int l>
 void
 GpuDILU<M, X, Y, l>::update()
 {
+    cudaDeviceSynchronize();
+    OPM_DILU_U dilu_update_timer;
     OPM_TIMEBLOCK(prec_update);
     {
         reorderAndSplitMatrix(m_moveThreadBlockSize);
         computeDiagonal(m_DILUFactorizationThreadBlockSize);
     }
+    cudaDeviceSynchronize();
 }
 
 template <class M, class X, class Y, int l>

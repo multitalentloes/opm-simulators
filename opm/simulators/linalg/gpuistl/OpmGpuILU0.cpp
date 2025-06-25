@@ -38,6 +38,68 @@
 #include <tuple>
 #include <utility>
 
+#include <chrono>
+
+class OPM_ILU_U {
+public:
+    // Constructor starts the timer
+    OPM_ILU_U() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~OPM_ILU_U() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/update. This update: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Updates: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long OPM_ILU_U::total_time_spent = 0;
+int OPM_ILU_U::instance_count = 0;
+
+class OPM_ILU_A {
+public:
+    // Constructor starts the timer
+    OPM_ILU_A() : start_time(std::chrono::high_resolution_clock::now()) {
+        ++instance_count;
+    }
+
+    // Destructor stops the timer and accumulates the time
+    ~OPM_ILU_A() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        total_time_spent += duration;
+
+        std::cout << "Average: " << total_time_spent / instance_count << "us/Apply. This Apply: " << duration << "us. Total time spent: " << total_time_spent / 1000.0 << " ms. " << " Applys: " << instance_count << std::endl;
+    }
+
+    // Static method to report the cumulative time and instance count
+    static void report() {
+    }
+
+private:
+    std::chrono::high_resolution_clock::time_point start_time;  // Time when the timer started
+    static long long total_time_spent;  // Cumulative time spent in all instances
+    static int instance_count;  // Number of times the timer has been instantiated
+};
+
+// Static member variables need to be defined outside the class
+long long OPM_ILU_A::total_time_spent = 0;
+int OPM_ILU_A::instance_count = 0;
+
 namespace Opm::gpuistl
 {
 
@@ -115,6 +177,8 @@ template <class M, class X, class Y, int l>
 void
 OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d)
 {
+    cudaDeviceSynchronize(); // ensure that all previous work is done before we start applying the preconditioner
+    OPM_ILU_A prec_apply; // start the timer for the apply function
     OPM_TIMEBLOCK(prec_apply);
     {
         // ensure that this stream only starts doing work when main stream is completed up to this point
@@ -141,6 +205,7 @@ OpmGpuILU0<M, X, Y, l>::apply(X& v, const Y& d)
         OPM_GPU_SAFE_CALL(cudaEventRecord(m_after.get(), m_stream.get()));
         OPM_GPU_SAFE_CALL(cudaStreamWaitEvent(0, m_after.get(), 0));
     }
+    cudaDeviceSynchronize(); // ensure that all work is done before we return from apply
 }
 
 template <class M, class X, class Y, int l>
@@ -270,8 +335,11 @@ template <class M, class X, class Y, int l>
 void
 OpmGpuILU0<M, X, Y, l>::update()
 {
+    cudaDeviceSynchronize(); // ensure that all previous work is done before we start updating the preconditioner
+    OPM_ILU_U prec_update; // start the timer for the update function
     reorderAndSplitMatrix(m_moveThreadBlockSize);
     LUFactorizeMatrix(m_ILU0FactorizationThreadBlockSize);
+    cudaDeviceSynchronize(); // ensure that all work is done before we return from update
 }
 
 template <class M, class X, class Y, int l>
