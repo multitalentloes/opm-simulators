@@ -291,16 +291,8 @@ template <class M, class X, class Y, int l>
 void
 GpuDILU<M, X, Y, l>::update(int moveThreadBlockSize, int factorizationBlockSize)
 {
-    // ensure that this stream only starts doing work when main stream is completed up to this point
-    OPM_GPU_SAFE_CALL(cudaEventRecord(m_before.get(), 0));
-    OPM_GPU_SAFE_CALL(cudaStreamWaitEvent(m_stream.get(), m_before.get(), 0));
-
     reorderAndSplitMatrix(moveThreadBlockSize);
     computeDiagonal(factorizationBlockSize);
-
-    // ensure that main stream only continues after this stream is completed
-    OPM_GPU_SAFE_CALL(cudaEventRecord(m_after.get(), m_stream.get()));
-    OPM_GPU_SAFE_CALL(cudaStreamWaitEvent(0, m_after.get(), 0));
 }
 
 template <class M, class X, class Y, int l>
