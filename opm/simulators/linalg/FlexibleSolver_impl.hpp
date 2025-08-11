@@ -30,6 +30,7 @@
 #include <opm/simulators/linalg/PropertyTree.hpp>
 #include <opm/simulators/linalg/WellOperators.hpp>
 #include <opm/simulators/linalg/PreconditionerFactoryGPUIncludeWrapper.hpp>
+#include <opm/simulators/linalg/is_gpu_operator.hpp>
 
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>

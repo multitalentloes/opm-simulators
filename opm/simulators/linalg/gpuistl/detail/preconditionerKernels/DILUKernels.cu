@@ -59,8 +59,8 @@ namespace
         }
     }
 
-    template <int blocksize, class LinearSolverScalar, class MatrixScalar, class DiagonalScalar>
-    __global__ void cuSolveLowerLevelSetSplit(MatrixScalar* mat,
+    template <int blocksize, int threadBlockSize, class LinearSolverScalar, class MatrixScalar, class DiagonalScalar>
+    __launch_bounds__(threadBlockSize) __global__ void cuSolveLowerLevelSetSplit(MatrixScalar* mat,
                                               int* rowIndices,
                                               int* colIndices,
                                               int* indexConversion,
@@ -120,15 +120,15 @@ namespace
         }
     }
 
-    template <int blocksize, class LinearSolverScalar, class MatrixScalar, class DiagonalScalar>
-    __global__ void cuSolveUpperLevelSetSplit(MatrixScalar* mat,
-                                              int* rowIndices,
-                                              int* colIndices,
-                                              int* indexConversion,
-                                              int startIdx,
-                                              int rowsInLevelSet,
-                                              const DiagonalScalar* dInv,
-                                              LinearSolverScalar* v)
+    template <int blocksize, int ThrBlockSize, class LinearSolverScalar, class MatrixScalar, class DiagonalScalar>
+    __launch_bounds__(ThrBlockSize) __global__ void cuSolveUpperLevelSetSplit(MatrixScalar* mat,
+                                                                              int* rowIndices,
+                                                                              int* colIndices,
+                                                                              int* indexConversion,
+                                                                              int startIdx,
+                                                                              int rowsInLevelSet,
+                                                                              const DiagonalScalar* dInv,
+                                                                              LinearSolverScalar* v)
     {
         const auto reorderedRowIdx = startIdx + (blockDim.x * blockIdx.x + threadIdx.x);
         if (reorderedRowIdx < rowsInLevelSet + startIdx) {
@@ -324,12 +324,96 @@ solveLowerLevelSetSplit(MatrixScalar* reorderedMat,
                         int thrBlockSize,
                         cudaStream_t stream)
 {
-    int threadBlockSize = ::Opm::gpuistl::detail::getCudaRecomendedThreadBlockSize(
-        cuSolveLowerLevelSetSplit<blocksize, LinearSolverScalar, MatrixScalar, DiagonalScalar>, thrBlockSize);
-    int nThreadBlocks = ::Opm::gpuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
-    cuSolveLowerLevelSetSplit<blocksize, LinearSolverScalar, MatrixScalar, DiagonalScalar>
-        <<<nThreadBlocks, threadBlockSize, 0, stream>>>(
-            reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+    // Determine recommended thread block size based on the kernel and the incoming hint
+    const int threadBlockSize = ::Opm::gpuistl::detail::getCudaRecomendedThreadBlockSize(
+        cuSolveLowerLevelSetSplit<blocksize, 1024, LinearSolverScalar, MatrixScalar, DiagonalScalar>, thrBlockSize);
+    const int nThreadBlocks = ::Opm::gpuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
+
+    switch (threadBlockSize) {
+    case 64:
+        cuSolveLowerLevelSetSplit<blocksize, 64, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 64, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 128:
+        cuSolveLowerLevelSetSplit<blocksize, 128, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 128, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 192:
+        cuSolveLowerLevelSetSplit<blocksize, 192, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 192, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 256:
+        cuSolveLowerLevelSetSplit<blocksize, 256, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 256, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 320:
+        cuSolveLowerLevelSetSplit<blocksize, 320, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 320, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 384:
+        cuSolveLowerLevelSetSplit<blocksize, 384, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 384, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 448:
+        cuSolveLowerLevelSetSplit<blocksize, 448, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 448, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 512:
+        cuSolveLowerLevelSetSplit<blocksize, 512, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 512, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 576:
+        cuSolveLowerLevelSetSplit<blocksize, 576, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 576, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 640:
+        cuSolveLowerLevelSetSplit<blocksize, 640, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 640, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 704:
+        cuSolveLowerLevelSetSplit<blocksize, 704, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 704, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 768:
+        cuSolveLowerLevelSetSplit<blocksize, 768, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 768, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 832:
+        cuSolveLowerLevelSetSplit<blocksize, 832, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 832, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 896:
+        cuSolveLowerLevelSetSplit<blocksize, 896, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 896, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 960:
+        cuSolveLowerLevelSetSplit<blocksize, 960, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 960, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    case 1024:
+        cuSolveLowerLevelSetSplit<blocksize, 1024, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 1024, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, d, v);
+        break;
+    default:
+        OPM_THROW(std::invalid_argument,
+                  "Unsupported threadBlockSize for solveLowerLevelSetSplit. Must be a multiple of 64 up to 1024.");
+    }
 }
 // perform the upper solve for all rows in the same level set
 template <class T, int blocksize>
@@ -365,12 +449,96 @@ solveUpperLevelSetSplit(MatrixScalar* reorderedMat,
                         int thrBlockSize,
                         cudaStream_t stream)
 {
-    int threadBlockSize = ::Opm::gpuistl::detail::getCudaRecomendedThreadBlockSize(
-        cuSolveUpperLevelSetSplit<blocksize, LinearSolverScalar, MatrixScalar, DiagonalScalar>, thrBlockSize);
-    int nThreadBlocks = ::Opm::gpuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
-    cuSolveUpperLevelSetSplit<blocksize, LinearSolverScalar, MatrixScalar, DiagonalScalar>
-        <<<nThreadBlocks, threadBlockSize, 0, stream>>>(
-            reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+    // Determine recommended thread block size based on the kernel and the incoming hint
+    const int threadBlockSize = ::Opm::gpuistl::detail::getCudaRecomendedThreadBlockSize(
+        cuSolveUpperLevelSetSplit<blocksize, 1024, LinearSolverScalar, MatrixScalar, DiagonalScalar>, thrBlockSize);
+    const int nThreadBlocks = ::Opm::gpuistl::detail::getNumberOfBlocks(rowsInLevelSet, threadBlockSize);
+
+    switch (threadBlockSize) {
+    case 64:
+        cuSolveUpperLevelSetSplit<blocksize, 64, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 64, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 128:
+        cuSolveUpperLevelSetSplit<blocksize, 128, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 128, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 192:
+        cuSolveUpperLevelSetSplit<blocksize, 192, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 192, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 256:
+        cuSolveUpperLevelSetSplit<blocksize, 256, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 256, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 320:
+        cuSolveUpperLevelSetSplit<blocksize, 320, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 320, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 384:
+        cuSolveUpperLevelSetSplit<blocksize, 384, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 384, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 448:
+        cuSolveUpperLevelSetSplit<blocksize, 448, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 448, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 512:
+        cuSolveUpperLevelSetSplit<blocksize, 512, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 512, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 576:
+        cuSolveUpperLevelSetSplit<blocksize, 576, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 576, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 640:
+        cuSolveUpperLevelSetSplit<blocksize, 640, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 640, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 704:
+        cuSolveUpperLevelSetSplit<blocksize, 704, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 704, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 768:
+        cuSolveUpperLevelSetSplit<blocksize, 768, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 768, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 832:
+        cuSolveUpperLevelSetSplit<blocksize, 832, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 832, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 896:
+        cuSolveUpperLevelSetSplit<blocksize, 896, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 896, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 960:
+        cuSolveUpperLevelSetSplit<blocksize, 960, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 960, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    case 1024:
+        cuSolveUpperLevelSetSplit<blocksize, 1024, LinearSolverScalar, MatrixScalar, DiagonalScalar>
+            <<<nThreadBlocks, 1024, 0, stream>>>(
+                reorderedMat, rowIndices, colIndices, indexConversion, startIdx, rowsInLevelSet, dInv, v);
+        break;
+    default:
+        OPM_THROW(std::invalid_argument,
+                  "Unsupported threadBlockSize for solveUpperLevelSetSplit. Must be a multiple of 64 up to 1024.");
+    }
 }
 
 template <class T, int blocksize>
