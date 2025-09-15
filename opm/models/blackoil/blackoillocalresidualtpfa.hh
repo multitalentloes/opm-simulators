@@ -47,6 +47,11 @@
 #include <opm/models/blackoil/blackoilpolymermodules.hh>
 #include <opm/models/blackoil/blackoilproperties.hh>
 #include <opm/models/blackoil/blackoilsolventmodules.hh>
+#include <opm/models/blackoil/blackoilmoduleparams.hh>
+
+#include <opm/common/ErrorMacros.hpp>
+#include <opm/common/utility/gpuDecorators.hpp>
+#include <opm/common/utility/gpuistl_if_available.hpp>
 
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/common/utility/gpuDecorators.hpp>
@@ -570,10 +575,10 @@ public:
 
     template <class BoundaryConditionData, class RateVectorLocal, class LocalProblem>
     OPM_HOST_DEVICE static void computeBoundaryFlux(RateVectorLocal& bdyFlux,
-                                                    const LocalProblem& problem,
-                                                    const BoundaryConditionData& bdyInfo,
-                                                    const IntensiveQuantities& insideIntQuants,
-                                                    unsigned globalSpaceIdx)
+                                    const LocalProblem& problem,
+                                    const BoundaryConditionData& bdyInfo,
+                                    const IntensiveQuantities& insideIntQuants,
+                                    unsigned globalSpaceIdx)
     {
 #if OPM_IS_INSIDE_HOST_FUNCTION
         switch (bdyInfo.type) {
@@ -962,6 +967,16 @@ public:
     OPM_HOST_DEVICE static void adaptMassConservationQuantities_(ScalarVector& container,
                                                                  unsigned pvtRegionIdx,
                                                                  const FsysType& fsys)
+    {
+        // Delegate to the generic overload using a default-constructed static FluidSystem
+        // instance. Valid because the static FluidSystem is stateless (std::is_empty_v).
+        adaptMassConservationQuantities_(container, pvtRegionIdx, FluidSystem{});
+    }
+
+    template <class ScalarVector, class FsysType>
+    OPM_HOST_DEVICE static void adaptMassConservationQuantities_(ScalarVector& container,
+                                                 unsigned pvtRegionIdx,
+                                                 const FsysType& fsys)
     {
         if constexpr (!blackoilConserveSurfaceVolume) {
             // convert "surface volume" to mass. this is complicated a bit by the fact that

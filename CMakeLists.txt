@@ -707,6 +707,7 @@ macro(opm-simulators_targets_hook)
     gaswater_saltprec_energy
     gaswater_saltprec_vapwat
     gaswater_solvent
+    gpu
     micp
     oilwater
     oilwater_brine
@@ -721,14 +722,21 @@ macro(opm-simulators_targets_hook)
   )
 
   foreach(OBJ ${COMMON_MODELS} ${FLOW_MODELS} ${FLOW_VARIANT_MODELS})
-    opm_add_library(
-      TARGET
-        flow_lib${OBJ}
-      TYPE
-        OBJECT
-      SOURCES
-        flow/flow_${OBJ}.cpp
-    )
+    # do I need this code from kjetil?
+    # opm_add_library(
+    #   TARGET
+    #     flow_lib${OBJ}
+    #   TYPE
+    #     OBJECT
+    #   SOURCES
+    #     flow/flow_${OBJ}.cpp
+    # )
+    set(SOURCE_FILE "flow/flow_${OBJ}.cpp")
+    if(OBJ STREQUAL "gpu" AND CONVERT_CUDA_TO_HIP)
+      set(SOURCE_FILE "flow/flow_${OBJ}.hip")
+    endif()
+    
+    add_library(flow_lib${OBJ} OBJECT ${SOURCE_FILE})
     simulators_add_target_options(TARGET flow_lib${OBJ})
     list(APPEND FLOW_TGTS $<TARGET_OBJECTS:flow_lib${OBJ}>)
     list(APPEND FLOWMODELS_PREFIXED flow_${OBJ})
