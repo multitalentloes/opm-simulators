@@ -47,6 +47,11 @@
 #include <opm/models/blackoil/blackoilpolymermodules.hh>
 #include <opm/models/blackoil/blackoilproperties.hh>
 #include <opm/models/blackoil/blackoilsolventmodules.hh>
+#include <opm/models/blackoil/blackoilmoduleparams.hh>
+
+#include <opm/common/ErrorMacros.hpp>
+#include <opm/common/utility/gpuDecorators.hpp>
+#include <opm/common/utility/gpuistl_if_available.hpp>
 
 #include <opm/common/ErrorMacros.hpp>
 #include <opm/common/utility/gpuDecorators.hpp>
@@ -170,6 +175,7 @@ public:
         const auto& fs = intQuants.fluidState();
         storage = 0.0;
 
+<<<<<<< HEAD
         const FluidSystem& fsys = intQuants.getFluidSystem();
 
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
@@ -178,6 +184,21 @@ public:
             }
             unsigned activeCompIdx =
                 fsys.canonicalToActiveCompIdx(fsys.solventComponentIndex(phaseIdx));
+=======
+<<<<<<< HEAD
+        FluidSystem const* fsysptr = &intQuants.getFluidSystem();
+=======
+        const FluidSystem& fsys = intQuants.getFluidSystem();
+>>>>>>> 8d357356c (cleaning in blackoillocalresidualtpfa)
+        bool constexpr usesStaticFluidSystem = std::is_empty_v<FluidSystem>;
+
+        for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
+            if (!fsysptr->phaseIsActive(phaseIdx)) {
+                continue;
+            }
+            unsigned activeCompIdx =
+                fsysptr->canonicalToActiveCompIdx(fsysptr->solventComponentIndex(phaseIdx));
+>>>>>>> 4828dc1ad (add POC GPU assembly)
             LhsEval surfaceVolume =
                 Toolbox::template decay<LhsEval>(fs.saturation(phaseIdx)) *
                 Toolbox::template decay<LhsEval>(fs.invB(phaseIdx)) *
@@ -186,39 +207,63 @@ public:
             storage[conti0EqIdx + activeCompIdx] += surfaceVolume;
 
             // account for dissolved gas
+<<<<<<< HEAD
             if (phaseIdx == oilPhaseIdx && fsys.enableDissolvedGas()) {
                 unsigned activeGasCompIdx = fsys.canonicalToActiveCompIdx(gasCompIdx);
+=======
+            if (phaseIdx == oilPhaseIdx && fsysptr->enableDissolvedGas()) {
+                unsigned activeGasCompIdx = fsysptr->canonicalToActiveCompIdx(gasCompIdx);
+>>>>>>> 4828dc1ad (add POC GPU assembly)
                 storage[conti0EqIdx + activeGasCompIdx] +=
                     Toolbox::template decay<LhsEval>(intQuants.fluidState().Rs()) *
                     surfaceVolume;
             }
 
             // account for dissolved gas in water
+<<<<<<< HEAD
             if (phaseIdx == waterPhaseIdx && fsys.enableDissolvedGasInWater()) {
                 unsigned activeGasCompIdx = fsys.canonicalToActiveCompIdx(gasCompIdx);
+=======
+            if (phaseIdx == waterPhaseIdx && fsysptr->enableDissolvedGasInWater()) {
+                unsigned activeGasCompIdx = fsysptr->canonicalToActiveCompIdx(gasCompIdx);
+>>>>>>> 4828dc1ad (add POC GPU assembly)
                 storage[conti0EqIdx + activeGasCompIdx] +=
                     Toolbox::template decay<LhsEval>(intQuants.fluidState().Rsw()) *
                     surfaceVolume;
             }
 
             // account for vaporized oil
+<<<<<<< HEAD
             if (phaseIdx == gasPhaseIdx && fsys.enableVaporizedOil()) {
                 unsigned activeOilCompIdx = fsys.canonicalToActiveCompIdx(oilCompIdx);
+=======
+            if (phaseIdx == gasPhaseIdx && fsysptr->enableVaporizedOil()) {
+                unsigned activeOilCompIdx = fsysptr->canonicalToActiveCompIdx(oilCompIdx);
+>>>>>>> 4828dc1ad (add POC GPU assembly)
                 storage[conti0EqIdx + activeOilCompIdx] +=
                     Toolbox::template decay<LhsEval>(intQuants.fluidState().Rv()) *
                     surfaceVolume;
             }
 
             // account for vaporized water
+<<<<<<< HEAD
             if (phaseIdx == gasPhaseIdx && fsys.enableVaporizedWater()) {
                 unsigned activeWaterCompIdx = fsys.canonicalToActiveCompIdx(waterCompIdx);
+=======
+            if (phaseIdx == gasPhaseIdx && fsysptr->enableVaporizedWater()) {
+                unsigned activeWaterCompIdx = fsysptr->canonicalToActiveCompIdx(waterCompIdx);
+>>>>>>> 4828dc1ad (add POC GPU assembly)
                 storage[conti0EqIdx + activeWaterCompIdx] +=
                     Toolbox::template decay<LhsEval>(intQuants.fluidState().Rvw()) *
                     surfaceVolume;
             }
         }
 
+<<<<<<< HEAD
         adaptMassConservationQuantities_(storage, intQuants.pvtRegionIndex(), fsys);
+=======
+        adaptMassConservationQuantities_(storage, intQuants.pvtRegionIndex(), fsysptr);
+>>>>>>> 4828dc1ad (add POC GPU assembly)
 
         // deal with solvents (if present)
         SolventModule::addStorage(storage, intQuants);
@@ -249,6 +294,7 @@ public:
      */
     template <class ModuleParamsT, class RateVectorT, class IntensiveQuantitiesT, class ResidualNBInfoT>
     OPM_HOST_DEVICE static void computeFlux(RateVectorT& flux,
+<<<<<<< HEAD
                                             RateVectorT& darcy,
                                             const unsigned globalIndexIn,
                                             const unsigned globalIndexEx,
@@ -256,6 +302,15 @@ public:
                                             const IntensiveQuantitiesT& intQuantsEx,
                                             const ResidualNBInfoT& nbInfo,
                                             const ModuleParamsT& moduleParams)
+=======
+                            RateVectorT& darcy,
+                            const unsigned globalIndexIn,
+                            const unsigned globalIndexEx,
+                            const IntensiveQuantitiesT& intQuantsIn,
+                            const IntensiveQuantitiesT& intQuantsEx,
+                            const ResidualNBInfoT& nbInfo,
+                            const ModuleParamsT& moduleParams)
+>>>>>>> 4828dc1ad (add POC GPU assembly)
     {
         OPM_TIMEBLOCK_LOCAL(computeFlux, Subsystem::Assembly);
         flux = 0.0;
@@ -344,6 +399,7 @@ public:
 
     template <class RateVectorT, class IntensiveQuantitiesT, class ResidualNBInfoT, class ModuleParamsT>
     OPM_HOST_DEVICE static void calculateFluxes_(RateVectorT& flux,
+<<<<<<< HEAD
                                                  RateVectorT& darcy,
                                                  const IntensiveQuantitiesT& intQuantsIn,
                                                  const IntensiveQuantitiesT& intQuantsEx,
@@ -351,6 +407,15 @@ public:
                                                  const unsigned& globalIndexEx,
                                                  const ResidualNBInfoT& nbInfo,
                                                  const ModuleParamsT& moduleParams)
+=======
+                                 RateVectorT& darcy,
+                                 const IntensiveQuantitiesT& intQuantsIn,
+                                 const IntensiveQuantitiesT& intQuantsEx,
+                                 const unsigned& globalIndexIn,
+                                 const unsigned& globalIndexEx,
+                                 const ResidualNBInfoT& nbInfo,
+                                 const ModuleParamsT& moduleParams)
+>>>>>>> 4828dc1ad (add POC GPU assembly)
     {
         OPM_TIMEBLOCK_LOCAL(calculateFluxes, Subsystem::Assembly);
         const Scalar Vin = nbInfo.Vin;
@@ -361,7 +426,11 @@ public:
         const Scalar faceArea = nbInfo.faceArea;
         FaceDir::DirEnum facedir = nbInfo.faceDir;
 
+<<<<<<< HEAD
         const FluidSystem& fsys = intQuantsIn.getFluidSystem();
+=======
+        FluidSystem fsys = intQuantsIn.getFluidSystem();
+>>>>>>> 4828dc1ad (add POC GPU assembly)
 
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
             if (!fsys.phaseIsActive(phaseIdx)) {
@@ -419,7 +488,11 @@ public:
                 const auto& invB
                     = getInvB_<FluidSystem, FluidState, Evaluation>(up.fluidState(), phaseIdx, pvtRegionIdx, fsys);
                 const auto& surfaceVolumeFlux = invB * darcyFlux;
+<<<<<<< HEAD
 
+=======
+                // This line causes divergence between CPU and GPU in residual
+>>>>>>> 4828dc1ad (add POC GPU assembly)
                 evalPhaseFluxes_<Evaluation>(flux, phaseIdx, pvtRegionIdx, surfaceVolumeFlux, up.fluidState());
                 if constexpr (enableFullyImplicitThermal) {
                     EnergyModule::template
@@ -544,6 +617,7 @@ public:
 
     template <class BoundaryConditionData, class RateVectorLocal, class LocalProblem>
     OPM_HOST_DEVICE static void computeBoundaryFlux(RateVectorLocal& bdyFlux,
+<<<<<<< HEAD
                                                     const LocalProblem& problem,
                                                     const BoundaryConditionData& bdyInfo,
                                                     const IntensiveQuantities& insideIntQuants,
@@ -568,6 +642,50 @@ public:
             throw std::logic_error("Unknown boundary condition type " +
                                    std::to_string(static_cast<int>(bdyInfo.type)) +
                                    " in computeBoundaryFlux()." );
+=======
+                                    const LocalProblem& problem,
+                                    const BoundaryConditionData& bdyInfo,
+                                    const IntensiveQuantities& insideIntQuants,
+                                    unsigned globalSpaceIdx)
+    {
+        bool constexpr usesStaticFluidSystem = std::is_empty_v<FluidSystem>;
+        if constexpr (usesStaticFluidSystem)
+        {
+            switch (bdyInfo.type) {
+            case BCType::NONE:
+                bdyFlux = 0.0;
+                break;
+            case BCType::RATE:
+                computeBoundaryFluxRate(bdyFlux, bdyInfo);
+                break;
+            case BCType::FREE:
+            case BCType::DIRICHLET:
+                computeBoundaryFluxFree(problem, bdyFlux, bdyInfo, insideIntQuants, globalSpaceIdx);
+                break;
+            case BCType::THERMAL:
+                computeBoundaryThermal(problem, bdyFlux, bdyInfo, insideIntQuants, globalSpaceIdx);
+                break;
+            default:
+                throw std::logic_error("Unknown boundary condition type " +
+                                    std::to_string(static_cast<int>(bdyInfo.type)) +
+                                    " in computeBoundaryFlux()." );
+            }
+        } else {
+            switch (bdyInfo.type) {
+            case BCType::NONE:
+                bdyFlux = 0.0;
+                break;
+            case BCType::THERMAL:
+                computeBoundaryThermal(problem, bdyFlux, bdyInfo, insideIntQuants, globalSpaceIdx);
+                break;
+            default:
+<<<<<<< HEAD
+                assert(false && "Only THERMAL BC supported when FluidSystem is non-static.");
+=======
+                OPM_THROW(std::logic_error, "Only THERMAL BC supported when FluidSystem is non-static.");
+>>>>>>> 8d357356c (cleaning in blackoillocalresidualtpfa)
+            }
+>>>>>>> 4828dc1ad (add POC GPU assembly)
         }
 #else // TODO: support all boundary conditions on GPU as well to unify this code
         switch (bdyInfo.type) {
@@ -689,10 +807,17 @@ public:
         static_assert(!enablePolymer,
                       "Relevant treatment of boundary conditions must be implemented before enabling.");
 
+<<<<<<< HEAD
         const FluidSystem& fsys = insideIntQuants.getFluidSystem();
 
         // make sure that the right mass conservation quantities are used
         adaptMassConservationQuantities_(bdyFlux, insideIntQuants.pvtRegionIndex(), fsys);
+=======
+        FluidSystem const* fsysptr = &insideIntQuants.getFluidSystem();
+
+        // make sure that the right mass conservation quantities are used
+        adaptMassConservationQuantities_(bdyFlux, insideIntQuants.pvtRegionIndex(), fsysptr);
+>>>>>>> 4828dc1ad (add POC GPU assembly)
 
 #ifndef NDEBUG
         for (unsigned i = 0; i < numEq; ++i) {
@@ -704,10 +829,17 @@ public:
 
     template <class ProblemLocal, class BoundaryConditionData, class RateVectorLocal>
     OPM_HOST_DEVICE static void computeBoundaryThermal(const ProblemLocal& problem,
+<<<<<<< HEAD
                                                        RateVectorLocal& bdyFlux,
                                                        const BoundaryConditionData& bdyInfo,
                                                        const IntensiveQuantities& insideIntQuants,
                                                        [[maybe_unused]] unsigned globalSpaceIdx)
+=======
+                                       RateVectorLocal& bdyFlux,
+                                       const BoundaryConditionData& bdyInfo,
+                                       const IntensiveQuantities& insideIntQuants,
+                                       [[maybe_unused]] unsigned globalSpaceIdx)
+>>>>>>> 4828dc1ad (add POC GPU assembly)
     {
         OPM_TIMEBLOCK_LOCAL(computeBoundaryThermal, Subsystem::Assembly);
         // only heat is allowed to flow through this boundary
@@ -717,6 +849,7 @@ public:
         if constexpr (enableFullyImplicitThermal) {
             Evaluation heatFlux;
             // avoid overload of functions with same numeber of elements in eclproblem
+<<<<<<< HEAD
 
             Scalar alpha;
             if constexpr (runAssemblyOnGpu)
@@ -728,6 +861,16 @@ public:
                 alpha = problem.eclTransmissibilities().thermalHalfTransBoundary(globalSpaceIdx, bdyInfo.boundaryFaceIndex);
             }
 
+=======
+            bool constexpr usesStaticFluidSystem = std::is_empty_v<FluidSystem>;
+            Scalar alpha;
+            if constexpr (usesStaticFluidSystem)
+            {
+                alpha = problem.eclTransmissibilities().thermalHalfTransBoundary(globalSpaceIdx, bdyInfo.boundaryFaceIndex);
+            } else {
+                alpha = problem.getAlpha(globalSpaceIdx, bdyInfo.boundaryFaceIndex);
+            }
+>>>>>>> 4828dc1ad (add POC GPU assembly)
             unsigned inIdx = 0;//dummy
             // always calculated with derivatives of this cell
             EnergyModule::ExtensiveQuantities::updateEnergyBoundary(heatFlux,
@@ -821,6 +964,7 @@ public:
      * \brief Helper function to calculate the flux of mass in terms of conservation
      *        quantities via specific fluid phase over a face.
      */
+<<<<<<< HEAD
     template <class UpEval, class Eval,class FluidState, class RateVectorT = RateVector>
     OPM_HOST_DEVICE static void evalPhaseFluxes_(RateVectorT& flux,
                                                  unsigned phaseIdx,
@@ -829,6 +973,31 @@ public:
                                                  const FluidState& upFs)
     {
         const FluidSystem& fsys = upFs.fluidSystem();
+=======
+    template <class UpEval, class Eval, class FluidState>
+    static void evalPhaseFluxes_(RateVector& flux,
+                                 unsigned phaseIdx,
+                                 unsigned pvtRegionIdx,
+                                 const Eval& surfaceVolumeFlux,
+                                 const FluidState& upFs)
+    {
+        evalPhaseFluxes_<UpEval, RateVector, Eval, FluidState>(
+            flux, phaseIdx, pvtRegionIdx, surfaceVolumeFlux, upFs);
+    }
+
+    /*!
+     * \brief Helper function to calculate the flux of mass in terms of conservation
+     *        quantities via specific fluid phase over a face.
+     */
+    template <class UpEval, class RateVectorT, class Eval, class FluidState>
+    OPM_HOST_DEVICE static void evalPhaseFluxes_(RateVectorT& flux,
+                                 unsigned phaseIdx,
+                                 unsigned pvtRegionIdx,
+                                 const Eval& surfaceVolumeFlux,
+                                 const FluidState& upFs)
+    {
+        FluidSystem fsys = upFs.fluidSystem();
+>>>>>>> 4828dc1ad (add POC GPU assembly)
 
         unsigned activeCompIdx =
             fsys.canonicalToActiveCompIdx(fsys.solventComponentIndex(phaseIdx));
@@ -934,10 +1103,26 @@ public:
      * This overload accepts a fluid system instance, enabling use in GPU kernels and
      * other contexts where the static fluid system is not accessible.
      */
+<<<<<<< HEAD
     template <class ScalarVector, class FsysType>
     OPM_HOST_DEVICE static void adaptMassConservationQuantities_(ScalarVector& container,
                                                                  unsigned pvtRegionIdx,
                                                                  const FsysType& fsys)
+=======
+    template <class ScalarT>
+    static void adaptMassConservationQuantities_(Dune::FieldVector<ScalarT, numEq>& container,
+                                                 unsigned pvtRegionIdx)
+>>>>>>> 4828dc1ad (add POC GPU assembly)
+    {
+        // Delegate to the generic overload using a default-constructed static FluidSystem
+        // instance. Valid because the static FluidSystem is stateless (std::is_empty_v).
+        adaptMassConservationQuantities_(container, pvtRegionIdx, FluidSystem{});
+    }
+
+    template <class ScalarVector, class FsysType>
+    OPM_HOST_DEVICE static void adaptMassConservationQuantities_(ScalarVector& container,
+                                                 unsigned pvtRegionIdx,
+                                                 const FsysType& fsys)
     {
         if constexpr (!blackoilConserveSurfaceVolume) {
             // convert "surface volume" to mass. this is complicated a bit by the fact that
