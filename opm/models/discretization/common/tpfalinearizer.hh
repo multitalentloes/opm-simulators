@@ -1828,14 +1828,14 @@ private:
     {
 
         // Get the index of the cell
-#pragma omp parallel for num_threads(16)
+#pragma omp parallel for
         for (int ii = 0; ii < numCells; ++ii) {
             // Assert that we're running with exactly 16 threads
-            #ifdef _OPENMP
-                        assert(omp_get_num_threads() == 16 && "Expected exactly 16 OpenMP threads");
-            #else
-                        assert(false && "Expected OpenMP to be enabled with 16 threads");
-            #endif
+            // #ifdef _OPENMP
+            //             assert(omp_get_num_threads() == 16 && "Expected exactly 16 OpenMP threads");
+            // #else
+            //             assert(false && "Expected OpenMP to be enabled with 16 threads");
+            // #endif
             const unsigned globI = GPU_LOCAL_domain.cells[ii];
             const auto& nbInfos = GPU_LOCAL_neighborInfo[globI];
             VectorBlockType res(0.0);
