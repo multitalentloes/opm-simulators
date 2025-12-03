@@ -1085,9 +1085,11 @@ private:
             gpuistl::GpuBuffer<BoundaryInfoGPU> boundaryInfo_buffer = gpuistl::copy_to_gpu<VectorBlockGPU, typename TrivialIQ::FluidState, BoundaryInfoGPU>(boundaryInfo_);
             auto boundaryInfo_view = gpuistl::make_view(boundaryInfo_buffer);
 
+            int constexpr blockSize = 256;
+
             hipDeviceSynchronize();
             auto start_gpu = std::chrono::high_resolution_clock::now();
-            linearize_kernel<GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((numCells/*numCells*/+1023)/1024), 1024>>>(
+            linearize_kernel<GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((numCells/*numCells*/+blockSize - 1)/blockSize), blockSize>>>(
                 dispersionActive,
                 numCells/*numCells*/,
                 on_full_domain,
@@ -1139,10 +1141,9 @@ private:
 
             // To make the comparison fair this has to use the same simplified objects
 
-            int requested_threads = 16;
             int actual_threads = 0;
 
-            #pragma omp parallel num_threads(requested_threads)
+            #pragma omp parallel
             {
                 #pragma omp single
                 {
@@ -1150,11 +1151,7 @@ private:
                 }
             }
 
-            if (actual_threads != requested_threads) {
-                std::cout << "Warning: Got " << actual_threads << " threads instead of " 
-                        << requested_threads << std::endl;
-                std::cout << "max available threads: " << omp_get_max_threads() << std::endl;
-            }
+            printf("Using %d OpenMP threads for CPU linearization.\n", actual_threads);
 
             auto start_cpu = std::chrono::high_resolution_clock::now();
             linearize_kernel_CPU<IntensiveQuantities, Model, LocalResidual, VectorBlock, MatrixBlock, ADVectorBlock>(
