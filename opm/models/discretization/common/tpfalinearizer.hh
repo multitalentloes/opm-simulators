@@ -1013,7 +1013,7 @@ private:
         // Make sure we have can have the domain on the GPU.
         if constexpr (std::is_same_v<SubDomainType, FullDomain<>>) {
 
-            const bool run_assembly_on_gpu = true;
+            const bool run_assembly_on_gpu = false;
 
             auto enter_function = std::chrono::high_resolution_clock::now();
             /*
@@ -1052,14 +1052,14 @@ private:
                 auto domain_view = make_view(domain_buffer);
                 auto prep_domain_end = std::chrono::high_resolution_clock::now();
                 auto prep_domain_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_domain_end - prep_domain_start);
-                std::cout << "GPU domain prep time: " << prep_domain_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU domain prep time: " << prep_domain_duration.count() << " microseconds" << std::endl;
                 
                 auto prep_neighbor_start = std::chrono::high_resolution_clock::now();
                 auto neighborInfo_buffer = gpuistl::copy_to_gpu<MatrixBlockGPU>(neighborInfo_, *gpuJacobian_, jacobian_->istlMatrix());
                 auto neighborInfo_view = gpuistl::make_view(neighborInfo_buffer);
                 auto prep_neighbor_end = std::chrono::high_resolution_clock::now();
                 auto prep_neighbor_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_neighbor_end - prep_neighbor_start);
-                std::cout << "GPU neighborInfo prep time: " << prep_neighbor_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU neighborInfo prep time: " << prep_neighbor_duration.count() << " microseconds" << std::endl;
 
                 using NeighborInfoGPU = NeighborInfoStruct<ResidualNBInfo, MatrixBlockGPU>;
 
@@ -1084,7 +1084,7 @@ private:
                 auto gpuResidualView = gpuistl::make_view(gpuResidualBuffer);
                 auto prep_residual_end = std::chrono::high_resolution_clock::now();
                 auto prep_residual_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_residual_end - prep_residual_start);
-                std::cout << "GPU residual prep time: " << prep_residual_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU residual prep time: " << prep_residual_duration.count() << " microseconds" << std::endl;
 
                 using CorrectTypeTagView = typename ::Opm::Properties::TTag::to_gpu_type_t<TypeTag, gpuistl::GpuView>;
                 using GPUBOIQ = BlackOilIntensiveQuantities<CorrectTypeTagView>;
@@ -1098,7 +1098,7 @@ private:
                 auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view(dynamicGpuFluidSystemBuffer);
                 auto prep_fsys_end = std::chrono::high_resolution_clock::now();
                 auto prep_fsys_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_fsys_end - prep_fsys_start);
-                std::cout << "GPU fluid system prep time: " << prep_fsys_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU fluid system prep time: " << prep_fsys_duration.count() << " microseconds" << std::endl;
 
                 auto prep_volumes_start = std::chrono::high_resolution_clock::now();
                 std::vector<double> volumes(numCells);
@@ -1109,7 +1109,7 @@ private:
                 auto gpuVolumesView = gpuistl::make_view(gpuVolumesBuffer);
                 auto prep_volumes_end = std::chrono::high_resolution_clock::now();
                 auto prep_volumes_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_volumes_end - prep_volumes_start);
-                std::cout << "GPU volumes prep time: " << prep_volumes_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU volumes prep time: " << prep_volumes_duration.count() << " microseconds" << std::endl;
 
                 // We need to have a pointer to the fluidysystem that can be used inside a GPU kernel
                 // Having a pointer to the view is not good enough as the view exists on the host, so
@@ -1131,7 +1131,7 @@ private:
                 auto gpuModelView = gpuistl::make_view_just_find_me(gpuModelBuffer);
                 auto prep_model_end = std::chrono::high_resolution_clock::now();
                 auto prep_model_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_model_end - prep_model_start);
-                std::cout << "GPU model prep time: " << prep_model_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU model prep time: " << prep_model_duration.count() << " microseconds" << std::endl;
 
 
                 // This is terrible, we are probably catching a very large amount of exceptions here, how to support a map on the GPU?
@@ -1193,10 +1193,10 @@ private:
                 auto end_gpu = std::chrono::high_resolution_clock::now();
                 auto gpu_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - start_gpu);
                 auto gpu_prep_duration = std::chrono::duration_cast<std::chrono::microseconds>(start_gpu - enter_function);
-                std::cout << "GPU pre time: " << gpu_prep_duration.count() << " microseconds" << std::endl;
-                std::cout << "GPU main kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(mid_gpu - start_gpu).count() << " microseconds" << std::endl;
-                std::cout << "GPU boundary kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - mid_gpu).count() << " microseconds" << std::endl;
-                std::cout << "GPU total kernel time: " << gpu_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU pre time: " << gpu_prep_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU main kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(mid_gpu - start_gpu).count() << " microseconds" << std::endl;
+                // std::cout << "GPU boundary kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - mid_gpu).count() << " microseconds" << std::endl;
+                // std::cout << "GPU total kernel time: " << gpu_duration.count() << " microseconds" << std::endl;
 
                 auto gpu_finalize_start = std::chrono::high_resolution_clock::now();
                 // Now move the gpu residual into the cpu residual
@@ -1209,11 +1209,11 @@ private:
                     // Copy GPU jacobian back to CPU jacobian as a single contiguous operation
                     const size_t totalMatrixSize = cpuJacobian.nonzeroes() * numEq * numEq;
                     std::memcpy(&(cpuJacobian[0][0][0][0]), gpuJacobianNonZeroes.data(), 
-                               totalMatrixSize * sizeof(double));
+                               totalMatrixSize * sizeof(float));
                 }
                 auto gpu_finalize_end = std::chrono::high_resolution_clock::now();
                 auto gpu_finalize_duration = std::chrono::duration_cast<std::chrono::microseconds>(gpu_finalize_end - gpu_finalize_start);
-                std::cout << "GPU post time: " << gpu_finalize_duration.count() << " microseconds" << std::endl;
+                // std::cout << "GPU post time: " << gpu_finalize_duration.count() << " microseconds" << std::endl;
             } else {
                 int actual_threads = 0;
 
@@ -1331,11 +1331,11 @@ private:
             hipDeviceSynchronize();
             auto flux_kernel_end = std::chrono::high_resolution_clock::now();
             auto flux_kernel_duration = std::chrono::duration_cast<std::chrono::microseconds>(flux_kernel_end - flux_kernel_start);
-            std::cout << "GPU flux kernel time: " << flux_kernel_duration.count() << " microseconds" << std::endl;
+            // std::cout << "GPU flux kernel time: " << flux_kernel_duration.count() << " microseconds" << std::endl;
             
             hipDeviceSynchronize();
             auto acc_kernel_eval_start = std::chrono::high_resolution_clock::now();
-            gpu_parallelize_linearization_acc_kernel_eval<LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, ResidualType><<<((numCells + blockSize - 1) / blockSize), blockSize>>>(
+            gpu_parallelize_linearization_acc_kernel<LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, ResidualType><<<((numCells + blockSize - 1) / blockSize), blockSize>>>(
                 numCells,
                 localDomain,
                 localNeighborInfo,
@@ -1350,28 +1350,7 @@ private:
             hipDeviceSynchronize();
             auto acc_kernel_eval_end = std::chrono::high_resolution_clock::now();
             auto acc_kernel_eval_duration = std::chrono::duration_cast<std::chrono::microseconds>(acc_kernel_eval_end - acc_kernel_eval_start);
-            std::cout << "GPU acc kernel (eval) time: " << acc_kernel_eval_duration.count() << " microseconds" << std::endl;
-            
-            auto acc_kernel_scalar_start = std::chrono::high_resolution_clock::now();
-            gpu_parallelize_linearization_acc_kernel_scalar<LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, ResidualType><<<((numCells + blockSize - 1) / blockSize), blockSize>>>(
-                numCells,
-                localDomain,
-                localNeighborInfo,
-                localDiagMatAddress,
-                localResidual,
-                localModel,
-                locDT,
-                dispersionActive,
-                enableBioeffects,
-                onFullDomain,
-                localVolumes);
-            hipDeviceSynchronize();
-            auto acc_kernel_scalar_end = std::chrono::high_resolution_clock::now();
-            auto acc_kernel_scalar_duration = std::chrono::duration_cast<std::chrono::microseconds>(acc_kernel_scalar_end - acc_kernel_scalar_start);
-            std::cout << "GPU acc kernel (scalar) time: " << acc_kernel_scalar_duration.count() << " microseconds" << std::endl;
-            
-            auto acc_kernel_total_duration = std::chrono::duration_cast<std::chrono::microseconds>(acc_kernel_scalar_end - acc_kernel_eval_start);
-            std::cout << "GPU acc kernel (total) time: " << acc_kernel_total_duration.count() << " microseconds" << std::endl;
+            // std::cout << "GPU acc kernel time: " << acc_kernel_eval_duration.count() << " microseconds" << std::endl;
         }
         else {
 #pragma omp parallel for
@@ -1407,6 +1386,12 @@ private:
     }
 
 #if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
+template<typename T, bool useGPU>
+using ArgType = std::conditional_t<useGPU, T, T&>;
+
+template<typename T, bool useGPU>
+using ConstArgType = std::conditional_t<useGPU, T, const T&>;
+
     template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
     __global__ static void gpu_parallelize_linearization_flux_kernel(
         const unsigned int numCells,
@@ -1478,88 +1463,9 @@ private:
                 );
         }
     }
-
-    template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
-    __global__ static void gpu_parallelize_linearization_acc_kernel_eval(
-        const unsigned int numCells,
-        const DomainType GPU_LOCAL_domain,
-        const NeighborSparseTable GPU_LOCAL_neighborInfo,
-        DiagPtrType GPU_LOCAL_diagMatAddress,
-        GpuResidualView GPU_LOCAL_residualView,
-        LocalModelClass localModel,
-        double locDT,
-        bool dispersionActive,
-        bool enableBioeffects,
-        bool onFullDomain,
-        const gpuistl::GpuView<double> GPU_LOCAL_volumes)
-    {
-        // Get the index of the cell
-        const unsigned int ii = blockIdx.x * blockDim.x + threadIdx.x;
-
-        if (ii < numCells) {
-            linearize_kernel_acc_eval<true, int, int, LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, GpuResidualView>(
-                ii,
-                GPU_LOCAL_domain,
-                GPU_LOCAL_neighborInfo,
-                GPU_LOCAL_diagMatAddress,
-                GPU_LOCAL_residualView,
-                localModel,
-                0/*dummy for velocity info*/,
-                locDT,
-                0/*dummy for problem type*/,
-                dispersionActive,
-                enableBioeffects,
-                onFullDomain,
-                GPU_LOCAL_volumes
-                );
-        }
-    }
-
-    template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
-    __global__ static void gpu_parallelize_linearization_acc_kernel_scalar(
-        const unsigned int numCells,
-        const DomainType GPU_LOCAL_domain,
-        const NeighborSparseTable GPU_LOCAL_neighborInfo,
-        DiagPtrType GPU_LOCAL_diagMatAddress,
-        GpuResidualView GPU_LOCAL_residualView,
-        LocalModelClass localModel,
-        double locDT,
-        bool dispersionActive,
-        bool enableBioeffects,
-        bool onFullDomain,
-        const gpuistl::GpuView<double> GPU_LOCAL_volumes)
-    {
-        // Get the index of the cell
-        const unsigned int ii = blockIdx.x * blockDim.x + threadIdx.x;
-
-        if (ii < numCells) {
-            linearize_kernel_acc_scalar<true, int, int, LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, GpuResidualView>(
-                ii,
-                GPU_LOCAL_domain,
-                GPU_LOCAL_neighborInfo,
-                GPU_LOCAL_diagMatAddress,
-                GPU_LOCAL_residualView,
-                localModel,
-                0/*dummy for velocity info*/,
-                locDT,
-                0/*dummy for problem type*/,
-                dispersionActive,
-                enableBioeffects,
-                onFullDomain,
-                GPU_LOCAL_volumes
-                );
-        }
-    }
 #endif
 
 #if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
-
-    template<typename T, bool useGPU>
-    using ArgType = std::conditional_t<useGPU, T, T&>;
-
-    template<typename T, bool useGPU>
-    using ConstArgType = std::conditional_t<useGPU, T, const T&>;
-
     template<bool useGPU, class ProblemType, class VelocityInfoType, class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
     OPM_HOST_DEVICE static void linearize_kernel_flux(
         const unsigned int ii,
@@ -1721,96 +1627,6 @@ private:
         GPU_LOCAL_residualView[globI] += res;
         //SparseAdapter syntax: jacobian_->addToBlock(globI, globI, bMat);
         *reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]) += bMat;
-    }
-
-    template<bool useGPU, class ProblemType, class VelocityInfoType, class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
-    OPM_HOST_DEVICE static void linearize_kernel_acc_eval(
-        const unsigned int ii,
-        const ConstArgType<DomainType, useGPU> GPU_LOCAL_domain,
-        const ConstArgType<NeighborSparseTable, useGPU> GPU_LOCAL_neighborInfo,
-        const ConstArgType<DiagPtrType, useGPU> GPU_LOCAL_diagMatAddress,
-        ArgType<GpuResidualView, useGPU> GPU_LOCAL_residualView,
-        ArgType<LocalModelClass, useGPU> localModel,
-        ArgType<VelocityInfoType, useGPU> localVelocityInfo,
-        double locDT,
-        const ConstArgType<ProblemType, useGPU> localProblem,
-        bool dispersionActive,
-        bool enableBioeffects,
-        bool on_full_domain,
-        const gpuistl::GpuView<double> GPU_LOCAL_volumes = gpuistl::GpuView<double>()
-        )
-    {
-        const unsigned globI = GPU_LOCAL_domain.cells[ii];
-        const auto& nbInfos = GPU_LOCAL_neighborInfo[globI];
-        VectorBlockType res(0.0);
-        MatrixBlockType bMat(0.0);
-        ADVectorBlockType adres(0.0);
-        ADVectorBlockType darcyFlux(0.0);
-        const LocalIntensiveQuantities& intQuantsIn = localModel.intensiveQuantities(globI, /*timeIdx*/ 0);
-
-        // Accumulation term.
-        adres = 0.0;
-        {
-            LocalResidualKernel::template computeStorage<Evaluation>(adres, intQuantsIn);
-        }
-        // setResAndJacobi(res, bMat, adres);
-        // double volume;
-        // if constexpr (useGPU) {
-        //     volume = GPU_LOCAL_volumes[globI];
-        // } else {
-        //     volume = localModel.dofTotalVolume(globI);
-        // }
-        // const Scalar storefac = volume / locDT;//volume / dt;
-        // res *= storefac;
-        // bMat *= storefac;
-        // GPU_LOCAL_residualView[globI] += res;
-        // //SparseAdapter syntax: jacobian_->addToBlock(globI, globI, bMat);
-        // *reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]) += bMat;
-    }
-
-    template<bool useGPU, class ProblemType, class VelocityInfoType, class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
-    OPM_HOST_DEVICE static void linearize_kernel_acc_scalar(
-        const unsigned int ii,
-        const ConstArgType<DomainType, useGPU> GPU_LOCAL_domain,
-        const ConstArgType<NeighborSparseTable, useGPU> GPU_LOCAL_neighborInfo,
-        const ConstArgType<DiagPtrType, useGPU> GPU_LOCAL_diagMatAddress,
-        ArgType<GpuResidualView, useGPU> GPU_LOCAL_residualView,
-        ArgType<LocalModelClass, useGPU> localModel,
-        ArgType<VelocityInfoType, useGPU> localVelocityInfo,
-        double locDT,
-        const ConstArgType<ProblemType, useGPU> localProblem,
-        bool dispersionActive,
-        bool enableBioeffects,
-        bool on_full_domain,
-        const gpuistl::GpuView<double> GPU_LOCAL_volumes = gpuistl::GpuView<double>()
-        )
-    {
-        const unsigned globI = GPU_LOCAL_domain.cells[ii];
-        const auto& nbInfos = GPU_LOCAL_neighborInfo[globI];
-        VectorBlockType res(0.0);
-        MatrixBlockType bMat(0.0);
-        ADVectorBlockType adres(0.0);
-        ADVectorBlockType darcyFlux(0.0);
-        const LocalIntensiveQuantities& intQuantsIn = localModel.intensiveQuantities(globI, /*timeIdx*/ 0);
-
-        VectorBlockType tmp;
-        const LocalIntensiveQuantities intQuantOld = localModel.intensiveQuantities(globI, 1);
-        LocalResidualKernel::template computeStorage<Scalar>(tmp, intQuantOld);
-        // assume volume do not change
-        // res -= tmp;
-
-        // double volume;
-        // if constexpr (useGPU) {
-        //     volume = GPU_LOCAL_volumes[globI];
-        // } else {
-        //     volume = localModel.dofTotalVolume(globI);
-        // }
-        // const Scalar storefac = volume / locDT;//volume / dt;
-        // res *= storefac;
-        // bMat *= storefac;
-        // GPU_LOCAL_residualView[globI] += res;
-        // //SparseAdapter syntax: jacobian_->addToBlock(globI, globI, bMat);
-        // *reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]) += bMat;
     }
 
     template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class GpuResidualView, class GpuBoundaryInfoView, class GpuProblem>

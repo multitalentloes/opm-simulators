@@ -399,21 +399,22 @@ public:
             short interiorDofIdx = 0; // NB
             short exteriorDofIdx = 1; // NB
             Evaluation pressureDifference;
-            // ExtensiveQuantities::calculatePhasePressureDiff_(upIdx,
-            //                                                  dnIdx,
-            //                                                  pressureDifference,
-            //                                                  intQuantsIn,
-            //                                                  intQuantsEx,
-            //                                                  phaseIdx, // input
-            //                                                  interiorDofIdx, // input
-            //                                                  exteriorDofIdx, // input
-            //                                                  Vin,
-            //                                                  Vex,
-            //                                                  globalIndexIn,
-            //                                                  globalIndexEx,
-            //                                                  distZg,
-            //                                                  thpres,
-            //                                                  moduleParams);
+            // This function call is particularly bad for cuda/hip register pressure
+            ExtensiveQuantities::calculatePhasePressureDiff_(upIdx,
+                                                             dnIdx,
+                                                             pressureDifference,
+                                                             intQuantsIn,
+                                                             intQuantsEx,
+                                                             phaseIdx, // input
+                                                             interiorDofIdx, // input
+                                                             exteriorDofIdx, // input
+                                                             Vin,
+                                                             Vex,
+                                                             globalIndexIn,
+                                                             globalIndexEx,
+                                                             distZg,
+                                                             thpres,
+                                                             moduleParams);
 
             const IntensiveQuantities& up = (upIdx == interiorDofIdx) ? intQuantsIn : intQuantsEx;
             unsigned globalUpIndex = (upIdx == interiorDofIdx) ? globalIndexIn : globalIndexEx;
@@ -445,10 +446,10 @@ public:
                 const auto& surfaceVolumeFlux = invB * darcyFlux;
                 // This line causes divergence between CPU and GPU in residual
                 evalPhaseFluxes_<Evaluation>(flux, phaseIdx, pvtRegionIdx, surfaceVolumeFlux, up.fluidState());
-                // if constexpr (enableEnergy) {
-                //     EnergyModule::template // Problematic line
-                //         addPhaseEnthalpyFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up.fluidState());
-                // }
+                if constexpr (enableEnergy) {
+                    EnergyModule::template // Problematic line
+                        addPhaseEnthalpyFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up.fluidState());
+                }
                 if constexpr (enableBioeffects) {
                     BioeffectsModule::template
                         addBioeffectsFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up);
@@ -461,10 +462,10 @@ public:
                 const auto& invB = getInvB_<FluidSystem, FluidState, Scalar>(up.fluidState(), phaseIdx, pvtRegionIdx, fsys);
                 const auto& surfaceVolumeFlux = invB * darcyFlux;
                 evalPhaseFluxes_<Scalar>(flux, phaseIdx, pvtRegionIdx, surfaceVolumeFlux, up.fluidState());
-                // if constexpr (enableEnergy) {
-                //     EnergyModule::template
-                //         addPhaseEnthalpyFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up.fluidState());
-                // }
+                if constexpr (enableEnergy) {
+                    EnergyModule::template
+                        addPhaseEnthalpyFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up.fluidState());
+                }
                 if constexpr (enableBioeffects) {
                     BioeffectsModule::template
                         addBioeffectsFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up);
@@ -492,40 +493,40 @@ public:
         // PolymerModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
 
         // deal with convective mixing
-        // if constexpr (enableConvectiveMixing) {
-        //     ConvectiveMixingModule::addConvectiveMixingFlux(flux,
-        //                                                     intQuantsIn,
-        //                                                     intQuantsEx,
-        //                                                     globalIndexIn,
-        //                                                     globalIndexEx,
-        //                                                     nbInfo.dZg,
-        //                                                     nbInfo.trans,
-        //                                                     nbInfo.faceArea,
-        //                                                     moduleParams.convectiveMixingModuleParam);
-        // }
+        if constexpr (enableConvectiveMixing) {
+            ConvectiveMixingModule::addConvectiveMixingFlux(flux,
+                                                            intQuantsIn,
+                                                            intQuantsEx,
+                                                            globalIndexIn,
+                                                            globalIndexEx,
+                                                            nbInfo.dZg,
+                                                            nbInfo.trans,
+                                                            nbInfo.faceArea,
+                                                            moduleParams.convectiveMixingModuleParam);
+        }
 
-        // // deal with energy (if present)
-        // if constexpr (enableEnergy) {
-        //     const Scalar inAlpha = nbInfo.inAlpha;
-        //     const Scalar outAlpha = nbInfo.outAlpha;
-        //     Evaluation heatFlux;
+        // deal with energy (if present)
+        if constexpr (enableEnergy) {
+            const Scalar inAlpha = nbInfo.inAlpha;
+            const Scalar outAlpha = nbInfo.outAlpha;
+            Evaluation heatFlux;
 
-        //     short interiorDofIdx = 0; // NB
-        //     short exteriorDofIdx = 1; // NB
+            short interiorDofIdx = 0; // NB
+            short exteriorDofIdx = 1; // NB
 
-        //     EnergyModule::ExtensiveQuantities::updateEnergy(heatFlux,
-        //                                                     interiorDofIdx, // focusDofIndex,
-        //                                                     interiorDofIdx,
-        //                                                     exteriorDofIdx,
-        //                                                     intQuantsIn,
-        //                                                     intQuantsEx,
-        //                                                     intQuantsIn.fluidState(),
-        //                                                     intQuantsEx.fluidState(),
-        //                                                     inAlpha,
-        //                                                     outAlpha,
-        //                                                     faceArea);
-        //     EnergyModule::addHeatFlux(flux, heatFlux);
-        // }
+            EnergyModule::ExtensiveQuantities::updateEnergy(heatFlux,
+                                                            interiorDofIdx, // focusDofIndex,
+                                                            interiorDofIdx,
+                                                            exteriorDofIdx,
+                                                            intQuantsIn,
+                                                            intQuantsEx,
+                                                            intQuantsIn.fluidState(),
+                                                            intQuantsEx.fluidState(),
+                                                            inAlpha,
+                                                            outAlpha,
+                                                            faceArea);
+            EnergyModule::addHeatFlux(flux, heatFlux);
+        }
         // NB need to be tha last energy call since it does scaling
         // EnergyModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx); // TODO: write a new computeFlux that does not use elemCtx
 
