@@ -218,20 +218,22 @@ private:
 };
 
 namespace gpuistl {
-    GpuFlowProblemVerySimple<float, gpuistl::GpuBuffer>
-    copy_to_gpu(GpuFlowProblemVerySimple<float, Opm::VectorWithDefaultAllocator>& cpuProblem)
+    template<class Scalar>
+    GpuFlowProblemVerySimple<Scalar, gpuistl::GpuBuffer>
+    copy_to_gpu(GpuFlowProblemVerySimple<Scalar, Opm::VectorWithDefaultAllocator>& cpuProblem)
     {
-        return GpuFlowProblemVerySimple<float, gpuistl::GpuBuffer>(
-            gpuistl::GpuBuffer<float>(cpuProblem.alpha0()),
-            gpuistl::GpuBuffer<float>(cpuProblem.alpha1()),
-            gpuistl::GpuBuffer<float>(cpuProblem.alpha2())
+        return GpuFlowProblemVerySimple<Scalar, gpuistl::GpuBuffer>(
+            gpuistl::GpuBuffer<Scalar>(cpuProblem.alpha0()),
+            gpuistl::GpuBuffer<Scalar>(cpuProblem.alpha1()),
+            gpuistl::GpuBuffer<Scalar>(cpuProblem.alpha2())
         );
     }
 
-    GpuFlowProblemVerySimple<float, gpuistl::GpuView>
-    make_view(GpuFlowProblemVerySimple<float, gpuistl::GpuBuffer>& buffer)
+    template<class Scalar>
+    GpuFlowProblemVerySimple<Scalar, gpuistl::GpuView>
+    make_view(GpuFlowProblemVerySimple<Scalar, gpuistl::GpuBuffer>& buffer)
     {
-        return GpuFlowProblemVerySimple<float, gpuistl::GpuView>(
+        return GpuFlowProblemVerySimple<Scalar, gpuistl::GpuView>(
             gpuistl::make_view(buffer.alpha0()),
             gpuistl::make_view(buffer.alpha1()),
             gpuistl::make_view(buffer.alpha2())
@@ -264,6 +266,8 @@ namespace  gpuistl {
     template< class MiniMatrixType, class GpuMatrixType, class CpuMatrixType, class MatrixBlockType, class ResidualNBInfoType>
     auto copy_to_gpu(const SparseTable<NeighborInfoStruct<ResidualNBInfoType, MatrixBlockType>>& cpu_neighbor_table, GpuMatrixType& gpuJacobian, CpuMatrixType& cpuJacobian)
     {
+        using Scalar = typename MatrixBlockType::field_type;
+
         // Convert the DUNE FieldVectors to MiniMatrix types
         using StructWithMinimatrix = NeighborInfoStruct<ResidualNBInfoType, MiniMatrixType>;
         std::vector<StructWithMinimatrix> minimatrices(cpu_neighbor_table.dataSize());
@@ -271,9 +275,9 @@ namespace  gpuistl {
         for (auto e : cpu_neighbor_table.dataStorage()) {
             minimatrices[idx] = StructWithMinimatrix(e);
 
-            float* gpuBufStart = gpuJacobian.getNonZeroValues().data();
-            float* cpuBufStart = &(cpuJacobian[0][0][0][0]);
-            float* cpuPtr = &((*e.matBlockAddress)[0][0]);
+            Scalar* gpuBufStart = gpuJacobian.getNonZeroValues().data();
+            Scalar* cpuBufStart = &(cpuJacobian[0][0][0][0]);
+            Scalar* cpuPtr = &((*e.matBlockAddress)[0][0]);
 
             const size_t gpuNonZeroes = gpuJacobian.nonzeroes();
             const size_t cpuNonZeroes = cpuJacobian.nonzeroes();
@@ -291,7 +295,7 @@ namespace  gpuistl {
             assert (gpuBufferSize == cpuBufferSize);
 
             // convert the pointer from CPU to GPU pointer based on offset in CPU jacobian
-            float* gpuPtr = ComputePtrBasedOnOffsetInOtherBuffer(
+            Scalar* gpuPtr = ComputePtrBasedOnOffsetInOtherBuffer(
                 gpuBufStart, gpuBufferSize,
                 cpuBufStart, cpuBufferSize,
                 cpuPtr
@@ -805,8 +809,8 @@ private:
         }
 
 #if HAVE_CUDA
-        gpuJacobian_.reset(new gpuistl::GpuSparseMatrixWrapper<float>(gpuistl::GpuSparseMatrixWrapper<float>::fromMatrix(jacobian_->istlMatrix())));
-        gpuBufferDiagMatAddress_.reset(new gpuistl::GpuBuffer<float*>(gpuistl::detail::getDiagPtrs(*gpuJacobian_)));
+        gpuJacobian_.reset(new gpuistl::GpuSparseMatrixWrapper<Scalar>(gpuistl::GpuSparseMatrixWrapper<Scalar>::fromMatrix(jacobian_->istlMatrix())));
+        gpuBufferDiagMatAddress_.reset(new gpuistl::GpuBuffer<Scalar*>(gpuistl::detail::getDiagPtrs(*gpuJacobian_)));
 #endif
 
         // Create dummy full domain.
@@ -1013,7 +1017,7 @@ private:
         // Make sure we have can have the domain on the GPU.
         if constexpr (std::is_same_v<SubDomainType, FullDomain<>>) {
 
-            const bool run_assembly_on_gpu = false;
+            const bool run_assembly_on_gpu = true;
 
             auto enter_function = std::chrono::high_resolution_clock::now();
             /*
@@ -1157,8 +1161,8 @@ private:
                     }
                 }
                 GpuFlowProblemVerySimple<Scalar> gpuFlowProblemVerySimple(alpha0, alpha1, alpha2);
-                auto gpuFlowProblemVerySimpleBuffer = gpuistl::copy_to_gpu(gpuFlowProblemVerySimple);
-                auto gpuFlowProblemVerySimpleView = gpuistl::make_view(gpuFlowProblemVerySimpleBuffer);
+                auto gpuFlowProblemVerySimpleBuffer = gpuistl::copy_to_gpu<Scalar>(gpuFlowProblemVerySimple);
+                auto gpuFlowProblemVerySimpleView = gpuistl::make_view<Scalar>(gpuFlowProblemVerySimpleBuffer);
                 using GpuProblem = decltype(gpuFlowProblemVerySimpleView);
 
                 int constexpr blockSize = 256;
@@ -1209,7 +1213,7 @@ private:
                     // Copy GPU jacobian back to CPU jacobian as a single contiguous operation
                     const size_t totalMatrixSize = cpuJacobian.nonzeroes() * numEq * numEq;
                     std::memcpy(&(cpuJacobian[0][0][0][0]), gpuJacobianNonZeroes.data(), 
-                               totalMatrixSize * sizeof(float));
+                               totalMatrixSize * sizeof(Scalar));
                 }
                 auto gpu_finalize_end = std::chrono::high_resolution_clock::now();
                 auto gpu_finalize_duration = std::chrono::duration_cast<std::chrono::microseconds>(gpu_finalize_end - gpu_finalize_start);
@@ -1666,7 +1670,7 @@ using ConstArgType = std::conditional_t<useGPU, T, const T&>;
                 auto* matPtr = reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]);
                 for (int row = 0; row < bMat.size(); ++row) {
                     for (int col = 0; col < bMat.size(); ++col) {
-                        float* elemPtr = &((*matPtr)[row][col]);
+                        auto* elemPtr = &((*matPtr)[row][col]);
                         atomicAdd(elemPtr, bMat[row][col]);
                     }
                 }
@@ -1728,8 +1732,8 @@ using ConstArgType = std::conditional_t<useGPU, T, const T&>;
     // the jacobian matrix
     std::unique_ptr<SparseMatrixAdapter> jacobian_{};
 #if HAVE_CUDA
-    std::unique_ptr<gpuistl::GpuSparseMatrixWrapper<float>> gpuJacobian_;
-    std::unique_ptr<gpuistl::GpuBuffer<float*>> gpuBufferDiagMatAddress_;
+    std::unique_ptr<gpuistl::GpuSparseMatrixWrapper<Scalar>> gpuJacobian_;
+    std::unique_ptr<gpuistl::GpuBuffer<Scalar*>> gpuBufferDiagMatAddress_;
 #endif
 
     // the right-hand side
