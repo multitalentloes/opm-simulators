@@ -65,7 +65,7 @@ struct Linearizer<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> { using type = Tp
 
 
 template<class TypeTag>
-struct Scalar<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> { using type = double; };
+struct Scalar<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> { using type = float; };
 
 template<class TypeTag>
 struct LocalResidual<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> { using type = BlackOilLocalResidualTPFA<TypeTag>; };
@@ -103,7 +103,7 @@ template<class TypeTag, template<class> class Storage>
 struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyProblemGPUTrue<Storage>>
 {
     using type = Opm::BlackOilFluidSystemNonStatic<
-        double,
+        float,
         Opm::BlackOilDefaultFluidSystemIndices,
         Storage
     >;
