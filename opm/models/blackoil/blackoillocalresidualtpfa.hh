@@ -234,35 +234,35 @@ public:
 
         // These have to be protected because I have not bothered to change the signature
         // in each of these classes to be generic in terms of storage type.
-        if constexpr (usesStaticFluidSystem)
-        {
+        // if constexpr (usesStaticFluidSystem)
+        // {
 
-            // deal with solvents (if present)
-            SolventModule::addStorage(storage, intQuants);
+        //     // deal with solvents (if present)
+        //     SolventModule::addStorage(storage, intQuants);
 
-            // deal with zFracton (if present)
-            ExtboModule::addStorage(storage, intQuants);
+        //     // deal with zFracton (if present)
+        //     ExtboModule::addStorage(storage, intQuants);
 
-            // deal with polymer (if present)
-            PolymerModule::addStorage(storage, intQuants);
-        }
+        //     // deal with polymer (if present)
+        //     PolymerModule::addStorage(storage, intQuants);
+        // }
 
-        // TODO: figure out why the energumodule gives really wrong answers on gpu (a couple orders of magnitutde)
-        // deal with energy (if present)
-        EnergyModule::template addStorage<LhsEval>(storage, intQuants);
+        // // TODO: figure out why the energumodule gives really wrong answers on gpu (a couple orders of magnitutde)
+        // // deal with energy (if present)
+        // EnergyModule::template addStorage<LhsEval>(storage, intQuants);
 
-        if constexpr (usesStaticFluidSystem)
-        {
-            // deal with foam (if present)
-            FoamModule::addStorage(storage, intQuants);
+        // if constexpr (usesStaticFluidSystem)
+        // {
+        //     // deal with foam (if present)
+        //     FoamModule::addStorage(storage, intQuants);
 
-            // deal with salt (if present)
-            BrineModule::addStorage(storage, intQuants);
+        //     // deal with salt (if present)
+        //     BrineModule::addStorage(storage, intQuants);
 
-            // deal with bioeffects (if present)
-            BioeffectsModule::addStorage(storage, intQuants);
+        //     // deal with bioeffects (if present)
+        //     BioeffectsModule::addStorage(storage, intQuants);
 
-        }
+        // }
     }
 
     /*!
@@ -446,125 +446,125 @@ public:
                 const auto& surfaceVolumeFlux = invB * darcyFlux;
                 // This line causes divergence between CPU and GPU in residual
                 evalPhaseFluxes_<Evaluation>(flux, phaseIdx, pvtRegionIdx, surfaceVolumeFlux, up.fluidState());
-                if constexpr (enableEnergy) {
-                    EnergyModule::template // Problematic line
-                        addPhaseEnthalpyFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up.fluidState());
-                }
-                if constexpr (enableBioeffects) {
-                    BioeffectsModule::template
-                        addBioeffectsFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up);
-                }
-                if constexpr (enableBrine) {
-                    BrineModule::template
-                        addBrineFluxes_<Evaluation, FluidState>(flux, phaseIdx, darcyFlux, up.fluidState());
-                }
+                // if constexpr (enableEnergy) {
+                //     EnergyModule::template // Problematic line
+                //         addPhaseEnthalpyFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up.fluidState());
+                // }
+                // if constexpr (enableBioeffects) {
+                //     BioeffectsModule::template
+                //         addBioeffectsFluxes_<Evaluation>(flux, phaseIdx, darcyFlux, up);
+                // }
+                // if constexpr (enableBrine) {
+                //     BrineModule::template
+                //         addBrineFluxes_<Evaluation, FluidState>(flux, phaseIdx, darcyFlux, up.fluidState());
+                // }
             } else {
                 const auto& invB = getInvB_<FluidSystem, FluidState, Scalar>(up.fluidState(), phaseIdx, pvtRegionIdx, fsys);
                 const auto& surfaceVolumeFlux = invB * darcyFlux;
                 evalPhaseFluxes_<Scalar>(flux, phaseIdx, pvtRegionIdx, surfaceVolumeFlux, up.fluidState());
-                if constexpr (enableEnergy) {
-                    EnergyModule::template
-                        addPhaseEnthalpyFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up.fluidState());
-                }
-                if constexpr (enableBioeffects) {
-                    BioeffectsModule::template
-                        addBioeffectsFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up);
-                }
-                if constexpr (enableBrine) {
-                    BrineModule::template
-                        addBrineFluxes_<Scalar, FluidState>(flux, phaseIdx, darcyFlux, up.fluidState());
-                }
+                // if constexpr (enableEnergy) {
+                //     EnergyModule::template
+                //         addPhaseEnthalpyFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up.fluidState());
+                // }
+                // if constexpr (enableBioeffects) {
+                //     BioeffectsModule::template
+                //         addBioeffectsFluxes_<Scalar>(flux, phaseIdx, darcyFlux, up);
+                // }
+                // if constexpr (enableBrine) {
+                //     BrineModule::template
+                //         addBrineFluxes_<Scalar, FluidState>(flux, phaseIdx, darcyFlux, up.fluidState());
+                // }
             }
         }
 
-        // deal with solvents (if present)
-        static_assert(!enableSolvent,
-                      "Relevant computeFlux() method must be implemented for this module before enabling.");
-        // SolventModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
+        // // deal with solvents (if present)
+        // static_assert(!enableSolvent,
+        //               "Relevant computeFlux() method must be implemented for this module before enabling.");
+        // // SolventModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
 
-        // deal with zFracton (if present)
-        static_assert(!enableExtbo,
-                      "Relevant computeFlux() method must be implemented for this module before enabling.");
-        // ExtboModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
+        // // deal with zFracton (if present)
+        // static_assert(!enableExtbo,
+        //               "Relevant computeFlux() method must be implemented for this module before enabling.");
+        // // ExtboModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
 
-        // deal with polymer (if present)
-        static_assert(!enablePolymer,
-                      "Relevant computeFlux() method must be implemented for this module before enabling.");
-        // PolymerModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
+        // // deal with polymer (if present)
+        // static_assert(!enablePolymer,
+        //               "Relevant computeFlux() method must be implemented for this module before enabling.");
+        // // PolymerModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
 
-        // deal with convective mixing
-        if constexpr (enableConvectiveMixing) {
-            ConvectiveMixingModule::addConvectiveMixingFlux(flux,
-                                                            intQuantsIn,
-                                                            intQuantsEx,
-                                                            globalIndexIn,
-                                                            globalIndexEx,
-                                                            nbInfo.dZg,
-                                                            nbInfo.trans,
-                                                            nbInfo.faceArea,
-                                                            moduleParams.convectiveMixingModuleParam);
-        }
-
-        // deal with energy (if present)
-        if constexpr (enableEnergy) {
-            const Scalar inAlpha = nbInfo.inAlpha;
-            const Scalar outAlpha = nbInfo.outAlpha;
-            Evaluation heatFlux;
-
-            short interiorDofIdx = 0; // NB
-            short exteriorDofIdx = 1; // NB
-
-            EnergyModule::ExtensiveQuantities::updateEnergy(heatFlux,
-                                                            interiorDofIdx, // focusDofIndex,
-                                                            interiorDofIdx,
-                                                            exteriorDofIdx,
-                                                            intQuantsIn,
-                                                            intQuantsEx,
-                                                            intQuantsIn.fluidState(),
-                                                            intQuantsEx.fluidState(),
-                                                            inAlpha,
-                                                            outAlpha,
-                                                            faceArea);
-            EnergyModule::addHeatFlux(flux, heatFlux);
-        }
-        // NB need to be tha last energy call since it does scaling
-        // EnergyModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx); // TODO: write a new computeFlux that does not use elemCtx
-
-        // deal with foam (if present)
-        static_assert(!enableFoam,
-                      "Relevant computeFlux() method must be implemented for this module before enabling.");
-        // FoamModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
-
-        // deal with diffusion (if present). opm-models expects per area flux (added in the tmpdiffusivity).
-        if constexpr (enableDiffusion) {
-            typename DiffusionModule::ExtensiveQuantities::EvaluationArray effectiveDiffusionCoefficient;
-            DiffusionModule::ExtensiveQuantities::update(effectiveDiffusionCoefficient, intQuantsIn, intQuantsEx);
-            const Scalar diffusivity = nbInfo.diffusivity;
-            const Scalar tmpdiffusivity = diffusivity / faceArea;
-            DiffusionModule::addDiffusiveFlux(flux,
-                                              intQuantsIn,
-                                              intQuantsEx,
-                                              tmpdiffusivity,
-                                              effectiveDiffusionCoefficient);
-        }
-
-        // deal with dispersion (if present). opm-models expects per area flux (added in the tmpdispersivity).
-        // if constexpr (enableDispersion) {
-        //     typename DispersionModule::ExtensiveQuantities::ScalarArray normVelocityAvg;
-        //     DispersionModule::ExtensiveQuantities::update(normVelocityAvg, intQuantsIn, intQuantsEx);
-        //     const Scalar dispersivity = nbInfo.dispersivity;
-        //     const Scalar tmpdispersivity = dispersivity / faceArea;
-        //     DispersionModule::addDispersiveFlux(flux,
-        //                                         intQuantsIn,
-        //                                         intQuantsEx,
-        //                                         tmpdispersivity,
-        //                                         normVelocityAvg);
+        // // deal with convective mixing
+        // if constexpr (enableConvectiveMixing) {
+        //     ConvectiveMixingModule::addConvectiveMixingFlux(flux,
+        //                                                     intQuantsIn,
+        //                                                     intQuantsEx,
+        //                                                     globalIndexIn,
+        //                                                     globalIndexEx,
+        //                                                     nbInfo.dZg,
+        //                                                     nbInfo.trans,
+        //                                                     nbInfo.faceArea,
+        //                                                     moduleParams.convectiveMixingModuleParam);
         // }
 
-        // apply the scaling for the urea equation in MICP
-        if constexpr (enableMICP) {
-            BioeffectsModule::applyScaling(flux);
-        }
+        // // deal with energy (if present)
+        // if constexpr (enableEnergy) {
+        //     const Scalar inAlpha = nbInfo.inAlpha;
+        //     const Scalar outAlpha = nbInfo.outAlpha;
+        //     Evaluation heatFlux;
+
+        //     short interiorDofIdx = 0; // NB
+        //     short exteriorDofIdx = 1; // NB
+
+        //     EnergyModule::ExtensiveQuantities::updateEnergy(heatFlux,
+        //                                                     interiorDofIdx, // focusDofIndex,
+        //                                                     interiorDofIdx,
+        //                                                     exteriorDofIdx,
+        //                                                     intQuantsIn,
+        //                                                     intQuantsEx,
+        //                                                     intQuantsIn.fluidState(),
+        //                                                     intQuantsEx.fluidState(),
+        //                                                     inAlpha,
+        //                                                     outAlpha,
+        //                                                     faceArea);
+        //     EnergyModule::addHeatFlux(flux, heatFlux);
+        // }
+        // // NB need to be tha last energy call since it does scaling
+        // // EnergyModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx); // TODO: write a new computeFlux that does not use elemCtx
+
+        // // deal with foam (if present)
+        // static_assert(!enableFoam,
+        //               "Relevant computeFlux() method must be implemented for this module before enabling.");
+        // // FoamModule::computeFlux(flux, elemCtx, scvfIdx, timeIdx);
+
+        // // deal with diffusion (if present). opm-models expects per area flux (added in the tmpdiffusivity).
+        // if constexpr (enableDiffusion) {
+        //     typename DiffusionModule::ExtensiveQuantities::EvaluationArray effectiveDiffusionCoefficient;
+        //     DiffusionModule::ExtensiveQuantities::update(effectiveDiffusionCoefficient, intQuantsIn, intQuantsEx);
+        //     const Scalar diffusivity = nbInfo.diffusivity;
+        //     const Scalar tmpdiffusivity = diffusivity / faceArea;
+        //     DiffusionModule::addDiffusiveFlux(flux,
+        //                                       intQuantsIn,
+        //                                       intQuantsEx,
+        //                                       tmpdiffusivity,
+        //                                       effectiveDiffusionCoefficient);
+        // }
+
+        // // deal with dispersion (if present). opm-models expects per area flux (added in the tmpdispersivity).
+        // // if constexpr (enableDispersion) {
+        // //     typename DispersionModule::ExtensiveQuantities::ScalarArray normVelocityAvg;
+        // //     DispersionModule::ExtensiveQuantities::update(normVelocityAvg, intQuantsIn, intQuantsEx);
+        // //     const Scalar dispersivity = nbInfo.dispersivity;
+        // //     const Scalar tmpdispersivity = dispersivity / faceArea;
+        // //     DispersionModule::addDispersiveFlux(flux,
+        // //                                         intQuantsIn,
+        // //                                         intQuantsEx,
+        // //                                         tmpdispersivity,
+        // //                                         normVelocityAvg);
+        // // }
+
+        // // apply the scaling for the urea equation in MICP
+        // if constexpr (enableMICP) {
+        //     BioeffectsModule::applyScaling(flux);
+        // }
     }
 
     template <class BoundaryConditionData, class RateVectorLocal, class LocalProblem>
