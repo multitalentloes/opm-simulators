@@ -80,7 +80,7 @@ public:
      *
      * @param idx The index of the element
      */
-    __host__ __device__ T operator[](size_t idx) const {
+    __host__ __device__ const T& operator[](size_t idx) const {
 #ifndef NDEBUG
         assertInRange(idx);
 #endif
@@ -407,3 +407,4 @@ private:
 } // namespace Opm::gpuistl
 
 #endif
+

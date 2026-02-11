@@ -1056,14 +1056,14 @@ private:
                 auto domain_view = make_view(domain_buffer);
                 auto prep_domain_end = std::chrono::high_resolution_clock::now();
                 auto prep_domain_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_domain_end - prep_domain_start);
-                // std::cout << "GPU domain prep time: " << prep_domain_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU domain prep time: " << prep_domain_duration.count() << " microseconds" << std::endl;
                 
                 auto prep_neighbor_start = std::chrono::high_resolution_clock::now();
                 auto neighborInfo_buffer = gpuistl::copy_to_gpu<MatrixBlockGPU>(neighborInfo_, *gpuJacobian_, jacobian_->istlMatrix());
                 auto neighborInfo_view = gpuistl::make_view(neighborInfo_buffer);
                 auto prep_neighbor_end = std::chrono::high_resolution_clock::now();
                 auto prep_neighbor_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_neighbor_end - prep_neighbor_start);
-                // std::cout << "GPU neighborInfo prep time: " << prep_neighbor_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU neighborInfo prep time: " << prep_neighbor_duration.count() << " microseconds" << std::endl;
 
                 using NeighborInfoGPU = NeighborInfoStruct<ResidualNBInfo, MatrixBlockGPU>;
 
@@ -1088,7 +1088,7 @@ private:
                 auto gpuResidualView = gpuistl::make_view(gpuResidualBuffer);
                 auto prep_residual_end = std::chrono::high_resolution_clock::now();
                 auto prep_residual_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_residual_end - prep_residual_start);
-                // std::cout << "GPU residual prep time: " << prep_residual_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU residual prep time: " << prep_residual_duration.count() << " microseconds" << std::endl;
 
                 using CorrectTypeTagView = typename ::Opm::Properties::TTag::to_gpu_type_t<TypeTag, gpuistl::GpuView>;
                 using GPUBOIQ = BlackOilIntensiveQuantities<CorrectTypeTagView>;
@@ -1102,7 +1102,7 @@ private:
                 auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view(dynamicGpuFluidSystemBuffer);
                 auto prep_fsys_end = std::chrono::high_resolution_clock::now();
                 auto prep_fsys_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_fsys_end - prep_fsys_start);
-                // std::cout << "GPU fluid system prep time: " << prep_fsys_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU fluid system prep time: " << prep_fsys_duration.count() << " microseconds" << std::endl;
 
                 auto prep_volumes_start = std::chrono::high_resolution_clock::now();
                 std::vector<double> volumes(numCells);
@@ -1113,7 +1113,7 @@ private:
                 auto gpuVolumesView = gpuistl::make_view(gpuVolumesBuffer);
                 auto prep_volumes_end = std::chrono::high_resolution_clock::now();
                 auto prep_volumes_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_volumes_end - prep_volumes_start);
-                // std::cout << "GPU volumes prep time: " << prep_volumes_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU volumes prep time: " << prep_volumes_duration.count() << " microseconds" << std::endl;
 
                 // We need to have a pointer to the fluidysystem that can be used inside a GPU kernel
                 // Having a pointer to the view is not good enough as the view exists on the host, so
@@ -1135,7 +1135,7 @@ private:
                 auto gpuModelView = gpuistl::make_view_just_find_me(gpuModelBuffer);
                 auto prep_model_end = std::chrono::high_resolution_clock::now();
                 auto prep_model_duration = std::chrono::duration_cast<std::chrono::microseconds>(prep_model_end - prep_model_start);
-                // std::cout << "GPU model prep time: " << prep_model_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU model prep time: " << prep_model_duration.count() << " microseconds" << std::endl;
 
 
                 // This is terrible, we are probably catching a very large amount of exceptions here, how to support a map on the GPU?
@@ -1197,10 +1197,10 @@ private:
                 auto end_gpu = std::chrono::high_resolution_clock::now();
                 auto gpu_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - start_gpu);
                 auto gpu_prep_duration = std::chrono::duration_cast<std::chrono::microseconds>(start_gpu - enter_function);
-                // std::cout << "GPU pre time: " << gpu_prep_duration.count() << " microseconds" << std::endl;
-                // std::cout << "GPU main kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(mid_gpu - start_gpu).count() << " microseconds" << std::endl;
-                // std::cout << "GPU boundary kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - mid_gpu).count() << " microseconds" << std::endl;
-                // std::cout << "GPU total kernel time: " << gpu_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU pre time: " << gpu_prep_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU main kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(mid_gpu - start_gpu).count() << " microseconds" << std::endl;
+                std::cout << "GPU boundary kernel time: " << std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - mid_gpu).count() << " microseconds" << std::endl;
+                std::cout << "GPU total kernel time: " << gpu_duration.count() << " microseconds" << std::endl;
 
                 auto gpu_finalize_start = std::chrono::high_resolution_clock::now();
                 // Now move the gpu residual into the cpu residual
@@ -1217,7 +1217,7 @@ private:
                 }
                 auto gpu_finalize_end = std::chrono::high_resolution_clock::now();
                 auto gpu_finalize_duration = std::chrono::duration_cast<std::chrono::microseconds>(gpu_finalize_end - gpu_finalize_start);
-                // std::cout << "GPU post time: " << gpu_finalize_duration.count() << " microseconds" << std::endl;
+                std::cout << "GPU post time: " << gpu_finalize_duration.count() << " microseconds" << std::endl;
             } else {
                 int actual_threads = 0;
 
@@ -1335,7 +1335,7 @@ private:
             hipDeviceSynchronize();
             auto flux_kernel_end = std::chrono::high_resolution_clock::now();
             auto flux_kernel_duration = std::chrono::duration_cast<std::chrono::microseconds>(flux_kernel_end - flux_kernel_start);
-            // std::cout << "GPU flux kernel time: " << flux_kernel_duration.count() << " microseconds" << std::endl;
+            std::cout << "GPU flux kernel time: " << flux_kernel_duration.count() << " microseconds" << std::endl;
             
             hipDeviceSynchronize();
             auto acc_kernel_eval_start = std::chrono::high_resolution_clock::now();
@@ -1354,7 +1354,7 @@ private:
             hipDeviceSynchronize();
             auto acc_kernel_eval_end = std::chrono::high_resolution_clock::now();
             auto acc_kernel_eval_duration = std::chrono::duration_cast<std::chrono::microseconds>(acc_kernel_eval_end - acc_kernel_eval_start);
-            // std::cout << "GPU acc kernel time: " << acc_kernel_eval_duration.count() << " microseconds" << std::endl;
+            std::cout << "GPU acc kernel time: " << acc_kernel_eval_duration.count() << " microseconds" << std::endl;
         }
         else {
 #pragma omp parallel for
