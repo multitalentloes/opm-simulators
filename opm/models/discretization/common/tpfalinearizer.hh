@@ -1112,15 +1112,6 @@ private:
                 }
             }
 
-<<<<<<< HEAD
-            // Accumulation term.
-            const double volume = model_().dofTotalVolume(globI);
-            const Scalar storefac = volume / dt;
-            adres = 0.0;
-            {
-                OPM_TIMEBLOCK_LOCAL(computeStorage, Subsystem::Assembly);
-                LocalResidual::template computeStorage<Evaluation>(adres, intQuantsIn);
-=======
             const double dt = simulator_().timeStepSize();
 
             OPM_TIMEBLOCK(linearize);
@@ -1332,7 +1323,6 @@ private:
                 auto cpu_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_cpu - start_cpu);
 
                 std::cout << "CPU kernel time: " << cpu_duration.count() << " microseconds" << std::endl;
->>>>>>> 4828dc1ad (add POC GPU assembly)
             }
 
             {
@@ -1569,11 +1559,7 @@ private:
                 // but the starting state may not be identical to the start-of-step state.
                 // Note that a full assembly must be done before local solves
                 // otherwise this will be left un-updated.
-<<<<<<< HEAD
                 if (problem_().iterationContext().isFirstGlobalIteration()) {
-=======
-                if (localModel.newtonMethod().numIterations() == 0 /*&& !isNlddLocalSolve this was added in rebase, resolve! */) {
->>>>>>> 4828dc1ad (add POC GPU assembly)
                     // Need to update the storage cache.
                     if (localProblem.recycleFirstIterationStorage()) {
                         // Assumes nothing have changed in the system which
@@ -1589,32 +1575,19 @@ private:
                         }
                     }
                     else {
-<<<<<<< HEAD
-                        Dune::FieldVector<Scalar, numEq> tmp;
-                        const IntensiveQuantities intQuantOld = model_().intensiveQuantities(globI, 1);
-                        LocalResidual::template computeStorage<Scalar>(tmp, intQuantOld);
-                        model_().updateCachedStorage(globI, /*timeIdx=*/1, tmp);
-=======
                         VectorBlockType tmp;
                         const LocalIntensiveQuantities intQuantOld = localModel.intensiveQuantities(globI, 1);
                         LocalResidualKernel::template computeStorage<Scalar>(tmp, intQuantOld);
                         localModel.updateCachedStorage(globI, 1, tmp);
->>>>>>> 4828dc1ad (add POC GPU assembly)
                     }
                 }
                 res -= localModel.cachedStorage(globI, 1);
             }
             else {
                 OPM_TIMEBLOCK_LOCAL(computeStorage0, Subsystem::Assembly);
-<<<<<<< HEAD
-                Dune::FieldVector<Scalar, numEq> tmp;
-                const IntensiveQuantities intQuantOld = model_().intensiveQuantities(globI, 1);
-                LocalResidual::template computeStorage<Scalar>(tmp, intQuantOld);
-=======
                 VectorBlockType tmp;
                 const LocalIntensiveQuantities intQuantOld = localModel.intensiveQuantities(globI, 1);
                 LocalResidualKernel::template computeStorage<Scalar>(tmp, intQuantOld);
->>>>>>> 4828dc1ad (add POC GPU assembly)
                 // assume volume do not change
                 res -= tmp;
             }
