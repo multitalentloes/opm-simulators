@@ -53,9 +53,6 @@
 #include <opm/common/utility/gpuDecorators.hpp>
 #include <opm/common/utility/gpuistl_if_available.hpp>
 
-#include <opm/common/ErrorMacros.hpp>
-#include <opm/common/utility/gpuDecorators.hpp>
-
 #include <array>
 #include <cassert>
 #include <stdexcept>
@@ -750,7 +747,6 @@ public:
         if constexpr (enableFullyImplicitThermal) {
             Evaluation heatFlux;
             // avoid overload of functions with same numeber of elements in eclproblem
-
             Scalar alpha;
             if constexpr (runAssemblyOnGpu) {
                 // This path is currently only intended for the SimplifiedBlackoilModel for GPUs
@@ -963,10 +959,9 @@ public:
      * This overload accepts a fluid system instance, enabling use in GPU kernels and
      * other contexts where the static fluid system is not accessible.
      */
-    template <class ScalarVector, class FsysType>
+    template <class ScalarVector>
     OPM_HOST_DEVICE static void adaptMassConservationQuantities_(ScalarVector& container,
-                                                                 unsigned pvtRegionIdx,
-                                                                 const FsysType& fsys)
+                                                                 unsigned pvtRegionIdx)
     {
         // Delegate to the generic overload using a default-constructed static FluidSystem
         // instance. Valid because the static FluidSystem is stateless (std::is_empty_v).
