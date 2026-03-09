@@ -448,7 +448,7 @@ public:
             return *this;
         }
 
-        if (FluidSystem::enableDiffusion()) {
+        if constexpr (getPropValue<TypeTag, Properties::EnableDiffusion>()) {
             tortuosity_ = rhs.tortuosity_;
             diffusionCoefficient_ = rhs.diffusionCoefficient_;
         }
