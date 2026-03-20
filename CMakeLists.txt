@@ -680,8 +680,8 @@ macro(opm-simulators_targets_hook)
 
   foreach(OBJ ${COMMON_MODELS} ${FLOW_MODELS} ${FLOW_VARIANT_MODELS})
     set(SOURCE_FILE "flow/flow_${OBJ}.cpp")
-    if(OBJ STREQUAL "gpu" AND CONVERT_CUDA_TO_HIP)
-      set(SOURCE_FILE "flow/flow_${OBJ}.hip")
+    if(OBJ STREQUAL "gpu")
+      set(SOURCE_FILE "flow/flow_${OBJ}.cu")
     endif()
     
     add_library(flow_lib${OBJ} OBJECT ${SOURCE_FILE})

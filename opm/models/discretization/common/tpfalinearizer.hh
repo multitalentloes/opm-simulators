@@ -1136,7 +1136,7 @@ private:
             // Make sure we have can have the domain on the GPU.
             if constexpr (std::is_same_v<SubDomainType, FullDomain<>>) {
 
-                hipDeviceSynchronize();
+                cudaDeviceSynchronize();
                 auto domain_buffer = copy_to_gpu(domain);
                 auto domain_view = make_view(domain_buffer);
 
@@ -1220,7 +1220,7 @@ private:
 
                 int constexpr blockSize = 256;
 
-                hipDeviceSynchronize();
+                cudaDeviceSynchronize();
                 auto start_gpu = std::chrono::high_resolution_clock::now();
                 bool constexpr use_gpu = true;
                 linearize_parallelization_wrapper<use_gpu, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU>(
@@ -1236,7 +1236,8 @@ private:
                     on_full_domain,
                     gpuVolumesView);
                 if (boundaryInfo_buffer.size() > 0) {
-                    linearize_kernel_bc<GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((boundaryInfo_buffer.size()+blockSize - 1)/blockSize), blockSize>>>(
+                    linearize_kernel_bc<TypeTag, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((boundaryInfo_buffer.size()+blockSize - 1)/blockSize), blockSize>>>(
+
                         diagMatAddressView,
                         gpuResidualView,
                         boundaryInfo_view,
@@ -1244,7 +1245,7 @@ private:
                         gpuFlowProblemVerySimpleView);
                 }
 
-                hipDeviceSynchronize();
+                cudaDeviceSynchronize();
                 auto end_gpu = std::chrono::high_resolution_clock::now();
                 auto gpu_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - start_gpu);
                 std::cout << "GPU kernel time: " << gpu_duration.count() << " microseconds" << std::endl;
@@ -1289,7 +1290,8 @@ private:
             assert(!dispersionActive && "Dispersion not yet supported on GPU");
             int constexpr blockSize = 256;
 #if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
-            gpu_parallelize_linearization_kernel<LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, ResidualType><<<((numCells + blockSize - 1) / blockSize), blockSize>>>(
+            gpu_parallelize_linearization_kernel<TypeTag, LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, ResidualType><<<((numCells + blockSize - 1) / blockSize), blockSize>>>(
+
                 numCells,
                 localDomain,
                 localNeighborInfo,
@@ -1325,44 +1327,7 @@ private:
         }
     }
 
-#if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
-    template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
-    __global__ __launch_bounds__(256) static void gpu_parallelize_linearization_kernel(
-        const unsigned int numCells,
-        const DomainType GPU_LOCAL_domain,
-        const NeighborSparseTable GPU_LOCAL_neighborInfo,
-        DiagPtrType GPU_LOCAL_diagMatAddress,
-        GpuResidualView GPU_LOCAL_residualView,
-        LocalModelClass localModel,
-        Scalar invLocDT,
-        bool dispersionActive,
-        bool enableBioeffects,
-        bool onFullDomain,
-        const gpuistl::GpuView<Scalar> GPU_LOCAL_volumes)
-    {
-        // Get the index of the cell
-        const unsigned int ii = blockIdx.x * blockDim.x + threadIdx.x;
-
-        if (ii < numCells) {
-            linearize_kernel<true, int, int, LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, GpuResidualView>(
-                ii,
-                GPU_LOCAL_domain,
-                GPU_LOCAL_neighborInfo,
-                GPU_LOCAL_diagMatAddress,
-                GPU_LOCAL_residualView,
-                localModel,
-                0/*dummy for velocity info*/,
-                invLocDT,
-                0/*dummy for problem type*/,
-                dispersionActive,
-                enableBioeffects,
-                onFullDomain,
-                GPU_LOCAL_volumes
-                );
-        }
-    }
-#endif
-
+public:
     template<typename T, bool useGPU>
     using ArgType = std::conditional_t<useGPU, T, T&>;
 
@@ -1512,57 +1477,7 @@ private:
         *reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]) += bMat;
     }
 
-#if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
-
-    
-    template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class GpuResidualView, class GpuBoundaryInfoView, class GpuProblem>
-    __global__ static void linearize_kernel_bc(
-        DiagPtrType GPU_LOCAL_diagMatAddress,
-        GpuResidualView GPU_LOCAL_residualView,
-        const GpuBoundaryInfoView GPU_LOCAL_boundaryInfo,
-        LocalModelClass localModel,
-        GpuProblem gpuProblem)
-    {
-        const unsigned int ii = blockIdx.x * blockDim.x + threadIdx.x;
-        // Boundary terms. Only looping over cells with nontrivial bcs.
-        if (ii < GPU_LOCAL_boundaryInfo.size())
-        {
-            // Serializing the bc handling gives correct answer but will be very slow on GPU
-            // I am not sure why this did not give the correct result when using atomic adds
-            // The only race condition I see is multiple threads fetching the matrix and residual
-            // elements at the same time before adding something to it...
-            if (GPU_LOCAL_boundaryInfo[ii].bcdata.type != BCType::NONE)
-            {
-                VectorBlockType res(.0);
-                MatrixBlockType bMat(0.0);
-                ADVectorBlockType adres(0.0);
-                const unsigned globI = GPU_LOCAL_boundaryInfo[ii].cell;
-                const LocalIntensiveQuantities& insideIntQuants = localModel.intensiveQuantities(globI, /*timeIdx*/ 0);
-                if constexpr (!std::is_empty_v<GetPropType<TypeTag, Properties::FluidSystem>>) {
-                    LocalResidualKernel::computeBoundaryFlux(adres, gpuProblem, GPU_LOCAL_boundaryInfo[ii].bcdata, insideIntQuants, globI);
-                }
-                adres *= GPU_LOCAL_boundaryInfo[ii].bcdata.faceArea;
-                setResAndJacobi(res, bMat, adres);
-                // GPU_LOCAL_residualView[globI] += res;
-                auto* residualPtr = &(GPU_LOCAL_residualView.data()[globI]);
-                for (int i = 0; i < numEq; ++i) {
-                    atomicAdd(&((*residualPtr)[i]), res[i]);
-                }
-                ////SparseAdapter syntax: jacobian_->addToBlock(globI, globI, bMat);
-                // Atomic add for matrix blocks - need to add each element individually
-                // *reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]) += bMat;
-                auto* matPtr = reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]);
-                for (int row = 0; row < bMat.size(); ++row) {
-                    for (int col = 0; col < bMat.size(); ++col) {
-                        Scalar* elemPtr = &((*matPtr)[row][col]);
-                        atomicAdd(elemPtr, bMat[row][col]);
-                    }
-                }
-            }
-        }
-    }
-#endif
-
+private:
     template<class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class GpuResidualView, class GpuBoundaryInfoView>
     void linearize_kernel_CPU_boundary(
         DiagPtrType& GPU_LOCAL_diagMatAddress,
@@ -1662,6 +1577,94 @@ private:
     int exportIndex_;
     int exportCount_;
 };
+
+#if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
+template<class TypeTag, class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class DomainType, class NeighborSparseTable, class GpuResidualView>
+__global__ __launch_bounds__(256) void gpu_parallelize_linearization_kernel(
+    const unsigned int numCells,
+    const DomainType GPU_LOCAL_domain,
+    const NeighborSparseTable GPU_LOCAL_neighborInfo,
+    DiagPtrType GPU_LOCAL_diagMatAddress,
+    GpuResidualView GPU_LOCAL_residualView,
+    LocalModelClass localModel,
+    GetPropType<TypeTag, Properties::Scalar> invLocDT,
+    bool dispersionActive,
+    bool enableBioeffects,
+    bool onFullDomain,
+    const gpuistl::GpuView<GetPropType<TypeTag, Properties::Scalar>> GPU_LOCAL_volumes)
+{
+    // Get the index of the cell
+    const unsigned int ii = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (ii < numCells) {
+        TpfaLinearizer<TypeTag>::template linearize_kernel<true, int, int, LocalIntensiveQuantities, LocalModelClass, LocalResidualKernel, VectorBlockType, MatrixBlockType, ADVectorBlockType, DiagPtrType, DomainType, NeighborSparseTable, GpuResidualView>(
+            ii,
+            GPU_LOCAL_domain,
+            GPU_LOCAL_neighborInfo,
+            GPU_LOCAL_diagMatAddress,
+            GPU_LOCAL_residualView,
+            localModel,
+            0/*dummy for velocity info*/,
+            invLocDT,
+            0/*dummy for problem type*/,
+            dispersionActive,
+            enableBioeffects,
+            onFullDomain,
+            GPU_LOCAL_volumes
+            );
+    }
+}
+
+template<class TypeTag, class LocalIntensiveQuantities, class LocalModelClass, class LocalResidualKernel, class VectorBlockType, class MatrixBlockType, class ADVectorBlockType, class DiagPtrType, class GpuResidualView, class GpuBoundaryInfoView, class GpuProblem>
+__global__ void linearize_kernel_bc(
+    DiagPtrType GPU_LOCAL_diagMatAddress,
+    GpuResidualView GPU_LOCAL_residualView,
+    const GpuBoundaryInfoView GPU_LOCAL_boundaryInfo,
+    LocalModelClass localModel,
+    GpuProblem gpuProblem)
+{
+    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
+    constexpr int numEq = getPropValue<TypeTag, Properties::NumEq>();
+    const unsigned int ii = blockIdx.x * blockDim.x + threadIdx.x;
+    // Boundary terms. Only looping over cells with nontrivial bcs.
+    if (ii < GPU_LOCAL_boundaryInfo.size())
+    {
+        // Serializing the bc handling gives correct answer but will be very slow on GPU
+        // I am not sure why this did not give the correct result when using atomic adds
+        // The only race condition I see is multiple threads fetching the matrix and residual
+        // elements at the same time before adding something to it...
+        if (GPU_LOCAL_boundaryInfo[ii].bcdata.type != BCType::NONE)
+        {
+            VectorBlockType res(.0);
+            MatrixBlockType bMat(0.0);
+            ADVectorBlockType adres(0.0);
+            const unsigned globI = GPU_LOCAL_boundaryInfo[ii].cell;
+            const LocalIntensiveQuantities& insideIntQuants = localModel.intensiveQuantities(globI, /*timeIdx*/ 0);
+            if constexpr (!std::is_empty_v<GetPropType<TypeTag, Properties::FluidSystem>>) {
+                LocalResidualKernel::computeBoundaryFlux(adres, gpuProblem, GPU_LOCAL_boundaryInfo[ii].bcdata, insideIntQuants, globI);
+            }
+            adres *= GPU_LOCAL_boundaryInfo[ii].bcdata.faceArea;
+            TpfaLinearizer<TypeTag>::setResAndJacobi(res, bMat, adres);
+            // GPU_LOCAL_residualView[globI] += res;
+            auto* residualPtr = &(GPU_LOCAL_residualView.data()[globI]);
+            for (int i = 0; i < numEq; ++i) {
+                atomicAdd(&((*residualPtr)[i]), res[i]);
+            }
+            ////SparseAdapter syntax: jacobian_->addToBlock(globI, globI, bMat);
+            // Atomic add for matrix blocks - need to add each element individually
+            // *reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]) += bMat;
+            auto* matPtr = reinterpret_cast<MatrixBlockType*>(GPU_LOCAL_diagMatAddress[globI]);
+            for (int row = 0; row < bMat.size(); ++row) {
+                for (int col = 0; col < bMat.size(); ++col) {
+                    Scalar* elemPtr = &((*matPtr)[row][col]);
+                    atomicAdd(elemPtr, bMat[row][col]);
+                }
+            }
+        }
+    }
+}
+#endif
+
 } // namespace Opm
 
 #endif // TPFA_LINEARIZER
