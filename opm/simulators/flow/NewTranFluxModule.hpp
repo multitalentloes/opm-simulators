@@ -142,7 +142,8 @@ public:
      */
     OPM_HOST_DEVICE const DimMatrix& intrinsicPermeability() const
     {
-        throw std::invalid_argument("The ECL transmissibility module does not provide an explicit intrinsic permeability");
+        // throw std::invalid_argument("The ECL transmissibility module does not provide an explicit intrinsic permeability");
+        OPM_THROW(std::invalid_argument, "The ECL transmissibility module does not provide an explicit intrinsic permeability");
     }
 
     /*!
@@ -153,7 +154,8 @@ public:
      */
     OPM_HOST_DEVICE const EvalDimVector& potentialGrad(unsigned) const
     {
-        throw std::invalid_argument("The ECL transmissibility module does not provide explicit potential gradients");
+        // throw std::invalid_argument("The ECL transmissibility module does not provide explicit potential gradients");
+        OPM_THROW(std::invalid_argument, "The ECL transmissibility module does not provide explicit potential gradients");
     }
 
     /*!
@@ -173,7 +175,8 @@ public:
      */
     OPM_HOST_DEVICE const EvalDimVector& filterVelocity(unsigned) const
     {
-        throw std::invalid_argument("The ECL transmissibility module does not provide explicit filter velocities");
+        // throw std::invalid_argument("The ECL transmissibility module does not provide explicit filter velocities");
+        OPM_THROW(std::invalid_argument, "The ECL transmissibility module does not provide explicit filter velocities");
     }
 
     /*!

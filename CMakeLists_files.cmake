@@ -601,6 +601,34 @@ if(CUDA_FOUND OR hip_FOUND)
   if(MPI_FOUND)
     ADD_CUDA_OR_HIP_FILE(TEST_SOURCE_FILES tests test_GpuOwnerOverlapCopy.cpp)
   endif()
+
+  # for loop providing the flag --expt-relaxed-constexpr to fix some cuda issues with constexpr
+  if(NOT CONVERT_CUDA_TO_HIP)
+    set(CU_FILES_NEEDING_RELAXED_CONSTEXPR
+      tests/gpuistl/test_gpu_ad.cu
+      tests/gpuistl/test_gpu_linear_two_phase_material.cu
+      tests/gpuistl/test_gpuPvt.cu
+      tests/gpuistl/test_gpuBlackOilFluidSystem.cu
+      tests/gpuistl/test_GpuSparseMatrix.cu
+      tests/gpuistl/test_GpuSparseTable.cu
+      tests/gpuistl/test_blackoilfluidstategpu.cu
+      flow/flow_gpu.cu
+    )
+
+    foreach(file ${CU_FILES_NEEDING_RELAXED_CONSTEXPR})
+        set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS "--expt-relaxed-constexpr")
+    endforeach()
+
+    set(CU_FILES_NEEDING_FPERMISSIVE
+      tests/gpuistl/test_primary_variables_gpu.cu
+    )
+
+    foreach(file ${CU_FILES_NEEDING_FPERMISSIVE})
+      # Certain structures in OPM requires the -fpermissive flag to compile with nvcc,
+      # this enables this for the specific files
+      set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS "-fpermissive --expt-relaxed-constexpr -Xcompiler=-fpermissive")
+    endforeach()
+  endif()
 endif()
 
 if(USE_GPU_BRIDGE)
