@@ -596,6 +596,7 @@ if(CUDA_FOUND OR hip_FOUND)
       tests/gpuistl/test_GpuSparseMatrix.cu
       tests/gpuistl/test_GpuSparseTable.cu
       tests/gpuistl/test_blackoilfluidstategpu.cu
+      flow/flow_gpu.cu
     )
 
     foreach(file ${CU_FILES_NEEDING_RELAXED_CONSTEXPR})
