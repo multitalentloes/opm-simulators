@@ -163,6 +163,9 @@ macro(opm-simulators_prereqs_hook)
       # OPTIONAL is ignored. Hence the magic above to check whether enabling CUDA works
       enable_language(CUDA)
       set(CUDA_FOUND ON)
+    else()
+      message(FATAL_ERROR "CUDA support requested but no suitable CUDA compiler found. "
+        "Use -DCMAKE_DISABLE_FIND_PACKAGE_CUDA=ON to disable CUDA support.")
     endif()
     if(CUDA_FOUND AND CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "9.0")
       set(CUDA_FOUND OFF)
@@ -680,8 +683,8 @@ macro(opm-simulators_targets_hook)
 
   foreach(OBJ ${COMMON_MODELS} ${FLOW_MODELS} ${FLOW_VARIANT_MODELS})
     set(SOURCE_FILE "flow/flow_${OBJ}.cpp")
-    if(OBJ STREQUAL "gpu" AND CONVERT_CUDA_TO_HIP)
-      set(SOURCE_FILE "flow/flow_${OBJ}.hip")
+    if(OBJ STREQUAL "gpu")
+      set(SOURCE_FILE "flow/flow_${OBJ}.cu")
     endif()
     
     add_library(flow_lib${OBJ} OBJECT ${SOURCE_FILE})

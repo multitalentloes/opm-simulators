@@ -78,27 +78,27 @@ private:
 namespace gpuistl {
 
     template<class Scalar>
-    SimplifiedFlowProblemGPU<Scalar, gpuistl::GpuBuffer>
+    SimplifiedFlowProblemGPU<Scalar, GpuBuffer>
     copy_to_gpu(SimplifiedFlowProblemGPU<Scalar, Opm::VectorWithDefaultAllocator>& cpuProblem)
     {
-        using ModuleParams = BlackoilModuleParams<ConvectiveMixingModuleParam<Scalar, gpuistl::GpuBuffer>>;
-        return SimplifiedFlowProblemGPU<Scalar, gpuistl::GpuBuffer>(
-            gpuistl::GpuBuffer<Scalar>(cpuProblem.alpha0()),
-            gpuistl::GpuBuffer<Scalar>(cpuProblem.alpha1()),
-            gpuistl::GpuBuffer<Scalar>(cpuProblem.alpha2()),
-            ModuleParams { gpuistl::copy_to_gpu(cpuProblem.moduleParams().convectiveMixingModuleParam) }
+        using ModuleParams = BlackoilModuleParams<ConvectiveMixingModuleParam<Scalar, GpuBuffer>>;
+        return SimplifiedFlowProblemGPU<Scalar, GpuBuffer>(
+            GpuBuffer<Scalar>(cpuProblem.alpha0()),
+            GpuBuffer<Scalar>(cpuProblem.alpha1()),
+            GpuBuffer<Scalar>(cpuProblem.alpha2()),
+            ModuleParams { copy_to_gpu(cpuProblem.moduleParams().convectiveMixingModuleParam) }
         );
     }
 
     template<class Scalar>
-    SimplifiedFlowProblemGPU<Scalar, gpuistl::GpuView>
-    make_view(SimplifiedFlowProblemGPU<Scalar, gpuistl::GpuBuffer>& buffer)
+    SimplifiedFlowProblemGPU<Scalar, GpuView>
+    make_view(SimplifiedFlowProblemGPU<Scalar, GpuBuffer>& buffer)
     {
-        using ModuleParams = BlackoilModuleParams<ConvectiveMixingModuleParam<Scalar, gpuistl::GpuView>>;
-        return SimplifiedFlowProblemGPU<Scalar, gpuistl::GpuView>(
-            gpuistl::make_view(buffer.alpha0()),
-            gpuistl::make_view(buffer.alpha1()),
-            gpuistl::make_view(buffer.alpha2()),
+        using ModuleParams = BlackoilModuleParams<ConvectiveMixingModuleParam<Scalar, GpuView>>;
+        return SimplifiedFlowProblemGPU<Scalar, GpuView>(
+            make_view(buffer.alpha0()),
+            make_view(buffer.alpha1()),
+            make_view(buffer.alpha2()),
             ModuleParams { make_view(buffer.moduleParams().convectiveMixingModuleParam) }
         );
     }
