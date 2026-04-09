@@ -564,7 +564,10 @@ public:
                 computeBoundaryThermal(problem, bdyFlux, bdyInfo, insideIntQuants, globalSpaceIdx);
                 break;
             default:
-                throw std::logic_error("Unknown boundary condition type " +
+                // throw std::logic_error("Unknown boundary condition type " +
+                //                     std::to_string(static_cast<int>(bdyInfo.type)) +
+                //                     " in computeBoundaryFlux()." );
+                OPM_THROW(std::logic_error, "Unknown boundary condition type " +
                                     std::to_string(static_cast<int>(bdyInfo.type)) +
                                     " in computeBoundaryFlux()." );
             }
