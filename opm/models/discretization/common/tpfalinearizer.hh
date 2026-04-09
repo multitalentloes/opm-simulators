@@ -1321,7 +1321,7 @@ public:
         bool dispersionActive,
         bool enableBioeffects,
         bool on_full_domain,
-        const gpuistl::GpuView<Scalar> GPU_LOCAL_volumes = gpuistl::GpuView<Scalar>()
+        const gpuistl::GpuView<Scalar> GPU_LOCAL_volumes = {}
         )
     {
         const unsigned globI = GPU_LOCAL_domain.cells[ii];
