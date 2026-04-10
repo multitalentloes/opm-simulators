@@ -182,8 +182,8 @@ public:
     // This ctor is used when switching to the GPU typetag which currently supports thermal effects and diffusion.
     template<class OtherTypeTag>
     explicit BlackOilIntensiveQuantities(
-        const BlackOilIntensiveQuantities<OtherTypeTag>& other, const FluidSystem& fluidSystemPtr)
-        : fluidState_(other.fluidState_.withOtherFluidSystem(fluidSystemPtr))
+        const BlackOilIntensiveQuantities<OtherTypeTag>& other, FluidSystem* fluidSystem)
+        : fluidState_(other.fluidState_.withOtherFluidSystem(fluidSystem))
         , BlackOilEnergyIntensiveQuantities<TypeTag, energyModuleType>(
             other.rockInternalEnergy_, other.totalThermalConductivity_, other.rockFraction_)
         , BlackOilDiffusionIntensiveQuantities<TypeTag, enableDiffusion>(
@@ -212,7 +212,7 @@ public:
      * \endcode
      */
     template <class OtherTypeTag>
-    auto withOtherFluidSystem(const GetPropType<OtherTypeTag, Properties::FluidSystem>& other) const
+    auto withOtherFluidSystem(GetPropType<OtherTypeTag, Properties::FluidSystem>* other) const
     {
         BlackOilIntensiveQuantities<OtherTypeTag> newIntQuants(*this, other);
         return newIntQuants;
