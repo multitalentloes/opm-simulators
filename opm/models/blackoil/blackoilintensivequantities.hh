@@ -281,7 +281,7 @@ public:
      * \endcode
      */
     template <class OtherTypeTag>
-    auto withOtherFluidSystem(const GetPropType<OtherTypeTag, Properties::FluidSystem>& other) const
+    auto withOtherFluidSystem(GetPropType<OtherTypeTag, Properties::FluidSystem>* other) const
     {
         BlackOilIntensiveQuantities<OtherTypeTag> newIntQuants(*this, other);
         return newIntQuants;

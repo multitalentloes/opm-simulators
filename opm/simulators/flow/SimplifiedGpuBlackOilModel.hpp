@@ -159,7 +159,7 @@ namespace gpuistl
     // For now we make a copy of the simplified CPU model because we need to set the fluid system
     // pointer without breaking copy semantics
     template <class TypeTag, typename GpuFluidSystem>
-    auto copy_to_gpu(const SimplifiedGpuFIBlackOilModel<TypeTag>& cpuModel, const GpuFluidSystem& fsys)
+    auto copy_to_gpu(const SimplifiedGpuFIBlackOilModel<TypeTag>& cpuModel, GpuFluidSystem* fsys)
     {
         using Scalar = typename SimplifiedGpuFIBlackOilModel<TypeTag>::Scalar;
         // In this copy_to_gpu we need to take care of two things:
