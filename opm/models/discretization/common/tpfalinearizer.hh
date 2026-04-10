@@ -1102,75 +1102,75 @@ private:
                 // Copy boundary info to GPU
                 gpuistl::GpuBuffer<BoundaryInfoGPU> boundaryInfo_buffer = gpuistl::copy_to_gpu<VectorBlockGPU, GpuScalarFluidState, BoundaryInfoGPU>(boundaryInfo_, dynamicGpuFluidSystemPtr.get());
 
-                auto boundaryInfo_view = gpuistl::make_view(boundaryInfo_buffer);
+                // auto boundaryInfo_view = gpuistl::make_view(boundaryInfo_buffer);
 
-                using GpuModel = GetPropType<TypeTag, Properties::GpuFIBlackOilModel>;
-                GpuModel gpuModel(model_().allIntensiveQuantities0(), model_().allIntensiveQuantities1());
+                // using GpuModel = GetPropType<TypeTag, Properties::GpuFIBlackOilModel>;
+                // GpuModel gpuModel(model_().allIntensiveQuantities0(), model_().allIntensiveQuantities1());
 
-                auto gpuModelBuffer = gpuistl::copy_to_gpu(gpuModel, *dynamicGpuFluidSystemPtr);
-                auto gpuModelView = gpuistl::make_view(gpuModelBuffer);
+                // auto gpuModelBuffer = gpuistl::copy_to_gpu(gpuModel, *dynamicGpuFluidSystemPtr);
+                // auto gpuModelView = gpuistl::make_view(gpuModelBuffer);
 
                 // Handle the thermal half transmissibilities that on CPU are accessible in the kernel via the problem instance
                 // that instead must be prefetched for the GPU.
-                std::vector<Scalar> alpha0(numCells);
-                std::vector<Scalar> alpha1(numCells);
-                std::vector<Scalar> alpha2(numCells);
+                // std::vector<Scalar> alpha0(numCells);
+                // std::vector<Scalar> alpha1(numCells);
+                // std::vector<Scalar> alpha2(numCells);
 
-                const std::map<std::pair<unsigned, unsigned>, Scalar>& thermalHalfTransBoundary = problem_().eclTransmissibilities().getThermalHalfTransBoundary();
+                // const std::map<std::pair<unsigned, unsigned>, Scalar>& thermalHalfTransBoundary = problem_().eclTransmissibilities().getThermalHalfTransBoundary();
 
-                for (auto e : thermalHalfTransBoundary) {
-                    const auto& key = e.first;
-                    const auto& value = e.second;
-                    const unsigned cell = key.first;
-                    const unsigned dir = key.second;
-                    if (dir == 0) {
-                        alpha0[cell] = value;
-                    } else if (dir == 1) {
-                        alpha1[cell] = value;
-                    } else if (dir == 2) {
-                        alpha2[cell] = value;
-                    }
-                }
+                // for (auto e : thermalHalfTransBoundary) {
+                //     const auto& key = e.first;
+                //     const auto& value = e.second;
+                //     const unsigned cell = key.first;
+                //     const unsigned dir = key.second;
+                //     if (dir == 0) {
+                //         alpha0[cell] = value;
+                //     } else if (dir == 1) {
+                //         alpha1[cell] = value;
+                //     } else if (dir == 2) {
+                //         alpha2[cell] = value;
+                //     }
+                // }
 
-                SimplifiedFlowProblemGPU<Scalar> gpuFlowProblem(alpha0, alpha1, alpha2, problem_().moduleParams());
-                auto gpuFlowProblemBuffer = gpuistl::copy_to_gpu(gpuFlowProblem);
-                auto gpuFlowProblemView = gpuistl::make_view(gpuFlowProblemBuffer);
-                using GpuProblem = decltype(gpuFlowProblemView);
+                // SimplifiedFlowProblemGPU<Scalar> gpuFlowProblem(alpha0, alpha1, alpha2, problem_().moduleParams());
+                // auto gpuFlowProblemBuffer = gpuistl::copy_to_gpu(gpuFlowProblem);
+                // auto gpuFlowProblemView = gpuistl::make_view(gpuFlowProblemBuffer);
+                // using GpuProblem = decltype(gpuFlowProblemView);
 
-                int constexpr blockSize = 256;
-                linearize_parallelization_wrapper<run_assembly_on_gpu, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU>(
-                    numCells,
-                    domain_view,
-                    neighborInfo_view,
-                    diagMatAddressView,
-                    gpuResidualView,
-                    gpuModelView,
-                    invDt,
-                    dispersionActive,
-                    enableBioeffects,
-                    on_full_domain,
-                    gpuFlowProblemView,
-                    gpuVolumesView);
-                if (boundaryInfo_buffer.size() > 0) {
-                    linearize_kernel_bc<TypeTag, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((boundaryInfo_buffer.size()+blockSize - 1)/blockSize), blockSize>>>(
-                        diagMatAddressView,
-                        gpuResidualView,
-                        boundaryInfo_view,
-                        gpuModelView,
-                        gpuFlowProblemView);
-                }
+                // int constexpr blockSize = 256;
+                // linearize_parallelization_wrapper<run_assembly_on_gpu, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU>(
+                //     numCells,
+                //     domain_view,
+                //     neighborInfo_view,
+                //     diagMatAddressView,
+                //     gpuResidualView,
+                //     gpuModelView,
+                //     invDt,
+                //     dispersionActive,
+                //     enableBioeffects,
+                //     on_full_domain,
+                //     gpuFlowProblemView,
+                //     gpuVolumesView);
+                // if (boundaryInfo_buffer.size() > 0) {
+                //     linearize_kernel_bc<TypeTag, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((boundaryInfo_buffer.size()+blockSize - 1)/blockSize), blockSize>>>(
+                //         diagMatAddressView,
+                //         gpuResidualView,
+                //         boundaryInfo_view,
+                //         gpuModelView,
+                //         gpuFlowProblemView);
+                // }
 
-                // Now move the gpu residual into the cpu residual
-                auto cpuResidualFromGpu = gpuResidualBuffer.asStdVector();
-                std::memcpy(residual_.data(), cpuResidualFromGpu.data(), numCells * numEq * sizeof(Scalar));
+                // // Now move the gpu residual into the cpu residual
+                // auto cpuResidualFromGpu = gpuResidualBuffer.asStdVector();
+                // std::memcpy(residual_.data(), cpuResidualFromGpu.data(), numCells * numEq * sizeof(Scalar));
 
-                // move computed jacobian from GPU to CPU
-                auto gpuJacobianNonZeroes = gpuJacobian_->getNonZeroValues().asStdVector();
-                auto& cpuJacobian = jacobian_->istlMatrix();
-                const size_t totalMatrixSize = cpuJacobian.nonzeroes() * numEq * numEq;
+                // // move computed jacobian from GPU to CPU
+                // auto gpuJacobianNonZeroes = gpuJacobian_->getNonZeroValues().asStdVector();
+                // auto& cpuJacobian = jacobian_->istlMatrix();
+                // const size_t totalMatrixSize = cpuJacobian.nonzeroes() * numEq * numEq;
 
-                std::memcpy(&(cpuJacobian[0][0][0][0]), gpuJacobianNonZeroes.data(),
-                        totalMatrixSize * sizeof(Scalar));
+                // std::memcpy(&(cpuJacobian[0][0][0][0]), gpuJacobianNonZeroes.data(),
+                //         totalMatrixSize * sizeof(Scalar));
             } else {
                 assert(false && "Only FullDomain is supported on GPU");
             }
