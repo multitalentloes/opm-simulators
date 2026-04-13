@@ -1281,7 +1281,8 @@ private:
                 localGpuProblem,
                 dispersionActive,
                 enableBioeffects,
-                onFullDomain);
+                onFullDomain,
+                0 /* not used on CPU */);
             }
         }
     }
@@ -1307,7 +1308,8 @@ public:
              class DiagPtrType,
              class DomainType,
              class NeighborSparseTable,
-             class GpuResidualView>
+             class GpuResidualView,
+             class GpuScalarViewType>
     OPM_HOST_DEVICE static void linearize_kernel(
         const unsigned int ii,
         const ConstArgType<DomainType, useGPU> GPU_LOCAL_domain,
@@ -1321,7 +1323,7 @@ public:
         bool dispersionActive,
         bool enableBioeffects,
         bool on_full_domain,
-        const gpuistl::GpuView<Scalar> GPU_LOCAL_volumes = {}
+        const GpuScalarViewType GPU_LOCAL_volumes // NO DEFAULT CTOR EXISTS
         )
     {
         const unsigned globI = GPU_LOCAL_domain.cells[ii];
