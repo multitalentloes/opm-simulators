@@ -71,6 +71,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <chrono>
+
 #include <fmt/format.h>
 
 #include <opm/common/utility/gpuDecorators.hpp>
@@ -215,8 +217,8 @@ namespace  gpuistl {
             const size_t gpuBlockSize = gpuJacobian.blockSize() * gpuJacobian.blockSize();
             const size_t cpuBlockSize = CpuBlockType::rows * CpuBlockType::cols;
 
-            size_t gpuBufferSize = gpuNonZeroes * sizeof(typename GpuMatrixType::field_type) * gpuBlockSize;
-            size_t cpuBufferSize = cpuNonZeroes * sizeof(typename CpuMatrixType::field_type) * cpuBlockSize;
+            size_t gpuBufferSize = gpuNonZeroes * gpuBlockSize;
+            size_t cpuBufferSize = cpuNonZeroes * cpuBlockSize;
 
             assert (gpuBufferSize == cpuBufferSize);
 
@@ -1130,6 +1132,9 @@ private:
                     } else if (dir == 2) {
                         alpha2[cell] = value;
                     }
+                    else {
+                        OPM_THROW(std::logic_error, "Invalid direction for thermal half transmissibility: " + std::to_string(dir));
+                    }
                 }
 
                 SimplifiedFlowProblemGPU<Scalar> gpuFlowProblem(alpha0, alpha1, alpha2, problem_().moduleParams());
@@ -1138,6 +1143,9 @@ private:
                 using GpuProblem = decltype(gpuFlowProblemView);
 
                 int constexpr blockSize = 256;
+                cudaDeviceSynchronize();
+                auto linearizeStartTime = std::chrono::high_resolution_clock::now();
+
                 linearize_parallelization_wrapper<run_assembly_on_gpu, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU>(
                     numCells,
                     domain_view,
@@ -1152,13 +1160,18 @@ private:
                     gpuFlowProblemView,
                     gpuVolumesView);
                 if (boundaryInfo_buffer.size() > 0) {
-                    linearize_kernel_bc<TypeTag, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((boundaryInfo_buffer.size()+blockSize - 1)/blockSize), blockSize>>>(
+                    linearize_kernel_bc<CorrectTypeTagView, GPUBOIQ, decltype(gpuModelView), LocalResidualGPU, VectorBlockGPU, MatrixBlockGPU, ADVectorBlockGPU><<<((boundaryInfo_buffer.size()+blockSize - 1)/blockSize), blockSize>>>(
                         diagMatAddressView,
                         gpuResidualView,
                         boundaryInfo_view,
                         gpuModelView,
                         gpuFlowProblemView);
                 }
+
+                cudaDeviceSynchronize();
+                auto linearizeEndTime = std::chrono::high_resolution_clock::now();
+                auto linearizeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(linearizeEndTime - linearizeStartTime).count();
+                std::cout << fmt::format("GPU linearization took {:.3f} ms\n", static_cast<double>(linearizeDuration));
 
                 // Now move the gpu residual into the cpu residual
                 auto cpuResidualFromGpu = gpuResidualBuffer.asStdVector();

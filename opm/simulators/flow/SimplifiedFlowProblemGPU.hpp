@@ -46,12 +46,12 @@ public:
             return alpha0_[globalIndex];
         } else if (boundaryFaceIndex == 1) {
             return alpha1_[globalIndex];
-        } else {
+        } else if (boundaryFaceIndex == 2) {
             return alpha2_[globalIndex];
+        } else {
+            OPM_THROW(std::logic_error, "Invalid boundary face index: " + std::to_string(boundaryFaceIndex));
         }
     }
-
-    OPM_HOST_DEVICE Scalar getAlpha2() const { return 1.0;}
 
     OPM_HOST_DEVICE const ModuleParams& moduleParams() const { return moduleParams_; }
     OPM_HOST_DEVICE ModuleParams& moduleParams() { return moduleParams_; }
