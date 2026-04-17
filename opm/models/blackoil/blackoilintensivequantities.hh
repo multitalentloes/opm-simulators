@@ -186,7 +186,7 @@ public:
     requires (energyModuleType == EnergyModules::FullyImplicitThermal && (enableDiffusion != 0))
     explicit BlackOilIntensiveQuantities(
         const BlackOilIntensiveQuantities<OtherTypeTag>& other, const FluidSystem& fsystem)
-        : fluidState_(other.fluidState_.template withOtherFluidSystem<const FluidSystem*, Indices::numPhases>(&fsystem))
+        : fluidState_(other.fluidState_.template withOtherFluidSystem<FluidSystem, Indices::numPhases>(fsystem))
         , BlackOilEnergyIntensiveQuantities<TypeTag, energyModuleType>(
             other.rockInternalEnergy_, other.totalThermalConductivity_, other.rockFraction_)
         , BlackOilDiffusionIntensiveQuantities<TypeTag, enableDiffusion>(
@@ -210,7 +210,7 @@ public:
     requires (energyModuleType == EnergyModules::FullyImplicitThermal && (enableDiffusion == 0))
     explicit BlackOilIntensiveQuantities(
         const BlackOilIntensiveQuantities<OtherTypeTag>& other, const FluidSystem& fsystem)
-        : fluidState_(other.fluidState_.template withOtherFluidSystem<const FluidSystem*, Indices::numPhases>(&fsystem))
+        : fluidState_(other.fluidState_.template withOtherFluidSystem<FluidSystem, Indices::numPhases>(fsystem))
         , BlackOilEnergyIntensiveQuantities<TypeTag, energyModuleType>(
             other.rockInternalEnergy_, other.totalThermalConductivity_, other.rockFraction_)
         , referencePorosity_(other.referencePorosity_)
@@ -232,7 +232,7 @@ public:
     requires (energyModuleType != EnergyModules::FullyImplicitThermal && (enableDiffusion != 0))
     explicit BlackOilIntensiveQuantities(
         const BlackOilIntensiveQuantities<OtherTypeTag>& other, const FluidSystem& fsystem)
-        : fluidState_(other.fluidState_.template withOtherFluidSystem<const FluidSystem*, Indices::numPhases>(&fsystem))
+        : fluidState_(other.fluidState_.template withOtherFluidSystem<FluidSystem, Indices::numPhases>(fsystem))
         , BlackOilDiffusionIntensiveQuantities<TypeTag, enableDiffusion>(
             other.tortuosities(), other.diffusionCoefficients())
         , referencePorosity_(other.referencePorosity_)
@@ -254,7 +254,7 @@ public:
     requires (energyModuleType != EnergyModules::FullyImplicitThermal && (enableDiffusion == 0))
     explicit BlackOilIntensiveQuantities(
         const BlackOilIntensiveQuantities<OtherTypeTag>& other, const FluidSystem& fsystem)
-        : fluidState_(other.fluidState_.template withOtherFluidSystem<const FluidSystem*, Indices::numPhases>(&fsystem))
+        : fluidState_(other.fluidState_.template withOtherFluidSystem<FluidSystem, Indices::numPhases>(fsystem))
         , referencePorosity_(other.referencePorosity_)
         , porosity_(other.porosity_)
         , rockCompTransMultiplier_(other.rockCompTransMultiplier_)
