@@ -36,6 +36,15 @@
 
 #include <opm/models/utils/alignedallocator.hh>
 
+#if HAVE_CUDA
+#include <opm/simulators/flow/FlowProblemParameters.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.hpp>
+
+#include <memory>
+#include <type_traits>
+#include <variant>
+#endif
+
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -99,6 +108,10 @@ public:
         // remember the simulator object
         simulatorPtr_ = &simulator;
         enableStorageCache_ = Parameters::Get<Parameters::EnableStorageCache>();
+#if HAVE_CUDA
+        useGpuIntensiveQuantitiesDispatcher_ =
+            Parameters::Get<Parameters::ExperimentalComputePropertiesOnGpu>();
+#endif
     }
 
     static void *operator new(std::size_t size)
@@ -554,6 +567,43 @@ protected:
 
         const unsigned intensiveHistorySize = model().cachedIntensiveQuantityHistorySize();
 
+#if HAVE_CUDA
+        // Optionally route the per-element BlackOilIntensiveQuantities update
+        // through the GPU dispatcher when (a) the experimental CLI flag is
+        // set, (b) we are looking at the most recent time index (so caching
+        // does not interfere) and (c) the current TypeTag is a CO2STORE
+        // style configuration (gas+water, no oil).
+        if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value)
+        {
+            if (useGpuIntensiveQuantitiesDispatcher_ && timeIdx >= intensiveHistorySize) {
+                if (!gpuIntensiveQuantitiesDispatcher_) {
+                    gpuIntensiveQuantitiesDispatcher_ =
+                        std::make_unique<
+                            Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcher<TypeTag>>();
+                }
+                std::vector<const PrimaryVariables*> priVarsPtrs(numDof);
+                for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
+                    const unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
+                    const PrimaryVariables& dofSol = globalSol[globalIdx];
+                    dofVars_[dofIdx].priVars[timeIdx] = &dofSol;
+                    priVarsPtrs[dofIdx] = &dofSol;
+                }
+                std::vector<IntensiveQuantities> gpuOutIQ(numDof);
+                gpuIntensiveQuantitiesDispatcher_->update(
+                    problem(), priVarsPtrs.data(), gpuOutIQ.data(), numDof);
+                // The dispatcher writes back into gpuOutIQ only when CPU and
+                // GPU IntensiveQuantities are layout-compatible; for the
+                // current generic FlowProblem TypeTags they are not. Always
+                // run the CPU update afterwards so the simulator sees a
+                // valid IntensiveQuantities for every DoF.
+                for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
+                    updateSingleIntQuants_(*priVarsPtrs[dofIdx], dofIdx, timeIdx);
+                }
+                return;
+            }
+        }
+#endif
+
         // update the non-gradient quantities
         for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
             unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
@@ -614,6 +664,19 @@ protected:
     int stashedDofIdx_{-1};
     int focusDofIdx_{-1};
     bool enableStorageCache_{false};
+#if HAVE_CUDA
+    bool useGpuIntensiveQuantitiesDispatcher_{false};
+    // Lazily-created dispatcher (one per FvBaseElementContext instance), held
+    // by unique_ptr so the dispatcher is only constructed when actually used.
+    // For TypeTags that the dispatcher does not support we keep a
+    // \c std::monostate placeholder instead, so ~FvBaseElementContext does not
+    // require a Dispatcher destructor symbol that was never instantiated.
+    using GpuIntensiveQuantitiesDispatcherStorage = std::conditional_t<
+        Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value,
+        std::unique_ptr<Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcher<TypeTag>>,
+        std::monostate>;
+    GpuIntensiveQuantitiesDispatcherStorage gpuIntensiveQuantitiesDispatcher_{};
+#endif
 };
 
 } // namespace Opm
