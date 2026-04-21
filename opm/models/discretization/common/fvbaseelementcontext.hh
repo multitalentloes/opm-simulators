@@ -36,15 +36,6 @@
 
 #include <opm/models/utils/alignedallocator.hh>
 
-#if HAVE_CUDA
-#include <opm/simulators/flow/FlowProblemParameters.hpp>
-#include <opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.hpp>
-
-#include <memory>
-#include <type_traits>
-#include <variant>
-#endif
-
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -108,10 +99,6 @@ public:
         // remember the simulator object
         simulatorPtr_ = &simulator;
         enableStorageCache_ = Parameters::Get<Parameters::EnableStorageCache>();
-#if HAVE_CUDA
-        useGpuIntensiveQuantitiesDispatcher_ =
-            Parameters::Get<Parameters::ExperimentalComputePropertiesOnGpu>();
-#endif
     }
 
     static void *operator new(std::size_t size)
@@ -567,71 +554,6 @@ protected:
 
         const unsigned intensiveHistorySize = model().cachedIntensiveQuantityHistorySize();
 
-#if HAVE_CUDA
-        // Optionally route the per-element BlackOilIntensiveQuantities update
-        // through the GPU dispatcher when (a) the experimental CLI flag is
-        // set and (b) the current TypeTag is a CO2STORE style configuration
-        // (gas+water, no oil) supported by the dispatcher.
-        //
-        // The dispatcher computes the BlackOil IQ fields on the device and
-        // overlays them onto the per-DoF \c IntensiveQuantities via
-        // \c BlackOilIntensiveQuantities::overlayBlackOilFieldsFrom. After
-        // the GPU update we still update the per-DoF cache (when the model
-        // has one) so subsequent linearizer accesses see the GPU result.
-        if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value)
-        {
-            if (useGpuIntensiveQuantitiesDispatcher_) {
-                if (!gpuIntensiveQuantitiesDispatcher_) {
-                    gpuIntensiveQuantitiesDispatcher_ =
-                        std::make_unique<
-                            Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcher<TypeTag>>();
-                }
-                // 1. Run the regular CPU per-DoF update first so that all
-                //    intensive-quantity fields the dispatcher does NOT
-                //    compute (mobility, temperature, salt, energy, ...) are
-                //    properly initialised. Without this, downstream uses of
-                //    those fields read from default-constructed memory and
-                //    propagate NaNs into the well/source equations.
-                std::vector<const PrimaryVariables*> priVarsPtrs(numDof);
-                std::vector<IntensiveQuantities*> outIqPtrs(numDof);
-                for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
-                    const unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
-                    const PrimaryVariables& dofSol = globalSol[globalIdx];
-                    if (timeIdx < intensiveHistorySize) {
-                        dofVars_[dofIdx].thermodynamicHint[timeIdx] =
-                            model().thermodynamicHint(globalIdx, timeIdx);
-                        const auto* cachedIntQuants =
-                            model().cachedIntensiveQuantities(globalIdx, timeIdx);
-                        if (cachedIntQuants) {
-                            dofVars_[dofIdx].intensiveQuantities[timeIdx] = *cachedIntQuants;
-                            dofVars_[dofIdx].priVars[timeIdx] = &dofSol;
-                        } else {
-                            updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
-                        }
-                    } else {
-                        updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
-                    }
-                    priVarsPtrs[dofIdx] = &dofSol;
-                    outIqPtrs[dofIdx] = &dofVars_[dofIdx].intensiveQuantities[timeIdx];
-                }
-                // 2. Now overlay the GPU-computed BlackOil fields on top of
-                //    the CPU-initialised IntensiveQuantities.
-                gpuIntensiveQuantitiesDispatcher_->update(
-                    problem(), priVarsPtrs.data(), outIqPtrs.data(), numDof);
-                if (timeIdx < intensiveHistorySize) {
-                    for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
-                        const unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
-                        model().updateCachedIntensiveQuantities(
-                            dofVars_[dofIdx].intensiveQuantities[timeIdx],
-                            globalIdx,
-                            timeIdx);
-                    }
-                }
-                return;
-            }
-        }
-#endif
-
         // update the non-gradient quantities
         for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
             unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
@@ -692,19 +614,6 @@ protected:
     int stashedDofIdx_{-1};
     int focusDofIdx_{-1};
     bool enableStorageCache_{false};
-#if HAVE_CUDA
-    bool useGpuIntensiveQuantitiesDispatcher_{false};
-    // Lazily-created dispatcher (one per FvBaseElementContext instance), held
-    // by unique_ptr so the dispatcher is only constructed when actually used.
-    // For TypeTags that the dispatcher does not support we keep a
-    // \c std::monostate placeholder instead, so ~FvBaseElementContext does not
-    // require a Dispatcher destructor symbol that was never instantiated.
-    using GpuIntensiveQuantitiesDispatcherStorage = std::conditional_t<
-        Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value,
-        std::unique_ptr<Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcher<TypeTag>>,
-        std::monostate>;
-    GpuIntensiveQuantitiesDispatcherStorage gpuIntensiveQuantitiesDispatcher_{};
-#endif
 };
 
 } // namespace Opm

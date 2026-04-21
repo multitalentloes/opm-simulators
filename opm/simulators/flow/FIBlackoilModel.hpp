@@ -42,6 +42,8 @@
 
 #include <opm/material/fluidmatrixinteractions/EclMultiplexerMaterialParams.hpp>
 
+#include <opm/common/OpmLog/OpmLog.hpp>
+
 #if HAVE_CUDA
 #include <opm/simulators/flow/FlowProblemParameters.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.hpp>
@@ -50,7 +52,9 @@
 #include <vector>
 #endif
 
+#include <chrono>
 #include <cstddef>
+#include <format>
 #include <stdexcept>
 #include <type_traits>
 
@@ -114,6 +118,16 @@ public:
             }
             OPM_END_PARALLEL_TRY_CATCH("invalidateAndUpdateIntensiveQuantities: state error",
                                        this->simulator_.vanguard().grid().comm());
+#if HAVE_CUDA
+            // After all cells are CPU-updated and written into the cache,
+            // overlay the GPU-computed BlackOil fields in one batched call.
+            if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value)
+            {
+                if (useGpuIntensiveQuantitiesDispatcher_) {
+                    runGpuIntensiveQuantitiesDispatcher_(timeIdx);
+                }
+            }
+#endif
         } else {
             // Grid is possibly refined or otherwise changed between calls.
             ElementContext elemCtx(this->simulator_);
@@ -266,6 +280,7 @@ protected:
     void updateCachedIntQuantsLoop(const unsigned timeIdx) const
     {
         const auto& elementMapper = this->simulator_.model().elementMapper();
+        const auto cpuStartTime = std::chrono::steady_clock::now();
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
@@ -274,6 +289,11 @@ protected:
                 this->template updateSingleCachedIntQuantUnchecked<Args...>(elementMapper.index(elem), timeIdx);
             }
         }
+        const auto cpuDuration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - cpuStartTime);
+        Opm::OpmLog::info(std::format("updateCachedIntQuantsLoop CPU loop took {} ms",
+                                      cpuDuration.count()));
 
 #if HAVE_CUDA
         // After the CPU per-cell update has populated all fields, optionally
@@ -285,7 +305,13 @@ protected:
         if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value)
         {
             if (useGpuIntensiveQuantitiesDispatcher_) {
+                const auto gpuStartTime = std::chrono::steady_clock::now();
                 runGpuIntensiveQuantitiesDispatcher_(timeIdx);
+                const auto gpuDuration =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - gpuStartTime);
+                Opm::OpmLog::info(std::format("updateCachedIntQuantsLoop GPU dispatch took {} ms",
+                                              gpuDuration.count()));
             }
         }
 #endif
