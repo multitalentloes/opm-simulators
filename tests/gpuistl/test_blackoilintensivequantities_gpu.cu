@@ -361,6 +361,14 @@ struct FlowGasWaterEnergyProblemTest {
     using InheritsFrom = std::tuple<FlowGasWaterEnergyProblem>;
 };
 
+/// CPU TypeTag used by the real-deck test: identical to the production
+/// \c FlowGasWaterEnergyProblem (does not force-disable diffusion or
+/// dispersion) so that decks enabling those keywords can construct the
+/// simulator successfully.
+struct FlowGasWaterEnergyProblemTestRealDeck {
+    using InheritsFrom = std::tuple<FlowGasWaterEnergyProblem>;
+};
+
 } // namespace TTag
 
 template <class TypeTag>
@@ -695,6 +703,277 @@ struct TemporaryFile {
     TemporaryFile& operator=(const TemporaryFile&) = delete;
 };
 
+/// Variant of \c runIntensiveQuantitiesTestForDeck that takes the per-cell
+/// primary variables from the simulator's initial (EQUIL-driven) solution
+/// vector instead of using a single uniform prototype. This exercises the
+/// exact code path used by the dispatcher in production:
+/// \c BlackOilPrimaryVariables<TypeNacht>(cpuPrimaryVariables[i]) -> GPU
+/// kernel update -> compare CPU vs GPU IQ field-by-field. \p sampleStride
+/// controls how often we check (1 means every cell).
+static void runIntensiveQuantitiesTestFromSimulatorSolution(const std::string& deckPath,
+                                                            std::size_t sampleStride)
+{
+    Opm::resetLocale();
+
+    using namespace Opm;
+    using LocalTypeTag    = Opm::Properties::TTag::FlowGasWaterEnergyProblemTestRealDeck;
+    using LocalGpuTypeTag = Opm::Properties::TTag::FlowGasWaterEnergyDummyProblemGPU;
+    using Simulator = Opm::GetPropType<LocalTypeTag, Opm::Properties::Simulator>;
+
+    // Mirror initSimulatorOnce() but for LocalTypeTag (we cannot reuse the
+    // global one since it registers parameters for the smaller TypeTag).
+    static bool registered = false;
+    if (!registered) {
+        int argc1 = boost::unit_test::framework::master_test_suite().argc;
+        char** argv1 = boost::unit_test::framework::master_test_suite().argv;
+#if HAVE_DUNE_FEM
+        Dune::Fem::MPIManager::initialize(argc1, argv1);
+#else
+        Dune::MPIHelper::instance(argc1, argv1);
+#endif
+        FlowGenericVanguard::setCommunication(std::make_unique<Opm::Parallel::Communication>());
+        Opm::ThreadManager::registerParameters();
+        Opm::NewtonMethodParams<double>::registerParameters();
+        BlackoilModelParameters<ScalarToUse>::registerParameters();
+        AdaptiveTimeStepping<LocalTypeTag>::registerParameters();
+        Parameters::Register<Parameters::EnableTerminalOutput>(
+            "Dummy added for the well model to compile.");
+        registerAllParameters_<LocalTypeTag>(true);
+        registered = true;
+    }
+
+    const auto filenameArg = std::string{"--ecl-deck-file-name="} + deckPath;
+    const char* argv2[] = {
+        "test_gpuflowproblem",
+        filenameArg.c_str(),
+        "--check-satfunc-consistency=false",
+        "--enable-tuning=false",
+    };
+    Opm::setupParameters_<LocalTypeTag>(/*argc=*/sizeof(argv2) / sizeof(argv2[0]),
+                                        argv2,
+                                        /*registerParams=*/false,
+                                        /*allowUnused=*/true,
+                                        /*handleHelp=*/false,
+                                        /*myRank=*/0);
+
+    Opm::FlowGenericVanguard::readDeck(deckPath);
+    auto sim = std::make_unique<Simulator>();
+
+    // The Simulator constructor only calls finishInit; the solution vector
+    // is not yet EQUIL-populated. Trigger initial-solution application so
+    // model().solution(0)[i] holds the real per-cell primary variables.
+    sim->model().applyInitialSolution();
+
+    auto& cpuProblem = sim->problem();
+    auto& dynamicFluidSystem = FluidSystem::getNonStaticInstance();
+
+    BOOST_TEST_MESSAGE(std::format(
+        "FluidSystem phase activation: static[O={}, W={}, G={}]  dynamic[O={}, W={}, G={}]",
+        FluidSystem::phaseIsActive(FluidSystem::oilPhaseIdx),
+        FluidSystem::phaseIsActive(FluidSystem::waterPhaseIdx),
+        FluidSystem::phaseIsActive(FluidSystem::gasPhaseIdx),
+        dynamicFluidSystem.phaseIsActive(FluidSystem::oilPhaseIdx),
+        dynamicFluidSystem.phaseIsActive(FluidSystem::waterPhaseIdx),
+        dynamicFluidSystem.phaseIsActive(FluidSystem::gasPhaseIdx)));
+
+    auto dynamicGpuFluidSystemBuffer  = ::Opm::gpuistl::copy_to_gpu(dynamicFluidSystem);
+    auto dynamicGpuFluidSystemView = ::Opm::gpuistl::make_view(dynamicGpuFluidSystemBuffer);
+
+    using FluidSystemViewType = std::decay_t<decltype(dynamicGpuFluidSystemView)>;
+    FluidSystemViewType* managedFluidSystemView = nullptr;
+    OPM_GPU_SAFE_CALL(cudaMallocManaged(&managedFluidSystemView, sizeof(FluidSystemViewType)));
+    new (managedFluidSystemView) FluidSystemViewType(dynamicGpuFluidSystemView);
+
+    BOOST_TEST_MESSAGE(std::format(
+        "GPU fluid-system view phase activation: O={} W={} G={}",
+        managedFluidSystemView->phaseIsActive(FluidSystem::oilPhaseIdx),
+        managedFluidSystemView->phaseIsActive(FluidSystem::waterPhaseIdx),
+        managedFluidSystemView->phaseIsActive(FluidSystem::gasPhaseIdx)));
+
+    using CpuMaterialLawManager = typename Opm::GetProp<LocalTypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
+    using Traits = typename CpuMaterialLawManager::MaterialLaw::Traits;
+    using TwoPhaseTraits = Opm::TwoPhaseMaterialTraits<ScalarToUse,
+                                                       Traits::wettingPhaseIdx,
+                                                       Traits::nonWettingPhaseIdx>;
+    using GpuPiecewiseLinearParams = Opm::PiecewiseLinearTwoPhaseMaterialParams<
+        TwoPhaseTraits, Opm::gpuistl::GpuView<const ScalarToUse>>;
+    using GpuPiecewiseLinearLaw = Opm::PiecewiseLinearTwoPhaseMaterial<TwoPhaseTraits, GpuPiecewiseLinearParams>;
+    using GpuMaterialLawParams = Opm::EclTwoPhaseMaterialParams<
+        Traits, GpuPiecewiseLinearParams, GpuPiecewiseLinearParams, GpuPiecewiseLinearParams,
+        Opm::gpuistl::ValueAsPointer>;
+    using GpuMaterialLaw = Opm::EclTwoPhaseMaterial<
+        Traits, GpuPiecewiseLinearLaw, GpuPiecewiseLinearLaw, GpuPiecewiseLinearLaw,
+        GpuMaterialLawParams>;
+    using GpuManagerBuffer = Opm::EclMaterialLaw::GpuManager<
+        Traits, GpuPiecewiseLinearLaw, GpuPiecewiseLinearLaw,
+        Opm::gpuistl::GpuBuffer, GpuMaterialLaw>;
+    using GpuProblemBuffer = Opm::GpuFlowProblem<ScalarToUse, GpuManagerBuffer, Opm::gpuistl::GpuBuffer>;
+
+    GpuProblemBuffer gpuProblemBuffer(cpuProblem);
+    auto gpuProblemView = Opm::gpuistl::make_view(gpuProblemBuffer);
+
+    const std::size_t numCells = cpuProblem.model().numGridDof();
+    BOOST_REQUIRE_GT(numCells, 0u);
+    BOOST_TEST_MESSAGE("Real-deck test: numCells=" << numCells);
+
+    using PrimaryVariablesCpu = Opm::GetPropType<LocalTypeTag, Opm::Properties::PrimaryVariables>;
+    using PrimaryVariablesGpu = Opm::BlackOilPrimaryVariables<LocalGpuTypeTag, Opm::gpuistl::MiniVector>;
+    using IntensiveQuantitiesCpu = Opm::BlackOilIntensiveQuantities<LocalTypeTag>;
+    using IntensiveQuantitiesGpu = Opm::BlackOilIntensiveQuantities<LocalGpuTypeTag>;
+
+    // Pull the EQUIL-initialized per-cell primary variables straight from
+    // the simulator's solution vector and convert them to the GPU
+    // PrimaryVariables type cell-by-cell.
+    const auto& cpuSolution = cpuProblem.model().solution(/*timeIdx=*/0);
+    BOOST_REQUIRE_EQUAL(cpuSolution.size(), numCells);
+    std::vector<PrimaryVariablesCpu> cpuPrimaryVariables(numCells);
+    std::vector<PrimaryVariablesGpu> hostPrimaryVariablesGpu;
+    hostPrimaryVariablesGpu.reserve(numCells);
+    for (std::size_t i = 0; i < numCells; ++i) {
+        cpuPrimaryVariables[i] = cpuSolution[i];
+        hostPrimaryVariablesGpu.emplace_back(cpuPrimaryVariables[i]);
+    }
+    Opm::gpuistl::GpuBuffer<PrimaryVariablesGpu> primaryVariablesBuffer(hostPrimaryVariablesGpu);
+
+    // Diagnostic: distribution of pressure-meaning values across cells.
+    {
+        std::array<std::size_t, 3> meaningCounts{0, 0, 0};
+        for (std::size_t i = 0; i < numCells; ++i) {
+            const auto m = cpuPrimaryVariables[i].primaryVarsMeaningPressure();
+            switch (m) {
+                case Opm::BlackOil::PressureMeaning::Pg: ++meaningCounts[0]; break;
+                case Opm::BlackOil::PressureMeaning::Po: ++meaningCounts[1]; break;
+                case Opm::BlackOil::PressureMeaning::Pw: ++meaningCounts[2]; break;
+                default: break;
+            }
+        }
+        BOOST_TEST_MESSAGE(std::format(
+            "PressureMeaning distribution (cells={}): Pg={} Po={} Pw={}",
+            numCells, meaningCounts[0], meaningCounts[1], meaningCounts[2]));
+    }
+    if (numCells > 0) {
+        const auto& pv0 = cpuPrimaryVariables[0];
+        BOOST_TEST_MESSAGE(std::format(
+            "Cell 0 PV: meaning(P={},W={},G={}) pvtRegion={}",
+            static_cast<int>(pv0.primaryVarsMeaningPressure()),
+            static_cast<int>(pv0.primaryVarsMeaningWater()),
+            static_cast<int>(pv0.primaryVarsMeaningGas()),
+            pv0.pvtRegionIndex()));
+        for (unsigned k = 0; k < pv0.size(); ++k) {
+            BOOST_TEST_MESSAGE(std::format("  pv[{}] = {}", k, double(pv0[k])));
+        }
+    }
+
+
+    IntensiveQuantitiesCpu cpuIntensiveQuantitiesPrototype;
+    IntensiveQuantitiesGpu gpuIntensiveQuantitiesPrototype =
+        cpuIntensiveQuantitiesPrototype.template withOtherFluidSystem<TypeNacht>(*managedFluidSystemView);
+    std::vector<IntensiveQuantitiesGpu> hostIntensiveQuantities(numCells, gpuIntensiveQuantitiesPrototype);
+    Opm::gpuistl::GpuBuffer<IntensiveQuantitiesGpu> intensiveQuantitiesBuffer(hostIntensiveQuantities);
+
+    const unsigned blockSize = 64u;
+    const unsigned gridSize = static_cast<unsigned>((numCells + blockSize - 1u) / blockSize);
+
+    updateAllCellsKernel<<<gridSize, blockSize>>>(
+        gpuProblemView,
+        Opm::gpuistl::GpuView<const PrimaryVariablesGpu>(
+            primaryVariablesBuffer.data(), primaryVariablesBuffer.size()),
+        Opm::gpuistl::GpuView<IntensiveQuantitiesGpu>(
+            intensiveQuantitiesBuffer.data(), intensiveQuantitiesBuffer.size()),
+        numCells);
+    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
+    OPM_GPU_SAFE_CALL(cudaGetLastError());
+
+    // CPU reference: use the IntensiveQuantities the simulator itself
+    // computed during invalidateAndUpdateIntensiveQuantities(0). This is the
+    // exact CPU value that the production dispatcher path would overlay
+    // GPU-computed BlackOil fields onto, so it is a meaningful reference for
+    // the GPU comparison without requiring the (diffusion-incompatible)
+    // simpler IQ::update overload to compile here.
+    sim->model().invalidateAndUpdateIntensiveQuantities(/*timeIdx=*/0);
+    std::vector<IntensiveQuantitiesCpu> cpuIntensiveQuantities(numCells);
+    for (std::size_t i = 0; i < numCells; ++i) {
+        const auto* cached = sim->model().cachedIntensiveQuantities(static_cast<unsigned>(i), 0);
+        BOOST_REQUIRE(cached != nullptr);
+        cpuIntensiveQuantities[i] = *cached;
+    }
+
+    std::vector<IntensiveQuantitiesGpu> gpuIntensiveQuantitiesHost(numCells, gpuIntensiveQuantitiesPrototype);
+    OPM_GPU_SAFE_CALL(cudaMemcpy(gpuIntensiveQuantitiesHost.data(),
+                                 intensiveQuantitiesBuffer.data(),
+                                 numCells * sizeof(IntensiveQuantitiesGpu),
+                                 cudaMemcpyDeviceToHost));
+
+    constexpr double tol = 1e-6;
+    constexpr unsigned waterPhaseIdx = FluidSystem::waterPhaseIdx;
+    constexpr unsigned gasPhaseIdx   = FluidSystem::gasPhaseIdx;
+    const unsigned activePhases[] = {waterPhaseIdx, gasPhaseIdx};
+
+    std::size_t checked = 0;
+    std::size_t derivativeComparisons = 0;
+    std::size_t firstBadCell = static_cast<std::size_t>(-1);
+    for (std::size_t i = 0; i < numCells; i += sampleStride) {
+        const auto& cpuIQ = cpuIntensiveQuantities[i];
+        const auto& gpuIQ = gpuIntensiveQuantitiesHost[i];
+        const auto& cpuFs = cpuIQ.fluidState();
+        const auto& gpuFs = gpuIQ.fluidState();
+
+        // Probe non-finite values explicitly; report the first offender so
+        // we can debug the production simulator failure mode.
+        for (unsigned p : activePhases) {
+            const double cpuRho = asDouble(cpuFs.density(p));
+            const double gpuRho = asDouble(gpuFs.density(p));
+            const double cpuP   = asDouble(cpuFs.pressure(p));
+            const double gpuP   = asDouble(gpuFs.pressure(p));
+            const double cpuS   = asDouble(cpuFs.saturation(p));
+            const double gpuS   = asDouble(gpuFs.saturation(p));
+            if (!std::isfinite(gpuRho) || !std::isfinite(gpuP) || !std::isfinite(gpuS)) {
+                if (firstBadCell == static_cast<std::size_t>(-1)) {
+                    firstBadCell = i;
+                    BOOST_TEST_MESSAGE(std::format(
+                        "First non-finite GPU IQ at cell {} (phase {}): "
+                        "S(cpu={}, gpu={}) P(cpu={}, gpu={}) rho(cpu={}, gpu={})",
+                        i, p, cpuS, gpuS, cpuP, gpuP, cpuRho, gpuRho));
+                }
+            }
+        }
+
+        for (unsigned p : activePhases) {
+            checkValueAndDerivatives(cpuFs.saturation(p), gpuFs.saturation(p),
+                                     tol, /*checkDerivatives=*/false, "saturation",
+                                     derivativeComparisons);
+            checkValueAndDerivatives(cpuFs.pressure(p), gpuFs.pressure(p),
+                                     tol, /*checkDerivatives=*/false, "pressure",
+                                     derivativeComparisons);
+            checkValueAndDerivatives(cpuFs.density(p), gpuFs.density(p),
+                                     tol, /*checkDerivatives=*/false, "density",
+                                     derivativeComparisons);
+            checkValueAndDerivatives(cpuFs.invB(p), gpuFs.invB(p),
+                                     tol, /*checkDerivatives=*/false, "invB",
+                                     derivativeComparisons);
+            // mobility is intentionally NOT compared: the GPU dispatcher
+            // does not overlay it (left to the CPU-computed value in
+            // production).
+        }
+        checkValueAndDerivatives(cpuFs.Rsw(), gpuFs.Rsw(),
+                                 tol, /*checkDerivatives=*/false, "Rsw",
+                                 derivativeComparisons);
+        checkValueAndDerivatives(cpuFs.Rvw(), gpuFs.Rvw(),
+                                 tol, /*checkDerivatives=*/false, "Rvw",
+                                 derivativeComparisons);
+        BOOST_CHECK_EQUAL(static_cast<unsigned>(cpuFs.pvtRegionIndex()),
+                          static_cast<unsigned>(gpuFs.pvtRegionIndex()));
+        checkValueAndDerivatives(cpuIQ.porosity(), gpuIQ.porosity(),
+                                 tol, /*checkDerivatives=*/false, "porosity",
+                                 derivativeComparisons);
+        BOOST_CHECK_CLOSE(static_cast<double>(cpuIQ.referencePorosity()),
+                          static_cast<double>(gpuIQ.referencePorosity()), tol);
+        ++checked;
+    }
+    BOOST_TEST_MESSAGE("Real-deck per-cell GPU vs CPU IQ comparison: checked "
+                       << checked << " / " << numCells << " cells");
+}
+
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
 {
     // Persist the in-source two-phase WATER+GAS+CO2STORE deck to a file so
@@ -761,5 +1040,21 @@ BOOST_AUTO_TEST_CASE(TestGpuVsCpuIntensiveQuantitiesEvaluationDerivatives)
                                       /*sampleStride=*/1u,
                                       /*measureTiming=*/false,
                                       /*checkDerivatives=*/true);
+}
+
+BOOST_AUTO_TEST_CASE(TestRealDeckGpuVsCpuFromSimulatorSolution)
+{
+    // Drive the per-cell IQ update with the EQUIL-initialized primary
+    // variables of the production CO2STORE deck the user reports diverges
+    // when the dispatcher is enabled. This reproduces the exact code path
+    // taken by the dispatcher in production (per-cell PrimaryVariables
+    // upload + GPU update + readback) and compares every IQ field against
+    // a CPU reference, so we can identify which field becomes non-finite.
+    const std::string deckPath = "/workspaces/opm/thecaseiwant/deck/THECASEIWANT.DATA";
+    if (!std::filesystem::exists(deckPath)) {
+        BOOST_TEST_MESSAGE("Skipping: deck not found at " << deckPath);
+        return;
+    }
+    runIntensiveQuantitiesTestFromSimulatorSolution(deckPath, /*sampleStride=*/1u);
 }
 

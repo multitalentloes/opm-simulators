@@ -339,12 +339,12 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     impl_->totalOverlayMs    += overlayMs;
     impl_->totalDofsProcessed += static_cast<double>(numDof);
 
-    Opm::OpmLog::info(std::format(
-        "[GpuBlackoilIntensiveQuantitiesDispatcher] call={} dofs={}"
-        " convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms",
-        impl_->callCount, numDof,
-        convertMs, h2dMs, kernelMs, d2hMs, overlayMs,
-        convertMs + h2dMs + kernelMs + d2hMs + overlayMs));
+    // Opm::OpmLog::info(std::format(
+    //     "[GpuBlackoilIntensiveQuantitiesDispatcher] call={} dofs={}"
+    //     " convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms",
+    //     impl_->callCount, numDof,
+    //     convertMs, h2dMs, kernelMs, d2hMs, overlayMs,
+    //     convertMs + h2dMs + kernelMs + d2hMs + overlayMs));
 
     ++impl_->callCount;
 }

@@ -570,40 +570,63 @@ protected:
 #if HAVE_CUDA
         // Optionally route the per-element BlackOilIntensiveQuantities update
         // through the GPU dispatcher when (a) the experimental CLI flag is
-        // set, (b) we are looking at the most recent time index (so caching
-        // does not interfere) and (c) the current TypeTag is a CO2STORE
-        // style configuration (gas+water, no oil).
+        // set and (b) the current TypeTag is a CO2STORE style configuration
+        // (gas+water, no oil) supported by the dispatcher.
         //
-        // The dispatcher only computes a subset of the BlackOil IQ fields
-        // (pressure, saturation, density, invB, Rsw, Rvw, porosity,
-        // referencePorosity and rockCompTransMultiplier). We therefore run
-        // the CPU update first to fully populate every field of the per-DoF
-        // IntensiveQuantities and then ask the dispatcher to overlay its
-        // GPU-computed values on top, field-by-field, via
-        // \c BlackOilIntensiveQuantities::overlayBlackOilFieldsFrom.
+        // The dispatcher computes the BlackOil IQ fields on the device and
+        // overlays them onto the per-DoF \c IntensiveQuantities via
+        // \c BlackOilIntensiveQuantities::overlayBlackOilFieldsFrom. After
+        // the GPU update we still update the per-DoF cache (when the model
+        // has one) so subsequent linearizer accesses see the GPU result.
         if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value)
         {
-            if (useGpuIntensiveQuantitiesDispatcher_ && timeIdx >= intensiveHistorySize) {
+            if (useGpuIntensiveQuantitiesDispatcher_) {
                 if (!gpuIntensiveQuantitiesDispatcher_) {
                     gpuIntensiveQuantitiesDispatcher_ =
                         std::make_unique<
                             Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcher<TypeTag>>();
                 }
+                // 1. Run the regular CPU per-DoF update first so that all
+                //    intensive-quantity fields the dispatcher does NOT
+                //    compute (mobility, temperature, salt, energy, ...) are
+                //    properly initialised. Without this, downstream uses of
+                //    those fields read from default-constructed memory and
+                //    propagate NaNs into the well/source equations.
                 std::vector<const PrimaryVariables*> priVarsPtrs(numDof);
                 std::vector<IntensiveQuantities*> outIqPtrs(numDof);
                 for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
                     const unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
                     const PrimaryVariables& dofSol = globalSol[globalIdx];
-                    dofVars_[dofIdx].priVars[timeIdx] = &dofSol;
-                    // Run the CPU update so every field (incl. mobility,
-                    // viscosity, energy/diffusion contributions, etc.) has
-                    // a valid value before the GPU overlay.
-                    //updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
+                    if (timeIdx < intensiveHistorySize) {
+                        dofVars_[dofIdx].thermodynamicHint[timeIdx] =
+                            model().thermodynamicHint(globalIdx, timeIdx);
+                        const auto* cachedIntQuants =
+                            model().cachedIntensiveQuantities(globalIdx, timeIdx);
+                        if (cachedIntQuants) {
+                            dofVars_[dofIdx].intensiveQuantities[timeIdx] = *cachedIntQuants;
+                            dofVars_[dofIdx].priVars[timeIdx] = &dofSol;
+                        } else {
+                            updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
+                        }
+                    } else {
+                        updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
+                    }
                     priVarsPtrs[dofIdx] = &dofSol;
                     outIqPtrs[dofIdx] = &dofVars_[dofIdx].intensiveQuantities[timeIdx];
                 }
+                // 2. Now overlay the GPU-computed BlackOil fields on top of
+                //    the CPU-initialised IntensiveQuantities.
                 gpuIntensiveQuantitiesDispatcher_->update(
                     problem(), priVarsPtrs.data(), outIqPtrs.data(), numDof);
+                if (timeIdx < intensiveHistorySize) {
+                    for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
+                        const unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
+                        model().updateCachedIntensiveQuantities(
+                            dofVars_[dofIdx].intensiveQuantities[timeIdx],
+                            globalIdx,
+                            timeIdx);
+                    }
+                }
                 return;
             }
         }
