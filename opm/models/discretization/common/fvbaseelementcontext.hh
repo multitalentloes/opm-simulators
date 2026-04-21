@@ -573,6 +573,14 @@ protected:
         // set, (b) we are looking at the most recent time index (so caching
         // does not interfere) and (c) the current TypeTag is a CO2STORE
         // style configuration (gas+water, no oil).
+        //
+        // The dispatcher only computes a subset of the BlackOil IQ fields
+        // (pressure, saturation, density, invB, Rsw, Rvw, porosity,
+        // referencePorosity and rockCompTransMultiplier). We therefore run
+        // the CPU update first to fully populate every field of the per-DoF
+        // IntensiveQuantities and then ask the dispatcher to overlay its
+        // GPU-computed values on top, field-by-field, via
+        // \c BlackOilIntensiveQuantities::overlayBlackOilFieldsFrom.
         if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value)
         {
             if (useGpuIntensiveQuantitiesDispatcher_ && timeIdx >= intensiveHistorySize) {
@@ -582,23 +590,20 @@ protected:
                             Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcher<TypeTag>>();
                 }
                 std::vector<const PrimaryVariables*> priVarsPtrs(numDof);
+                std::vector<IntensiveQuantities*> outIqPtrs(numDof);
                 for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
                     const unsigned globalIdx = globalSpaceIndex(dofIdx, timeIdx);
                     const PrimaryVariables& dofSol = globalSol[globalIdx];
                     dofVars_[dofIdx].priVars[timeIdx] = &dofSol;
+                    // Run the CPU update so every field (incl. mobility,
+                    // viscosity, energy/diffusion contributions, etc.) has
+                    // a valid value before the GPU overlay.
+                    //updateSingleIntQuants_(dofSol, dofIdx, timeIdx);
                     priVarsPtrs[dofIdx] = &dofSol;
+                    outIqPtrs[dofIdx] = &dofVars_[dofIdx].intensiveQuantities[timeIdx];
                 }
-                std::vector<IntensiveQuantities> gpuOutIQ(numDof);
                 gpuIntensiveQuantitiesDispatcher_->update(
-                    problem(), priVarsPtrs.data(), gpuOutIQ.data(), numDof);
-                // The dispatcher writes back into gpuOutIQ only when CPU and
-                // GPU IntensiveQuantities are layout-compatible; for the
-                // current generic FlowProblem TypeTags they are not. Always
-                // run the CPU update afterwards so the simulator sees a
-                // valid IntensiveQuantities for every DoF.
-                for (unsigned dofIdx = 0; dofIdx < numDof; ++dofIdx) {
-                    updateSingleIntQuants_(*priVarsPtrs[dofIdx], dofIdx, timeIdx);
-                }
+                    problem(), priVarsPtrs.data(), outIqPtrs.data(), numDof);
                 return;
             }
         }

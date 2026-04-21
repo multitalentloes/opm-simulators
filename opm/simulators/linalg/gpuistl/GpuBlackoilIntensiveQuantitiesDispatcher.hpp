@@ -80,14 +80,18 @@ public:
 
     /// Run the per-cell intensive-quantities update kernel on \p numDof
     /// DoFs. \p cpuPriVars[i] points at the CPU primary variables for DoF
-    /// \c i, and \p outIQ[i] is the destination CPU intensive-quantities
-    /// object. If the CPU and GPU \c IntensiveQuantities types have a
-    /// compatible converting constructor available, the GPU result is
-    /// written into \p outIQ; otherwise \p outIQ is left untouched and the
-    /// caller must fall back to the CPU update.
+    /// \c i. The GPU-computed BlackOil intensive quantities are written
+    /// onto \p outIQ[i] field-by-field via
+    /// \c BlackOilIntensiveQuantities::overlayBlackOilFieldsFrom (so the
+    /// caller is expected to have run the CPU update first to fill in any
+    /// fields the dispatcher does not overwrite, e.g. \c mobility_).
+    ///
+    /// Per-call host/device timings are accumulated and printed every call
+    /// to \c std::cout, prefixed with
+    /// \c "[GpuBlackoilIntensiveQuantitiesDispatcher]".
     void update(const Problem& cpuProblem,
                 const PrimaryVariables* const* cpuPriVars,
-                IntensiveQuantities* outIQ,
+                IntensiveQuantities* const* outIQ,
                 std::size_t numDof);
 
 private:

@@ -80,6 +80,9 @@
 #include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
 #include <opm/simulators/flow/GpuFlowProblem.hpp>
 
+#include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuFlowGasWaterEnergyTypeTags.hpp>
+
 #include <chrono>
 #include <filesystem>
 #include <format>
@@ -101,7 +104,7 @@ static std::string makeDeckString(int nx, int ny, int nz)
       << "DIMENS\n" << nx << ' ' << ny << ' ' << nz << " /\n"
       << "EQLDIMS\n/\n"
       << "TABDIMS\n/\n"
-      << "WATER\nGAS\nCO2STORE\nMETRIC\n"
+      << "WATER\nGAS\nCO2STORE\nTHERMAL\nMETRIC\n"
       << "GRID\n"
       << "GRIDFILE\n0 0 /\n"
       << "DX\n" << total << "*1 /\n"
@@ -118,6 +121,7 @@ static std::string makeDeckString(int nx, int ny, int nz)
       << "SOLUTION\n"
       << "RPTRST\n'BASIC=0' /\n"
       << "EQUIL\n0 300 100 0 0 0 1 1 0 /\n"
+      << "RTEMPVD\n0 36.12\n1000 70.0 /\n"
       << "SCHEDULE\n"
       << "RPTRST\n'BASIC=0' /\n"
       << "TSTEP\n1 /";
@@ -136,6 +140,7 @@ static constexpr const char* deckString1 = "-- =============== RUNSPEC\n"
                                            "WATER\n"
                                            "GAS\n"
                                            "CO2STORE\n"
+                                           "THERMAL\n"
                                            "METRIC\n"
                                            "-- =============== GRID\n"
                                            "GRID\n"
@@ -168,6 +173,9 @@ static constexpr const char* deckString1 = "-- =============== RUNSPEC\n"
                                            "'BASIC=0' /\n"
                                            "EQUIL\n"
                                            "0 300 100 0 0 0 1 1 0 /\n"
+                                           "RTEMPVD\n"
+                                           "0 36.12\n"
+                                           "1000 70.0 /\n"
                                            "-- =============== SCHEDULE\n"
                                            "SCHEDULE\n"
                                            "RPTRST\n"
@@ -341,198 +349,35 @@ namespace Opm
 {
 namespace Properties
 {
-    namespace TTag
-    {
-        struct FlowSimpleProblem {
-            using InheritsFrom = std::tuple<FlowProblem>;
-        };
+namespace TTag
+{
 
-        struct FlowSimpleProblemGPU {
-            using InheritsFrom = std::tuple<FlowSimpleProblem>;
-        };
+/// CPU side mirror of the simulation TypeTag, with diffusion/dispersion
+/// disabled because the simpler \c BlackOilIntensiveQuantities::update()
+/// overload used in this test does not support them. All other property
+/// bindings (Indices, MaterialLaw, FluidSystem, etc.) are inherited as-is
+/// from \c FlowGasWaterEnergyProblem.
+struct FlowGasWaterEnergyProblemTest {
+    using InheritsFrom = std::tuple<FlowGasWaterEnergyProblem>;
+};
 
-        struct FlowSimpleDummyProblemGPU {
-            using InheritsFrom = std::tuple<FlowSimpleProblemGPU>;
-        };
+} // namespace TTag
 
-    } // namespace TTag
+template <class TypeTag>
+struct EnableDiffusion<TypeTag, TTag::FlowGasWaterEnergyProblemTest>
+{ static constexpr bool value = false; };
 
-    // Indices for two-phase gas-water (CO2STORE: WATER + GAS, oil disabled).
-    template <class TypeTag>
-    struct Indices<TypeTag, TTag::FlowSimpleProblem> {
-    private:
-        // it is unfortunately not possible to simply use 'TypeTag' here because this leads
-        // to cyclic definitions of some properties. if this happens the compiler error
-        // messages unfortunately are *really* confusing and not really helpful.
-        using BaseTypeTag = TTag::FlowProblem;
-        using FluidSystem = GetPropType<BaseTypeTag, Properties::FluidSystem>;
+template <class TypeTag>
+struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyProblemTest>
+{ static constexpr bool value = false; };
 
-    public:
-        using type = BlackOilTwoPhaseIndices<getPropValue<TypeTag, Properties::EnableSolvent>(),
-                                             getPropValue<TypeTag, Properties::EnableExtbo>(),
-                                             getPropValue<TypeTag, Properties::EnablePolymer>(),
-                                             getPropValue<TypeTag, Properties::EnableEnergy>(),
-                                             getPropValue<TypeTag, Properties::EnableFoam>(),
-                                             getPropValue<TypeTag, Properties::EnableBrine>(),
-                                             /*PVOffset=*/0,
-                                             /*disabledCompIdx=*/FluidSystem::oilCompIdx,
-                                             0 /*numBioCompV*/>;
-    };
-
-    // CO2STORE requires thermal/energy
-    template <class TypeTag>
-    struct EnableEnergy<TypeTag, TTag::FlowSimpleProblem> {
-        static constexpr bool value = true;
-    };
-
-    template <class TypeTag>
-    struct EnableDispersion<TypeTag, TTag::FlowSimpleProblem> {
-        static constexpr bool value = false;
-    };
-
-    // Use the simple material law on the CPU side (full-featured Manager so that
-    // FlowProblemBlackoil etc. compile).
-    template <class TypeTag>
-    struct MaterialLaw<TypeTag, TTag::FlowSimpleProblem> {
-    private:
-        using Scalar = GetPropType<TypeTag, Properties::Scalar>;
-        using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
-
-        using Traits = ThreePhaseMaterialTraits<Scalar,
-                                                /*wettingPhaseIdx=*/FluidSystem::waterPhaseIdx,
-                                                /*nonWettingPhaseIdx=*/FluidSystem::oilPhaseIdx,
-                                                /*gasPhaseIdx=*/FluidSystem::gasPhaseIdx,
-                                                /*hysteresis=*/false,
-                                                /*enableEndPointScaling=*/true>;
-
-    public:
-        using EclMaterialLawManager = ::Opm::EclMaterialLaw::Manager<Traits>;
-        using type = typename EclMaterialLawManager::MaterialLaw;
-    };
-
-    // Use the simplified, GPU-compatible material law for the GPU tags.
-    template <class TypeTag>
-    struct MaterialLaw<TypeTag, TTag::FlowSimpleProblemGPU> {
-    private:
-        using Scalar = GetPropType<TypeTag, Properties::Scalar>;
-        using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
-
-        using Traits = ThreePhaseMaterialTraits<Scalar,
-                                                /*wettingPhaseIdx=*/FluidSystem::waterPhaseIdx,
-                                                /*nonWettingPhaseIdx=*/FluidSystem::oilPhaseIdx,
-                                                /*gasPhaseIdx=*/FluidSystem::gasPhaseIdx,
-                                                /*hysteresis=*/false,
-                                                /*enableEndPointScaling=*/true>;
-
-        using TwoPhaseTraits = TwoPhaseMaterialTraits<Scalar,
-                                                      /*wettingPhaseIdx=*/Traits::wettingPhaseIdx,
-                                                      /*nonWettingPhaseIdx=*/Traits::nonWettingPhaseIdx>;
-        // The two-phase params use a GpuView based vector storage so the
-        // destructor is trivial on the device.
-        using TwoPhaseParams = ::Opm::PiecewiseLinearTwoPhaseMaterialParams<
-            TwoPhaseTraits, ::Opm::gpuistl::GpuView<const Scalar>>;
-        using TwoPhaseLaw = ::Opm::PiecewiseLinearTwoPhaseMaterial<TwoPhaseTraits, TwoPhaseParams>;
-        // CO2STORE uses the GasWater two-phase sub-approach. The GPU
-        // MaterialLaw is the regular opm-common EclTwoPhaseMaterial driven
-        // by an EclTwoPhaseMaterialParams whose sub-law parameter objects
-        // are stored inline (via Opm::gpuistl::ValueAsPointer) so the
-        // resulting per-cell parameters object is trivially copyable to
-        // the device.
-        using GpuMaterialLawParams = ::Opm::EclTwoPhaseMaterialParams<
-            Traits, TwoPhaseParams, TwoPhaseParams, TwoPhaseParams,
-            ::Opm::gpuistl::ValueAsPointer>;
-        using GpuMaterialLaw = ::Opm::EclTwoPhaseMaterial<
-            Traits, TwoPhaseLaw, TwoPhaseLaw, TwoPhaseLaw, GpuMaterialLawParams>;
-
-    public:
-        using EclMaterialLawManager = ::Opm::EclMaterialLaw::GpuManager<
-            Traits, TwoPhaseLaw, TwoPhaseLaw,
-            ::Opm::VectorWithDefaultAllocator,
-            GpuMaterialLaw>;
-        using type = typename EclMaterialLawManager::MaterialLaw;
-    };
-
-    // Use the TPFA linearizer.
-    template <class TypeTag>
-    struct Linearizer<TypeTag, TTag::FlowSimpleProblem> {
-        using type = TpfaLinearizer<TypeTag>;
-    };
-
-    template <class TypeTag>
-    struct LocalResidual<TypeTag, TTag::FlowSimpleProblem> {
-        using type = BlackOilLocalResidualTPFA<TypeTag>;
-    };
-
-    // Diffusion.
-    template <class TypeTag>
-    struct EnableDiffusion<TypeTag, TTag::FlowSimpleProblem> {
-        static constexpr bool value = false;
-    };
-
-    template <class TypeTag>
-    struct EnableDisgasInWater<TypeTag, TTag::FlowSimpleProblem> {
-        static constexpr bool value = true;
-    };
-
-    template <class TypeTag>
-    struct EnableVapwat<TypeTag, TTag::FlowSimpleProblem> {
-        static constexpr bool value = true;
-    };
-
-    template <class TypeTag>
-    struct PrimaryVariables<TypeTag, TTag::FlowSimpleProblem> {
-        using type = BlackOilPrimaryVariables<TypeTag>;
-    };
-
-    template <class TypeTag>
-    struct PrimaryVariables<TypeTag, TTag::FlowSimpleProblemGPU> {
-        using type = BlackOilPrimaryVariables<TypeTag, Opm::gpuistl::MiniVector>;
-    };
-
-    template <class TypeTag>
-    struct IntensiveQuantities<TypeTag, TTag::FlowSimpleProblem> {
-        using type = BlackOilIntensiveQuantities<TypeTag>;
-    };
-
-    template <class TypeTag>
-    struct Problem<TypeTag, TTag::FlowSimpleDummyProblemGPU> {
-    private:
-        using ScalarT = GetPropType<TypeTag, Properties::Scalar>;
-        using CpuMaterialLawManager =
-            typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
-        // Compose the GPU-view variant of the manager (template parameters
-        // mirror those of GpuManager but with GpuView storage).
-        using GpuViewMaterialLawManager =
-            ::Opm::EclMaterialLaw::GpuManager<typename CpuMaterialLawManager::Traits,
-                                              typename CpuMaterialLawManager::GasOilLaw,
-                                              typename CpuMaterialLawManager::OilWaterLaw,
-                                              ::Opm::gpuistl::GpuView,
-                                              typename CpuMaterialLawManager::MaterialLaw>;
-    public:
-        using type = ::Opm::GpuFlowProblem<ScalarT, GpuViewMaterialLawManager, ::Opm::gpuistl::GpuView>;
-    };
-
-    template <class TypeTag>
-    struct FluidSystem<TypeTag, TTag::FlowSimpleDummyProblemGPU> {
-        using type = BlackOilFluidSystemView;
-    };
-
-    template <class TypeTag>
-    struct FluidSystem<TypeTag, TTag::FlowSimpleProblemGPU> {
-        using type = BlackOilFluidSystemView;
-    };
-
-    template<class TypeTag>
-    struct ElementContext<TypeTag, TTag::FlowSimpleDummyProblemGPU>
-    { using type = FvBaseElementContextGpu<TypeTag>; };
-
-}; // namespace Properties
+} // namespace Properties
 
 } // namespace Opm
 
-using TypeTag = Opm::Properties::TTag::FlowSimpleProblem;
-using TypeNacht = Opm::Properties::TTag::FlowSimpleDummyProblemGPU;
-using TypeTagGPU = Opm::Properties::TTag::FlowSimpleProblemGPU;
+using TypeTag = Opm::Properties::TTag::FlowGasWaterEnergyProblemTest;
+using TypeNacht = Opm::Properties::TTag::FlowGasWaterEnergyDummyProblemGPU;
+using TypeTagGPU = Opm::Properties::TTag::FlowGasWaterEnergyProblemGPU;
 
 template<class IndexTraits, class GpuProblem>
 __global__ void

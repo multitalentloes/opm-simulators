@@ -287,6 +287,43 @@ public:
         return newIntQuants;
     }
 
+    /*!
+     * \brief Field-by-field overlay of the BlackOil intensive-quantity values from
+     *        another \c BlackOilIntensiveQuantities instantiation onto this one.
+     *
+     * Used by the experimental GPU intensive-quantities dispatcher to write the
+     * GPU-computed result onto a CPU-side \c IntensiveQuantities even when the
+     * two TypeTags are not value-compatible (e.g. when the CPU TypeTag enables
+     * dispersion or other modules that the GPU TypeTag does not). Only stored
+     * fields that the dispatcher actually computes are copied; the
+     * \c mobility_ field is left untouched (the GPU relperm path is currently
+     * known to return zero, see \c GpuBlackoilIntensiveQuantitiesDispatcher).
+     */
+    template<class OtherTypeTag>
+    OPM_HOST_DEVICE void overlayBlackOilFieldsFrom(
+        const BlackOilIntensiveQuantities<OtherTypeTag>& other)
+    {
+        fluidState_.setPvtRegionIndex(other.fluidState_.pvtRegionIndex());
+        for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
+            if (!FluidSystem::phaseIsActive(phaseIdx)) {
+                continue;
+            }
+            fluidState_.setPressure(phaseIdx, other.fluidState_.pressure(phaseIdx));
+            fluidState_.setSaturation(phaseIdx, other.fluidState_.saturation(phaseIdx));
+            fluidState_.setInvB(phaseIdx, other.fluidState_.invB(phaseIdx));
+            fluidState_.setDensity(phaseIdx, other.fluidState_.density(phaseIdx));
+        }
+        if constexpr (enableVapwat) {
+            fluidState_.setRvw(other.fluidState_.Rvw());
+        }
+        if constexpr (enableDisgasInWater) {
+            fluidState_.setRsw(other.fluidState_.Rsw());
+        }
+        porosity_ = other.porosity_;
+        referencePorosity_ = other.referencePorosity_;
+        rockCompTransMultiplier_ = other.rockCompTransMultiplier_;
+    }
+
     OPM_HOST_DEVICE void updateTempSalt(const Problem& problem,
                                         const PrimaryVariables& priVars,
                                         const unsigned globalSpaceIdx,
