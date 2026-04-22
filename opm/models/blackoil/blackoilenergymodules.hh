@@ -431,11 +431,11 @@ public:
         // compute the specific enthalpy of the fluids, the specific enthalpy of the rock
         // and the thermal conductivity coefficients
         for (int phaseIdx = 0; phaseIdx < numPhases; ++ phaseIdx) {
-            if (!FluidSystem::phaseIsActive(phaseIdx)) {
+            if (!asImp_().getFluidSystem().phaseIsActive(phaseIdx)) {
                 continue;
             }
 
-            const auto& h = FluidSystem::enthalpy(fs, phaseIdx, problem.pvtRegionIndex(globalSpaceIdx));
+            const auto& h = asImp_().getFluidSystem().enthalpy(fs, phaseIdx, problem.pvtRegionIndex(globalSpaceIdx));
             fs.setEnthalpy(phaseIdx, h);
         }
 

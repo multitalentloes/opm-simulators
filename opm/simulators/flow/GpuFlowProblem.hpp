@@ -36,6 +36,7 @@
 #include <opm/models/discretization/common/linearizationtype.hh>
 
 #include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
+#include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
 
 #include <cstddef>
 #include <type_traits>
@@ -48,6 +49,59 @@ template <typename T>
 class GpuBuffer;
 template <typename T>
 class GpuView;
+} // namespace Opm::gpuistl
+
+namespace Opm {
+
+/*!
+ * \brief No-op thermal-law manager used as the default 4th template arg of
+ *        \c GpuFlowProblem.
+ *
+ * Carries no data and exposes the minimum surface needed by the
+ * \c GpuFlowProblem builder/copy/view machinery: a \c FluidSystem alias
+ * fixed to \c void (so the \c hasThermal compile-time switch evaluates
+ * to false), trivial empty params types, and trivial accessors that
+ * return default-constructed values.
+ *
+ * Intentionally not callable on the device when actually queried: it is
+ * only used by non-thermal \c GpuFlowProblem instantiations whose dispatch
+ * paths never call \c solidEnergyLawParams or \c thermalConductionLawParams.
+ */
+struct NoThermalLawManager
+{
+    using FluidSystem = void;
+    struct SolidEnergyLawParams {};
+    struct ThermalConductionLawParams {};
+
+    OPM_HOST_DEVICE SolidEnergyLawParams solidEnergyLawParams(unsigned /*elemIdx*/) const
+    {
+        return SolidEnergyLawParams{};
+    }
+    OPM_HOST_DEVICE ThermalConductionLawParams
+    thermalConductionLawParams(unsigned /*elemIdx*/) const
+    {
+        return ThermalConductionLawParams{};
+    }
+};
+
+} // namespace Opm
+
+namespace Opm::gpuistl {
+
+/*! \brief copy_to_gpu overload for the no-op thermal manager. */
+inline ::Opm::NoThermalLawManager
+copy_to_gpu(const ::Opm::NoThermalLawManager& /*cpu*/)
+{
+    return ::Opm::NoThermalLawManager{};
+}
+
+/*! \brief make_view overload for the no-op thermal manager. */
+inline ::Opm::NoThermalLawManager
+make_view(::Opm::NoThermalLawManager& /*buf*/)
+{
+    return ::Opm::NoThermalLawManager{};
+}
+
 } // namespace Opm::gpuistl
 
 namespace Opm {
@@ -68,16 +122,30 @@ namespace Opm {
  * \tparam MaterialLawManagerT GPU material law manager type (e.g.
  *                             \c Opm::EclMaterialLaw::GpuManager).
  * \tparam Storage             Container template used for per-cell data.
+ * \tparam ThermalLawManagerT  GPU thermal-law manager type (e.g.
+ *                             \c Opm::EclThermalLaw::GpuManager). Defaults
+ *                             to \c NoThermalLawManager, a no-op stub used
+ *                             by non-thermal callers.
  */
 template <class ScalarT,
           class MaterialLawManagerT,
-          template <class> class Storage = ::Opm::VectorWithDefaultAllocator>
+          template <class> class Storage = ::Opm::VectorWithDefaultAllocator,
+          class ThermalLawManagerT = ::Opm::NoThermalLawManager>
 class GpuFlowProblem
 {
 public:
     using Scalar = ScalarT;
     using EclMaterialLawManager = MaterialLawManagerT;
     using MaterialLawParams = typename EclMaterialLawManager::MaterialLawParams;
+    using EclThermalLawManager = ThermalLawManagerT;
+    using SolidEnergyLawParams = typename EclThermalLawManager::SolidEnergyLawParams;
+    using ThermalConductionLawParams = typename EclThermalLawManager::ThermalConductionLawParams;
+
+    /*! \brief True iff the thermal-law manager carries a real fluid-system
+     *         tag (anything other than \c void) and therefore the
+     *         thermal-extraction code paths should be enabled. */
+    static constexpr bool hasThermal
+        = !std::is_same_v<typename EclThermalLawManager::FluidSystem, void>;
 
     /*! \brief Trivial nested model() helper that satisfies the
      *         \c problem.model().linearizer().getLinearizationType() chain
@@ -106,7 +174,10 @@ public:
                                    Storage<Scalar> rockReferencePressure,
                                    Storage<Scalar> maxOilSaturation,
                                    Storage<Scalar> maxOilVaporizationFactor,
-                                   Storage<Scalar> maxGasDissolutionFactor)
+                                   Storage<Scalar> maxGasDissolutionFactor,
+                                   EclThermalLawManager thermalLawManager,
+                                   Storage<Scalar> rockFraction,
+                                   Storage<int> pvtRegionIndex)
         : materialLawManager_(std::move(materialLawManager))
         , porosity_(std::move(porosity))
         , rockCompressibility_(std::move(rockCompressibility))
@@ -114,6 +185,9 @@ public:
         , maxOilSaturation_(std::move(maxOilSaturation))
         , maxOilVaporizationFactor_(std::move(maxOilVaporizationFactor))
         , maxGasDissolutionFactor_(std::move(maxGasDissolutionFactor))
+        , thermalLawManager_(std::move(thermalLawManager))
+        , rockFraction_(std::move(rockFraction))
+        , pvtRegionIndex_(std::move(pvtRegionIndex))
     {
     }
 
@@ -154,6 +228,19 @@ public:
             maxOilVaporizationFactor_[i] = cpu.maxOilVaporizationFactor(0u, u);
             maxGasDissolutionFactor_[i]  = cpu.maxGasDissolutionFactor(0u, u);
         }
+        if constexpr (hasThermal) {
+            using FluidSystemTag = typename EclThermalLawManager::FluidSystem;
+            thermalLawManager_
+                = ::Opm::EclThermalLaw::buildCpuManagerFromFlowProblem<Scalar, FluidSystemTag>(
+                    cpu, n);
+            rockFraction_.resize(n);
+            pvtRegionIndex_.resize(n);
+            for (std::size_t i = 0; i < n; ++i) {
+                const unsigned u = static_cast<unsigned>(i);
+                rockFraction_[i] = cpu.rockFraction(u, 0u);
+                pvtRegionIndex_[i] = static_cast<int>(cpu.pvtRegionIndex(u));
+            }
+        }
     }
 
     /*!
@@ -192,6 +279,13 @@ public:
           }))
         , maxGasDissolutionFactor_(extractRockField(cpu, [](const CpuProblem& p, unsigned u) {
               return Scalar(p.maxGasDissolutionFactor(0u, u));
+          }))
+        , thermalLawManager_(buildGpuThermalManager(cpu))
+        , rockFraction_(extractThermalScalarField(cpu, [](const CpuProblem& p, unsigned u) {
+              return Scalar(p.rockFraction(u, 0u));
+          }))
+        , pvtRegionIndex_(extractThermalIntField(cpu, [](const CpuProblem& p, unsigned u) {
+              return static_cast<int>(p.pvtRegionIndex(u));
           }))
     {
     }
@@ -239,6 +333,39 @@ public:
     OPM_HOST_DEVICE Scalar maxOilSaturation(std::size_t elemIdx) const
     {
         return maxOilSaturation_.size() == 0 ? Scalar(0) : maxOilSaturation_[elemIdx];
+    }
+
+    /*! \brief Per-cell PVT region index. Returns 0 when the GpuFlowProblem
+     *         instantiation has no thermal support. */
+    OPM_HOST_DEVICE unsigned pvtRegionIndex(std::size_t elemIdx) const
+    {
+        return pvtRegionIndex_.size() == 0
+                   ? 0u
+                   : static_cast<unsigned>(pvtRegionIndex_[elemIdx]);
+    }
+
+    /*! \brief Per-cell rock fraction (1 - effective porosity). Returns 0
+     *         when the GpuFlowProblem instantiation has no thermal
+     *         support. */
+    OPM_HOST_DEVICE Scalar rockFraction(std::size_t elemIdx, unsigned /*timeIdx*/) const
+    {
+        return rockFraction_.size() == 0 ? Scalar(0) : rockFraction_[elemIdx];
+    }
+
+    /*! \brief Solid-energy law parameters for a single cell. Forwards to
+     *         the embedded thermal-law manager. */
+    OPM_HOST_DEVICE SolidEnergyLawParams
+    solidEnergyLawParams(std::size_t elemIdx, unsigned /*timeIdx*/) const
+    {
+        return thermalLawManager_.solidEnergyLawParams(static_cast<unsigned>(elemIdx));
+    }
+
+    /*! \brief Thermal-conduction law parameters for a single cell.
+     *         Forwards to the embedded thermal-law manager. */
+    OPM_HOST_DEVICE ThermalConductionLawParams
+    thermalConductionLawParams(std::size_t elemIdx, unsigned /*timeIdx*/) const
+    {
+        return thermalLawManager_.thermalConductionLawParams(static_cast<unsigned>(elemIdx));
     }
 
     /*! \brief Default rock-pore-volume multiplier (1 if no compressibility). */
@@ -294,6 +421,12 @@ public:
     Storage<Scalar>& maxOilVaporizationFactorStorage() { return maxOilVaporizationFactor_; }
     const Storage<Scalar>& maxGasDissolutionFactorStorage() const { return maxGasDissolutionFactor_; }
     Storage<Scalar>& maxGasDissolutionFactorStorage() { return maxGasDissolutionFactor_; }
+    const EclThermalLawManager& thermalLawManager() const { return thermalLawManager_; }
+    EclThermalLawManager& thermalLawManager() { return thermalLawManager_; }
+    const Storage<Scalar>& rockFractionStorage() const { return rockFraction_; }
+    Storage<Scalar>& rockFractionStorage() { return rockFraction_; }
+    const Storage<int>& pvtRegionIndexStorage() const { return pvtRegionIndex_; }
+    Storage<int>& pvtRegionIndexStorage() { return pvtRegionIndex_; }
     //!\}
 
 private:
@@ -313,6 +446,57 @@ private:
         }
     }
 
+    /*! \brief Build the per-cell rockFraction storage; empty when the
+     *         GpuFlowProblem instantiation has no thermal support. */
+    template <class CpuProblem, class F>
+    static Storage<Scalar> extractThermalScalarField(const CpuProblem& cpu, F f)
+    {
+        if constexpr (!hasThermal) {
+            return Storage<Scalar>{};
+        } else {
+            return extractRockField(cpu, f);
+        }
+    }
+
+    /*! \brief Build the per-cell pvtRegionIndex storage; empty when the
+     *         GpuFlowProblem instantiation has no thermal support. */
+    template <class CpuProblem, class F>
+    static Storage<int> extractThermalIntField(const CpuProblem& cpu, F f)
+    {
+        if constexpr (!hasThermal) {
+            return Storage<int>{};
+        } else {
+            const std::size_t n = cpu.model().numGridDof();
+            std::vector<int> v(n);
+            for (std::size_t i = 0; i < n; ++i) {
+                v[i] = f(cpu, static_cast<unsigned>(i));
+            }
+            if constexpr (std::is_same_v<Storage<int>,
+                                         ::Opm::VectorWithDefaultAllocator<int>>) {
+                return Storage<int>(v.begin(), v.end());
+            } else {
+                return Storage<int>(v);
+            }
+        }
+    }
+
+    /*! \brief Build the GPU thermal-law manager from a CPU FlowProblem.
+     *         Returns a default-constructed (empty) manager when this
+     *         GpuFlowProblem instantiation has no thermal support. */
+    template <class CpuProblem>
+    static EclThermalLawManager buildGpuThermalManager(const CpuProblem& cpu)
+    {
+        if constexpr (!hasThermal) {
+            return EclThermalLawManager{};
+        } else {
+            using FluidSystemTag = typename EclThermalLawManager::FluidSystem;
+            auto cpuMgr
+                = ::Opm::EclThermalLaw::buildCpuManagerFromFlowProblem<Scalar, FluidSystemTag>(
+                    cpu, cpu.model().numGridDof());
+            return ::Opm::gpuistl::copy_to_gpu(cpuMgr);
+        }
+    }
+
     EclMaterialLawManager materialLawManager_{};
     Storage<Scalar> porosity_{};
     Storage<Scalar> rockCompressibility_{};
@@ -320,6 +504,9 @@ private:
     Storage<Scalar> maxOilSaturation_{};
     Storage<Scalar> maxOilVaporizationFactor_{};
     Storage<Scalar> maxGasDissolutionFactor_{};
+    EclThermalLawManager thermalLawManager_{};
+    Storage<Scalar> rockFraction_{};
+    Storage<int> pvtRegionIndex_{};
 };
 
 } // namespace Opm
@@ -331,11 +518,21 @@ namespace Opm::gpuistl {
  *
  *  The material law manager is also moved to the GPU (via copy_to_gpu).
  */
-template <class ScalarT, class CpuMaterialLawManager>
-auto copy_to_gpu(const ::Opm::GpuFlowProblem<ScalarT, CpuMaterialLawManager>& cpu)
+template <class ScalarT, class CpuMaterialLawManager, class CpuThermalLawManager>
+auto copy_to_gpu(
+    const ::Opm::GpuFlowProblem<ScalarT,
+                                CpuMaterialLawManager,
+                                ::Opm::VectorWithDefaultAllocator,
+                                CpuThermalLawManager>& cpu)
 {
-    using GpuMaterialLawManagerBuffer = decltype(::Opm::gpuistl::copy_to_gpu(cpu.materialLawManager()));
-    using GpuProblemType = ::Opm::GpuFlowProblem<ScalarT, GpuMaterialLawManagerBuffer, GpuBuffer>;
+    using GpuMaterialLawManagerBuffer
+        = decltype(::Opm::gpuistl::copy_to_gpu(cpu.materialLawManager()));
+    using GpuThermalLawManagerBuffer
+        = decltype(::Opm::gpuistl::copy_to_gpu(cpu.thermalLawManager()));
+    using GpuProblemType = ::Opm::GpuFlowProblem<ScalarT,
+                                                 GpuMaterialLawManagerBuffer,
+                                                 GpuBuffer,
+                                                 GpuThermalLawManagerBuffer>;
 
     return GpuProblemType(::Opm::gpuistl::copy_to_gpu(cpu.materialLawManager()),
                           GpuBuffer<ScalarT>(cpu.porosityStorage()),
@@ -343,18 +540,30 @@ auto copy_to_gpu(const ::Opm::GpuFlowProblem<ScalarT, CpuMaterialLawManager>& cp
                           GpuBuffer<ScalarT>(cpu.rockReferencePressureStorage()),
                           GpuBuffer<ScalarT>(cpu.maxOilSaturationStorage()),
                           GpuBuffer<ScalarT>(cpu.maxOilVaporizationFactorStorage()),
-                          GpuBuffer<ScalarT>(cpu.maxGasDissolutionFactorStorage()));
+                          GpuBuffer<ScalarT>(cpu.maxGasDissolutionFactorStorage()),
+                          ::Opm::gpuistl::copy_to_gpu(cpu.thermalLawManager()),
+                          GpuBuffer<ScalarT>(cpu.rockFractionStorage()),
+                          GpuBuffer<int>(cpu.pvtRegionIndexStorage()));
 }
 
 /*!
  * \brief Make a non-owning GpuView based GpuFlowProblem from an owning
  *        GpuBuffer based GpuFlowProblem.
  */
-template <class ScalarT, class GpuBufferMaterialLawManager>
-auto make_view(::Opm::GpuFlowProblem<ScalarT, GpuBufferMaterialLawManager, GpuBuffer>& buf)
+template <class ScalarT, class GpuBufferMaterialLawManager, class GpuBufferThermalLawManager>
+auto make_view(::Opm::GpuFlowProblem<ScalarT,
+                                     GpuBufferMaterialLawManager,
+                                     GpuBuffer,
+                                     GpuBufferThermalLawManager>& buf)
 {
-    using GpuMaterialLawManagerView = decltype(::Opm::gpuistl::make_view(buf.materialLawManager()));
-    using GpuProblemView = ::Opm::GpuFlowProblem<ScalarT, GpuMaterialLawManagerView, GpuView>;
+    using GpuMaterialLawManagerView
+        = decltype(::Opm::gpuistl::make_view(buf.materialLawManager()));
+    using GpuThermalLawManagerView
+        = decltype(::Opm::gpuistl::make_view(buf.thermalLawManager()));
+    using GpuProblemView = ::Opm::GpuFlowProblem<ScalarT,
+                                                 GpuMaterialLawManagerView,
+                                                 GpuView,
+                                                 GpuThermalLawManagerView>;
 
     auto toView = [](auto& storage) {
         using T = typename std::decay_t<decltype(storage)>::value_type;
@@ -367,7 +576,10 @@ auto make_view(::Opm::GpuFlowProblem<ScalarT, GpuBufferMaterialLawManager, GpuBu
                           toView(buf.rockReferencePressureStorage()),
                           toView(buf.maxOilSaturationStorage()),
                           toView(buf.maxOilVaporizationFactorStorage()),
-                          toView(buf.maxGasDissolutionFactorStorage()));
+                          toView(buf.maxGasDissolutionFactorStorage()),
+                          ::Opm::gpuistl::make_view(buf.thermalLawManager()),
+                          toView(buf.rockFractionStorage()),
+                          toView(buf.pvtRegionIndexStorage()));
 }
 
 } // namespace Opm::gpuistl

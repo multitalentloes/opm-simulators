@@ -78,6 +78,7 @@
 #include <opm/models/blackoil/blackoillocalresidualtpfa.hh>
 
 #include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
+#include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
 #include <opm/simulators/flow/GpuFlowProblem.hpp>
 
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
@@ -114,10 +115,12 @@ static std::string makeDeckString(int nx, int ny, int nz)
       << "PERMX\n" << total << "*1013.25 /\n"
       << "PORO\n" << total << "*0.25 /\n"
       << "COPY\nPERMX PERMY /\nPERMX PERMZ /\n/\n"
+      << "THCONR\n" << total << "*1.5 /\n"
       << "PROPS\n"
       << "SGWFN\n"
       << "0.000000E+00 0.000000E+00 1.000000E+00 3.060000E-02\n"
       << "1.000000E+00 1.000000E+00 0.000000E+00 3.060000E-01 /\n"
+      << "SPECROCK\n20 2125.0  100 2125.0 /\n"
       << "SOLUTION\n"
       << "RPTRST\n'BASIC=0' /\n"
       << "EQUIL\n0 300 100 0 0 0 1 1 0 /\n"
@@ -162,11 +165,15 @@ static constexpr const char* deckString1 = "-- =============== RUNSPEC\n"
                                            "PERMX PERMY /\n"
                                            "PERMX PERMZ /\n"
                                            "/\n"
+                                           "THCONR\n"
+                                           "27*1.5 /\n"
                                            "-- =============== PROPS\n"
                                            "PROPS\n"
                                            "SGWFN\n"
                                            "0.000000E+00 0.000000E+00 1.000000E+00 3.060000E-02\n"
                                            "1.000000E+00 1.000000E+00 0.000000E+00 3.060000E-01 /\n"
+                                           "SPECROCK\n"
+                                           "20 2125.0  100 2125.0 /\n"
                                            "-- =============== SOLUTION\n"
                                            "SOLUTION\n"
                                            "RPTRST\n"
@@ -429,6 +436,7 @@ updateAllCellsKernel(GpuProblem problem,
     IntensiveQuantities intensiveQuantities = outIntensiveQuantities[i];
     intensiveQuantities.updateSaturations(primaryVariables[i], 0, Opm::LinearizationType{});
     intensiveQuantities.update(problem, primaryVariables[i], static_cast<unsigned>(i), 0);
+    intensiveQuantities.updateEnergyQuantities_(problem, static_cast<unsigned>(i), 0u);
     outIntensiveQuantities[i] = intensiveQuantities;
 }
 
@@ -456,7 +464,15 @@ static void initSimulatorOnce()
     AdaptiveTimeStepping<TypeTag>::registerParameters();
     Parameters::Register<Parameters::EnableTerminalOutput>(
         "Dummy added for the well model to compile.");
-    registerAllParameters_<TypeTag>(true);
+    registerAllParameters_<TypeTag>(/*finalizeRegistration=*/false);
+    // Also register parameters for the RealDeck TypeTag here so that all
+    // tests in the same process share a single (still-open) registration
+    // pass. Once endRegistration() (called via setupParameters_) closes
+    // registration, no further parameters can be added globally.
+    using RealDeckTypeTag = Opm::Properties::TTag::FlowGasWaterEnergyProblemTestRealDeck;
+    AdaptiveTimeStepping<RealDeckTypeTag>::registerParameters();
+    registerAllParameters_<RealDeckTypeTag>(/*finalizeRegistration=*/false);
+    Parameters::endRegistration();
     done = true;
 }
 
@@ -530,7 +546,10 @@ static void runIntensiveQuantitiesTestForDeck(const std::string& deckPath,
     using GpuManagerBuffer = Opm::EclMaterialLaw::GpuManager<
         Traits, GpuPiecewiseLinearLaw, GpuPiecewiseLinearLaw,
         Opm::gpuistl::GpuBuffer, GpuMaterialLaw>;
-    using GpuProblemBuffer = Opm::GpuFlowProblem<ScalarToUse, GpuManagerBuffer, Opm::gpuistl::GpuBuffer>;
+    using GpuThermalManagerBuffer = Opm::EclThermalLaw::GpuManager<
+        ScalarToUse, FluidSystemViewType,
+        Opm::gpuistl::GpuBuffer, Opm::gpuistl::GpuView>;
+    using GpuProblemBuffer = Opm::GpuFlowProblem<ScalarToUse, GpuManagerBuffer, Opm::gpuistl::GpuBuffer, GpuThermalManagerBuffer>;
 
     GpuProblemBuffer gpuProblemBuffer(cpuProblem);
     auto gpuProblemView = Opm::gpuistl::make_view(gpuProblemBuffer);
@@ -720,27 +739,11 @@ static void runIntensiveQuantitiesTestFromSimulatorSolution(const std::string& d
     using LocalGpuTypeTag = Opm::Properties::TTag::FlowGasWaterEnergyDummyProblemGPU;
     using Simulator = Opm::GetPropType<LocalTypeTag, Opm::Properties::Simulator>;
 
-    // Mirror initSimulatorOnce() but for LocalTypeTag (we cannot reuse the
-    // global one since it registers parameters for the smaller TypeTag).
-    static bool registered = false;
-    if (!registered) {
-        int argc1 = boost::unit_test::framework::master_test_suite().argc;
-        char** argv1 = boost::unit_test::framework::master_test_suite().argv;
-#if HAVE_DUNE_FEM
-        Dune::Fem::MPIManager::initialize(argc1, argv1);
-#else
-        Dune::MPIHelper::instance(argc1, argv1);
-#endif
-        FlowGenericVanguard::setCommunication(std::make_unique<Opm::Parallel::Communication>());
-        Opm::ThreadManager::registerParameters();
-        Opm::NewtonMethodParams<double>::registerParameters();
-        BlackoilModelParameters<ScalarToUse>::registerParameters();
-        AdaptiveTimeStepping<LocalTypeTag>::registerParameters();
-        Parameters::Register<Parameters::EnableTerminalOutput>(
-            "Dummy added for the well model to compile.");
-        registerAllParameters_<LocalTypeTag>(true);
-        registered = true;
-    }
+    // Reuse the global init: it registers parameters for both TypeTags so
+    // this test works whether it runs first or after another test in the
+    // same process (parameter registration is closed after the first
+    // setupParameters_ call).
+    initSimulatorOnce();
 
     const auto filenameArg = std::string{"--ecl-deck-file-name="} + deckPath;
     const char* argv2[] = {
@@ -807,7 +810,10 @@ static void runIntensiveQuantitiesTestFromSimulatorSolution(const std::string& d
     using GpuManagerBuffer = Opm::EclMaterialLaw::GpuManager<
         Traits, GpuPiecewiseLinearLaw, GpuPiecewiseLinearLaw,
         Opm::gpuistl::GpuBuffer, GpuMaterialLaw>;
-    using GpuProblemBuffer = Opm::GpuFlowProblem<ScalarToUse, GpuManagerBuffer, Opm::gpuistl::GpuBuffer>;
+    using GpuThermalManagerBuffer = Opm::EclThermalLaw::GpuManager<
+        ScalarToUse, FluidSystemViewType,
+        Opm::gpuistl::GpuBuffer, Opm::gpuistl::GpuView>;
+    using GpuProblemBuffer = Opm::GpuFlowProblem<ScalarToUse, GpuManagerBuffer, Opm::gpuistl::GpuBuffer, GpuThermalManagerBuffer>;
 
     GpuProblemBuffer gpuProblemBuffer(cpuProblem);
     auto gpuProblemView = Opm::gpuistl::make_view(gpuProblemBuffer);
@@ -968,10 +974,57 @@ static void runIntensiveQuantitiesTestFromSimulatorSolution(const std::string& d
                                  derivativeComparisons);
         BOOST_CHECK_CLOSE(static_cast<double>(cpuIQ.referencePorosity()),
                           static_cast<double>(gpuIQ.referencePorosity()), tol);
+
+        // Thermal IQ fields: temperature in the fluid state, and the three
+        // BlackOilEnergyIntensiveQuantities scalars (rockInternalEnergy,
+        // totalThermalConductivity, rockFraction). For FullyImplicitThermal
+        // the GPU dispatcher writes all of these via overlayBlackOilFieldsFrom,
+        // so they should match the CPU value field-by-field.
+        checkValueAndDerivatives(cpuFs.temperature(/*phaseIdx=*/0),
+                                 gpuFs.temperature(/*phaseIdx=*/0),
+                                 tol, /*checkDerivatives=*/false, "temperature",
+                                 derivativeComparisons);
+        checkValueAndDerivatives(cpuIQ.rockInternalEnergy(),
+                                 gpuIQ.rockInternalEnergy(),
+                                 tol, /*checkDerivatives=*/false, "rockInternalEnergy",
+                                 derivativeComparisons);
+        checkValueAndDerivatives(cpuIQ.totalThermalConductivity(),
+                                 gpuIQ.totalThermalConductivity(),
+                                 tol, /*checkDerivatives=*/false, "totalThermalConductivity",
+                                 derivativeComparisons);
+        BOOST_CHECK_CLOSE(static_cast<double>(cpuIQ.rockFraction()),
+                          static_cast<double>(gpuIQ.rockFraction()), tol);
+        for (unsigned p : activePhases) {
+            checkValueAndDerivatives(cpuFs.enthalpy(p), gpuFs.enthalpy(p),
+                                     tol, /*checkDerivatives=*/false, "enthalpy",
+                                     derivativeComparisons);
+        }
         ++checked;
     }
     BOOST_TEST_MESSAGE("Real-deck per-cell GPU vs CPU IQ comparison: checked "
                        << checked << " / " << numCells << " cells");
+}
+
+BOOST_AUTO_TEST_CASE(TestRealDeckGpuVsCpuFromSimulatorSolution)
+{
+    // Drive the per-cell IQ update with the EQUIL-initialized primary
+    // variables of the production CO2STORE deck the user reports diverges
+    // when the dispatcher is enabled. This reproduces the exact code path
+    // taken by the dispatcher in production (per-cell PrimaryVariables
+    // upload + GPU update + readback) and compares every IQ field against
+    // a CPU reference, so we can identify which field becomes non-finite.
+    //
+    // NOTE: this test must run BEFORE the synthetic-deck tests because the
+    // BlackOilFluidSystem singleton is global state that gets re-set by
+    // every readDeck call; running this after the synthetic tests in the
+    // same process leaves the static FluidSystem in a state that is
+    // inconsistent with the per-cell GPU FluidSystem copy taken here.
+    const std::string deckPath = "/workspaces/opm/thecaseiwant/deck/THECASEIWANT.DATA";
+    if (!std::filesystem::exists(deckPath)) {
+        BOOST_TEST_MESSAGE("Skipping: deck not found at " << deckPath);
+        return;
+    }
+    runIntensiveQuantitiesTestFromSimulatorSolution(deckPath, /*sampleStride=*/1u);
 }
 
 BOOST_AUTO_TEST_CASE(TestInstantiateGpuFlowProblem)
@@ -1040,21 +1093,5 @@ BOOST_AUTO_TEST_CASE(TestGpuVsCpuIntensiveQuantitiesEvaluationDerivatives)
                                       /*sampleStride=*/1u,
                                       /*measureTiming=*/false,
                                       /*checkDerivatives=*/true);
-}
-
-BOOST_AUTO_TEST_CASE(TestRealDeckGpuVsCpuFromSimulatorSolution)
-{
-    // Drive the per-cell IQ update with the EQUIL-initialized primary
-    // variables of the production CO2STORE deck the user reports diverges
-    // when the dispatcher is enabled. This reproduces the exact code path
-    // taken by the dispatcher in production (per-cell PrimaryVariables
-    // upload + GPU update + readback) and compares every IQ field against
-    // a CPU reference, so we can identify which field becomes non-finite.
-    const std::string deckPath = "/workspaces/opm/thecaseiwant/deck/THECASEIWANT.DATA";
-    if (!std::filesystem::exists(deckPath)) {
-        BOOST_TEST_MESSAGE("Skipping: deck not found at " << deckPath);
-        return;
-    }
-    runIntensiveQuantitiesTestFromSimulatorSolution(deckPath, /*sampleStride=*/1u);
 }
 

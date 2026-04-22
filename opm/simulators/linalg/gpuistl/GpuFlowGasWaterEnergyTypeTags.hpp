@@ -46,8 +46,14 @@
 #include <opm/models/blackoil/blackoilprimaryvariables.hh>
 #include <opm/models/discretization/common/fvbaseelementcontextgpu.hh>
 
+#include <opm/material/thermal/GpuEclSpecrockLaw.hpp>
+#include <opm/material/thermal/GpuEclSpecrockLawParams.hpp>
+#include <opm/material/thermal/GpuEclThconrLaw.hpp>
+#include <opm/material/thermal/EclThconrLawParams.hpp>
+
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
 #include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
+#include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
 #include <opm/simulators/flow/GpuFlowProblem.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
@@ -158,6 +164,43 @@ struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyDummyProblemGPU>
 };
 
 // -----------------------------------------------------------------------
+// SolidEnergyLaw / ThermalConductionLaw: bind to the GPU-portable laws
+// (GpuEclSpecrockLaw / GpuEclThconrLaw). Both expose an
+// \c EclThermalLawManager nested typedef matching the convention used by
+// FlowBaseProblemProperties so existing GetProp<...>::EclThermalLawManager
+// chains keep working.
+// -----------------------------------------------------------------------
+template <class TypeTag>
+struct SolidEnergyLaw<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+{
+private:
+    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
+    using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
+
+public:
+    using EclThermalLawManager = ::Opm::EclThermalLaw::GpuManager<
+        Scalar, FluidSystem, ::Opm::gpuistl::GpuView, ::Opm::gpuistl::GpuView>;
+
+    using type = ::Opm::GpuEclSpecrockLaw<
+        Scalar,
+        ::Opm::GpuEclSpecrockLawParams<Scalar, ::Opm::gpuistl::GpuView>>;
+};
+
+template <class TypeTag>
+struct ThermalConductionLaw<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+{
+private:
+    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
+    using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
+
+public:
+    using EclThermalLawManager = ::Opm::EclThermalLaw::GpuManager<
+        Scalar, FluidSystem, ::Opm::gpuistl::GpuView, ::Opm::gpuistl::GpuView>;
+
+    using type = ::Opm::GpuEclThconrLaw<Scalar, FluidSystem>;
+};
+
+// -----------------------------------------------------------------------
 // Problem: GpuFlowProblem (GpuView-backed) instead of FlowProblemBlackoil.
 // -----------------------------------------------------------------------
 template <class TypeTag>
@@ -165,6 +208,7 @@ struct Problem<TypeTag, TTag::FlowGasWaterEnergyDummyProblemGPU>
 {
 private:
     using ScalarT = GetPropType<TypeTag, Properties::Scalar>;
+    using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
     using CpuMaterialLawManager =
         typename Opm::GetProp<TypeTag, Opm::Properties::MaterialLaw>::EclMaterialLawManager;
     using GpuViewMaterialLawManager =
@@ -173,9 +217,14 @@ private:
                                           typename CpuMaterialLawManager::OilWaterLaw,
                                           ::Opm::gpuistl::GpuView,
                                           typename CpuMaterialLawManager::MaterialLaw>;
+    using GpuViewThermalLawManager = ::Opm::EclThermalLaw::GpuManager<
+        ScalarT, FluidSystem, ::Opm::gpuistl::GpuView, ::Opm::gpuistl::GpuView>;
 
 public:
-    using type = ::Opm::GpuFlowProblem<ScalarT, GpuViewMaterialLawManager, ::Opm::gpuistl::GpuView>;
+    using type = ::Opm::GpuFlowProblem<ScalarT,
+                                       GpuViewMaterialLawManager,
+                                       ::Opm::gpuistl::GpuView,
+                                       GpuViewThermalLawManager>;
 };
 
 // -----------------------------------------------------------------------

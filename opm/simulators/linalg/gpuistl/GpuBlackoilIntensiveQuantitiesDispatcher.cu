@@ -51,6 +51,7 @@
 #include <opm/simulators/flow/FlowProblemBlackoil.hpp>
 #include <opm/simulators/flow/FlowProblemBlackoilProperties.hpp>
 #include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
+#include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
 #include <opm/simulators/flow/GpuFlowProblem.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
@@ -134,8 +135,16 @@ using DispatcherGpuManagerBuf =
                                     DispatcherGpuPiecewiseLinearLawBuf,
                                     Opm::gpuistl::GpuBuffer,
                                     DispatcherGpuMaterialLawBuf>;
+using DispatcherGpuThermalManagerBuf =
+    Opm::EclThermalLaw::GpuManager<DispatcherScalar,
+                                   DispatcherFluidSystemView,
+                                   Opm::gpuistl::GpuBuffer,
+                                   Opm::gpuistl::GpuView>;
 using DispatcherGpuFlowProblemBuf =
-    Opm::GpuFlowProblem<DispatcherScalar, DispatcherGpuManagerBuf, Opm::gpuistl::GpuBuffer>;
+    Opm::GpuFlowProblem<DispatcherScalar,
+                        DispatcherGpuManagerBuf,
+                        Opm::gpuistl::GpuBuffer,
+                        DispatcherGpuThermalManagerBuf>;
 using DispatcherGpuFlowProblemView =
     decltype(Opm::gpuistl::make_view(std::declval<DispatcherGpuFlowProblemBuf&>()));
 
@@ -153,6 +162,7 @@ dispatcherUpdateAllCellsKernel(GpuProblem problem,
     IntensiveQuantitiesT iq = outIntensiveQuantities[i];
     iq.updateSaturations(primaryVariables[i], 0, Opm::LinearizationType{});
     iq.update(problem, primaryVariables[i], static_cast<unsigned>(i), 0);
+    iq.updateEnergyQuantities_(problem, static_cast<unsigned>(i), 0u);
     outIntensiveQuantities[i] = iq;
 }
 
@@ -339,12 +349,12 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     impl_->totalOverlayMs    += overlayMs;
     impl_->totalDofsProcessed += static_cast<double>(numDof);
 
-    // Opm::OpmLog::info(std::format(
-    //     "[GpuBlackoilIntensiveQuantitiesDispatcher] call={} dofs={}"
-    //     " convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms",
-    //     impl_->callCount, numDof,
-    //     convertMs, h2dMs, kernelMs, d2hMs, overlayMs,
-    //     convertMs + h2dMs + kernelMs + d2hMs + overlayMs));
+    Opm::OpmLog::info(std::format(
+        "[GpuBlackoilIntensiveQuantitiesDispatcher] call={} dofs={}"
+        " convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms",
+        impl_->callCount, numDof,
+        convertMs, h2dMs, kernelMs, d2hMs, overlayMs,
+        convertMs + h2dMs + kernelMs + d2hMs + overlayMs));
 
     ++impl_->callCount;
 }

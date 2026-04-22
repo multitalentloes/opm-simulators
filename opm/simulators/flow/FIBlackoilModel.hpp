@@ -105,6 +105,7 @@ public:
                 updateCachedIntQuants(timeIdx);
                 return;
             }
+            const auto timeBegin = std::chrono::steady_clock::now();
             OPM_BEGIN_PARALLEL_TRY_CATCH();
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -118,6 +119,9 @@ public:
             }
             OPM_END_PARALLEL_TRY_CATCH("invalidateAndUpdateIntensiveQuantities: state error",
                                        this->simulator_.vanguard().grid().comm());
+            const auto timeEnd = std::chrono::steady_clock::now();
+            const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin).count();
+            OpmLog::info(std::format("Updated intensive quantities for {} elements in {} ms", this->gridView_.size(0), duration));
 #if HAVE_CUDA
             // After all cells are CPU-updated and written into the cache,
             // overlay the GPU-computed BlackOil fields in one batched call.

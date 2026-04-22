@@ -303,21 +303,23 @@ public:
     OPM_HOST_DEVICE void overlayBlackOilFieldsFrom(
         const BlackOilIntensiveQuantities<OtherTypeTag>& other)
     {
-        fluidState_.setPvtRegionIndex(other.fluidState_.pvtRegionIndex());
+        // Full fluid-state copy (handles every stored field, including
+        // Rs/Rv/Rsw/Rvw, salt concentration, solvent fields, ...). This
+        // is intentionally chosen over a hand-picked field list so that
+        // the GPU dispatcher can be used as the *only* fill of the IQ
+        // cache (no CPU pre-pass required).
+        fluidState_.assign(other.fluidState_);
+
         for (unsigned phaseIdx = 0; phaseIdx < numPhases; ++phaseIdx) {
             if (!FluidSystem::phaseIsActive(phaseIdx)) {
                 continue;
             }
-            fluidState_.setPressure(phaseIdx, other.fluidState_.pressure(phaseIdx));
-            fluidState_.setSaturation(phaseIdx, other.fluidState_.saturation(phaseIdx));
-            fluidState_.setInvB(phaseIdx, other.fluidState_.invB(phaseIdx));
-            fluidState_.setDensity(phaseIdx, other.fluidState_.density(phaseIdx));
+            mobility_[phaseIdx] = other.mobility_[phaseIdx];
         }
-        if constexpr (enableVapwat) {
-            fluidState_.setRvw(other.fluidState_.Rvw());
-        }
-        if constexpr (enableDisgasInWater) {
-            fluidState_.setRsw(other.fluidState_.Rsw());
+        if constexpr (energyModuleType == EnergyModules::FullyImplicitThermal) {
+            this->rockInternalEnergy_ = other.rockInternalEnergy_;
+            this->totalThermalConductivity_ = other.totalThermalConductivity_;
+            this->rockFraction_ = other.rockFraction_;
         }
         porosity_ = other.porosity_;
         referencePorosity_ = other.referencePorosity_;
