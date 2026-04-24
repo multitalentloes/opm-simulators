@@ -264,7 +264,7 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
         // Build a default IntensiveQuantities prototype for the GPU side.
         Opm::BlackOilIntensiveQuantities<DispatcherCpuTag> cpuPrototype;
         impl_->prototype = cpuPrototype.template withOtherFluidSystem<DispatcherGpuTag>(
-            *impl_->managedFluidSystemView);
+            impl_->managedFluidSystemView);
 
         impl_->initialized = true;
         Opm::OpmLog::info(std::format(
