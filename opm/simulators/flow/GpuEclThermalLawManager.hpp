@@ -52,8 +52,8 @@
 #include <opm/material/thermal/EclSolidEnergyLawMultiplexerParams.hpp>
 #include <opm/material/thermal/EclThconrLawParams.hpp>
 #include <opm/material/thermal/EclThermalConductionLawMultiplexerParams.hpp>
+#include <opm/material/thermal/EclSpecrockLawParams.hpp>
 #include <opm/material/thermal/EclThermalLawManager.hpp>
-#include <opm/material/thermal/GpuEclSpecrockLawParams.hpp>
 
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
@@ -73,7 +73,7 @@ namespace detail {
      * \brief Holder for the per-region SPECROCK sample buffers when the
      *        manager owns its device memory (i.e. the outer storage is
      *        \c GpuBuffer). Each per-region
-     *        \c GpuEclSpecrockLawParams<Scalar, GpuView> stored in the
+     *        \c EclSpecrockLawParams<Scalar, GpuView> stored in the
      *        bulk array references one of the buffers in this holder, so
      *        the holder must outlive every kernel invocation.
      *
@@ -119,7 +119,7 @@ class GpuManager
 public:
     using Scalar = ScalarT;
     using FluidSystem = FluidSystemT;
-    using SolidEnergyLawParams = ::Opm::GpuEclSpecrockLawParams<ScalarT, SampleStorage>;
+    using SolidEnergyLawParams = ::Opm::EclSpecrockLawParams<ScalarT, SampleStorage>;
     using ThermalConductionLawParams = ::Opm::EclThconrLawParams<ScalarT>;
 
     static constexpr bool isOwningGpu
@@ -259,13 +259,12 @@ buildCpuManagerFromFlowProblem(const CpuFlowProblemT& cpu, std::size_t numElemen
         if (regionIdx < 0) {
             const auto& cpuSpecrock = cpuSolidMultiplexer.template getRealParams<
                 ::Opm::EclSolidEnergyApproach::Specrock>();
-            const auto& tabFun = cpuSpecrock.internalEnergyFunction();
-            const auto& xValues = tabFun.xValues();
-            const auto& yValues = tabFun.yValues();
+            const auto& xValues = cpuSpecrock.temperatureSamples();
+            const auto& yValues = cpuSpecrock.internalEnergySamples();
             std::vector<ScalarT> temperatureSamples(xValues.begin(), xValues.end());
             std::vector<ScalarT> internalEnergySamples(yValues.begin(), yValues.end());
             SolidEnergyLawParams params;
-            params.setSamples(std::move(temperatureSamples), std::move(internalEnergySamples));
+            params.setSamples(temperatureSamples, internalEnergySamples);
             regionIdx = static_cast<int>(hostSolidEnergyParams.size());
             hostSolidEnergyParams.emplace_back(std::move(params));
             regionMultiplexerAddress.push_back(address);
@@ -305,7 +304,7 @@ namespace Opm::gpuistl {
  * Each per-region SPECROCK sample table is uploaded to its own
  * \c GpuBuffer<Scalar>; those buffers are owned by the returned
  * manager's \c SpecrockSampleHolder base. The corresponding per-region
- * \c GpuEclSpecrockLawParams<Scalar, GpuView> objects are then assembled
+ * \c EclSpecrockLawParams<Scalar, GpuView> objects are then assembled
  * on the host and uploaded as a single bulk
  * \c GpuBuffer<SolidEnergyLawParams>.
  */

@@ -32,9 +32,6 @@
 #include <opm/material/thermal/EclSpecrockLawParams.hpp>
 #include <opm/material/thermal/EclThconrLaw.hpp>
 #include <opm/material/thermal/EclThconrLawParams.hpp>
-#include <opm/material/thermal/GpuEclSpecrockLaw.hpp>
-#include <opm/material/thermal/GpuEclSpecrockLawParams.hpp>
-#include <opm/material/thermal/GpuEclThconrLaw.hpp>
 
 #include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
@@ -73,10 +70,10 @@ struct DummyFluidState {
     OPM_HOST_DEVICE DummyFluidSystem fluidSystem() const { return DummyFluidSystem{}; }
 };
 
-using GpuSpecrockParamsBuf = Opm::GpuEclSpecrockLawParams<Scalar, Opm::gpuistl::GpuView>;
-using GpuSpecrockParamsView = Opm::GpuEclSpecrockLawParams<Scalar, Opm::gpuistl::GpuView>;
-using GpuSpecrockLawView = Opm::GpuEclSpecrockLaw<Scalar, GpuSpecrockParamsView>;
-using GpuThconrLaw = Opm::GpuEclThconrLaw<Scalar, DummyFluidSystem>;
+using GpuSpecrockParamsBuf = Opm::EclSpecrockLawParams<Scalar, Opm::gpuistl::GpuView>;
+using GpuSpecrockParamsView = Opm::EclSpecrockLawParams<Scalar, Opm::gpuistl::GpuView>;
+using GpuSpecrockLawView = Opm::EclSpecrockLaw<Scalar, GpuSpecrockParamsView>;
+using GpuThconrLaw = Opm::EclThconrLaw<Scalar, DummyFluidSystem>;
 
 using ManagerCpu = Opm::EclThermalLaw::GpuManager<Scalar, DummyFluidSystem>;
 using ManagerBuf
@@ -127,12 +124,12 @@ BOOST_AUTO_TEST_CASE(SpecrockAndThconrEvaluateMatchesCpu)
     const std::vector<Scalar> regionEnergies1     = { 0.0,   3.5e7, 8.4e7 };
 
     // Build a host-side CPU manager directly from the basic constructor.
-    Opm::GpuEclSpecrockLawParams<Scalar> region0Params;
+    Opm::EclSpecrockLawParams<Scalar> region0Params;
     region0Params.setSamples(regionTemperatures0, regionEnergies0);
-    Opm::GpuEclSpecrockLawParams<Scalar> region1Params;
+    Opm::EclSpecrockLawParams<Scalar> region1Params;
     region1Params.setSamples(regionTemperatures1, regionEnergies1);
 
-    std::vector<Opm::GpuEclSpecrockLawParams<Scalar>> cpuSolidEnergyParams;
+    std::vector<Opm::EclSpecrockLawParams<Scalar>> cpuSolidEnergyParams;
     cpuSolidEnergyParams.push_back(region0Params);
     cpuSolidEnergyParams.push_back(region1Params);
 
@@ -205,7 +202,7 @@ BOOST_AUTO_TEST_CASE(SpecrockAndThconrEvaluateMatchesCpu)
         const auto& cpuSolidParams =
             cpuManager.solidEnergyLawParams(static_cast<unsigned>(i));
         const Scalar cpuEnergy =
-            Opm::GpuEclSpecrockLaw<Scalar>::solidInternalEnergy(cpuSolidParams, fs);
+            Opm::EclSpecrockLaw<Scalar>::solidInternalEnergy(cpuSolidParams, fs);
         BOOST_CHECK_CLOSE(cpuEnergy, hostEnergyResult[i], 1e-9);
 
         const auto& cpuConductionParams =
