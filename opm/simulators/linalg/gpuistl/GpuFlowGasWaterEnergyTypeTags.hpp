@@ -46,9 +46,9 @@
 #include <opm/models/blackoil/blackoilprimaryvariables.hh>
 #include <opm/models/discretization/common/fvbaseelementcontextgpu.hh>
 
-#include <opm/material/thermal/GpuEclSpecrockLaw.hpp>
-#include <opm/material/thermal/GpuEclSpecrockLawParams.hpp>
-#include <opm/material/thermal/GpuEclThconrLaw.hpp>
+#include <opm/material/thermal/EclSpecrockLaw.hpp>
+#include <opm/material/thermal/EclSpecrockLawParams.hpp>
+#include <opm/material/thermal/EclThconrLaw.hpp>
 #include <opm/material/thermal/EclThconrLawParams.hpp>
 
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
@@ -165,7 +165,7 @@ struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyDummyProblemGPU>
 
 // -----------------------------------------------------------------------
 // SolidEnergyLaw / ThermalConductionLaw: bind to the GPU-portable laws
-// (GpuEclSpecrockLaw / GpuEclThconrLaw). Both expose an
+// (EclSpecrockLaw / EclThconrLaw). Both expose an
 // \c EclThermalLawManager nested typedef matching the convention used by
 // FlowBaseProblemProperties so existing GetProp<...>::EclThermalLawManager
 // chains keep working.
@@ -181,9 +181,9 @@ public:
     using EclThermalLawManager = ::Opm::EclThermalLaw::GpuManager<
         Scalar, FluidSystem, ::Opm::gpuistl::GpuView, ::Opm::gpuistl::GpuView>;
 
-    using type = ::Opm::GpuEclSpecrockLaw<
+    using type = ::Opm::EclSpecrockLaw<
         Scalar,
-        ::Opm::GpuEclSpecrockLawParams<Scalar, ::Opm::gpuistl::GpuView>>;
+        ::Opm::EclSpecrockLawParams<Scalar, ::Opm::gpuistl::GpuView>>;
 };
 
 template <class TypeTag>
@@ -197,7 +197,7 @@ public:
     using EclThermalLawManager = ::Opm::EclThermalLaw::GpuManager<
         Scalar, FluidSystem, ::Opm::gpuistl::GpuView, ::Opm::gpuistl::GpuView>;
 
-    using type = ::Opm::GpuEclThconrLaw<Scalar, FluidSystem>;
+    using type = ::Opm::EclThconrLaw<Scalar, FluidSystem>;
 };
 
 // -----------------------------------------------------------------------
