@@ -353,6 +353,7 @@ macro(opm-simulators_sources_hook)
     # cuda warns when constxpr functions are used in kernels.
     # since the entire stl is constexpr ..., we enable relaxed flag
     set_source_files_properties(
+      opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.cu
       tests/gpuistl/test_blackoilfluidstategpu.cu
       tests/gpuistl/test_gpu_ad.cu
       tests/gpuistl/test_gpu_ecl_thermal_law_manager.cu
