@@ -74,7 +74,7 @@ struct ConserveInnerEnergyThermal { static constexpr bool value = false; };
 // through the GPU dispatcher instead of computing it on the CPU. Only takes
 // effect for CO2STORE-compatible TypeTags (gas+water, no oil); ignored
 // otherwise.
-struct ExperimentalComputePropertiesOnGpu { static constexpr bool value = false; };
+struct ExperimentalComputePropertiesOnGpu { static constexpr bool value = true; };
 #endif
 
 } // namespace Opm::Parameters

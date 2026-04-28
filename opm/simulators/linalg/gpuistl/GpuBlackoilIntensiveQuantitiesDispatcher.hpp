@@ -30,6 +30,7 @@
 
 namespace Opm::Properties::TTag {
     struct FlowGasWaterEnergyProblem;
+    struct FlowGasWaterEnergyProblemGPU;
 }
 
 namespace Opm::gpuistl {
@@ -47,6 +48,16 @@ struct GpuBlackoilIntensiveQuantitiesDispatcherSupport {
 template <>
 struct GpuBlackoilIntensiveQuantitiesDispatcherSupport<
     Opm::Properties::TTag::FlowGasWaterEnergyProblem> {
+    static constexpr bool value = true;
+};
+
+/// Enable the dispatcher for the GPU-assembly simulation TypeTag
+/// (\c FlowGasWaterEnergyProblemGPU, declared in FlowGasWaterEnergyTypeTag.hpp).
+/// This tag inherits all physics from \c FlowGasWaterEnergyProblem and adds
+/// GPU-specific assembly properties in \c flow_gpu.cu.
+template <>
+struct GpuBlackoilIntensiveQuantitiesDispatcherSupport<
+    Opm::Properties::TTag::FlowGasWaterEnergyProblemGPU> {
     static constexpr bool value = true;
 };
 

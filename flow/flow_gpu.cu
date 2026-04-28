@@ -34,6 +34,7 @@
 #include <opm/models/blackoil/blackoiltwophaseindices.hh>
 
 #include <opm/grid/CpGrid.hpp>
+#include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
 #include <opm/simulators/flow/Main.hpp>
 #include <opm/simulators/flow/SimplifiedGpuBlackOilModel.hpp>
 #include <opm/simulators/flow/SimulatorFullyImplicitBlackoil.hpp>
@@ -48,9 +49,9 @@ namespace Properties
 {
     namespace TTag
     {
-        struct FlowGasWaterEnergyProblemGPU {
-            using InheritsFrom = std::tuple<FlowProblem>;
-        };
+        // FlowGasWaterEnergyProblemGPU is declared in FlowGasWaterEnergyTypeTag.hpp
+        // (InheritsFrom = FlowGasWaterEnergyProblem).  The template below maps it
+        // to FlowGasWaterEnergyProblemGPUTrue<Storage> for GPU-storage variants.
 
         template <template <class> class Storage>
         struct FlowGasWaterEnergyProblemGPUTrue {
@@ -63,6 +64,9 @@ namespace Properties
         };
     } // namespace TTag
 
+    // -----------------------------------------------------------------------
+    // GPU assembly: enable the TPFA linearization kernel on the GPU.
+    // -----------------------------------------------------------------------
     template <class TypeTag>
     struct RunAssemblyOnGpu<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
         static constexpr bool value = true;
@@ -73,21 +77,8 @@ namespace Properties
         using type = double;
     };
 
-    template <class TypeTag>
-    struct Linearizer<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
-        using type = TpfaLinearizer<TypeTag>;
-    };
-
-    template <class TypeTag>
-    struct LocalResidual<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
-        using type = BlackOilLocalResidualTPFA<TypeTag>;
-    };
-
-    template <class TypeTag>
-    struct EnableDiffusion<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
-        static constexpr bool value = true;
-    };
-
+    // Dispersion is not yet supported on the GPU assembly path; disable it
+    // even though the CPU parent TypeTag enables it.
     template <class TypeTag>
     struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
         static constexpr bool value = false;
@@ -105,16 +96,6 @@ namespace Properties
     };
 
     template <class TypeTag>
-    struct EnableDisgasInWater<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
-        static constexpr bool value = true;
-    };
-
-    template <class TypeTag>
-    struct EnableVapwat<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
-        static constexpr bool value = true;
-    };
-
-    template <class TypeTag>
     struct GpuFIBlackOilModel<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
         using type = SimplifiedGpuFIBlackOilModel<TypeTag>;
     };
@@ -123,28 +104,6 @@ namespace Properties
     struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyProblemGPUTrue<Storage>> {
         using type = Opm::
             BlackOilFluidSystemNonStatic<double, Opm::BlackOilDefaultFluidSystemIndices, Storage>;
-    };
-
-    //! The indices required by the model
-    template <class TypeTag>
-    struct Indices<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
-    private:
-        // it is unfortunately not possible to simply use 'TypeTag' here because this leads
-        // to cyclic definitions of some properties. if this happens the compiler error
-        // messages unfortunately are *really* confusing and not really helpful.
-        using BaseTypeTag = TTag::FlowProblem;
-        using FluidSystem = GetPropType<BaseTypeTag, Properties::FluidSystem>;
-
-    public:
-        using type = BlackOilTwoPhaseIndices<getPropValue<TypeTag, Properties::EnableSolvent>(),
-                                             getPropValue<TypeTag, Properties::EnableExtbo>(),
-                                             getPropValue<TypeTag, Properties::EnablePolymer>(),
-                                             getPropValue<TypeTag, Properties::EnableEnergy>(),
-                                             getPropValue<TypeTag, Properties::EnableFoam>(),
-                                             getPropValue<TypeTag, Properties::EnableBrine>(),
-                                             /*PVOffset=*/0,
-                                             /*disabledCompIdx=*/FluidSystem::oilCompIdx,
-                                             getPropValue<TypeTag, Properties::EnableBioeffects>()>;
     };
 } // namespace Properties
 

@@ -113,7 +113,7 @@ struct FullDomain
 };
 
 #if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
-    FullDomain<gpuistl::GpuBuffer<int>> copy_to_gpu(FullDomain<> CPUDomain)
+    inline FullDomain<gpuistl::GpuBuffer<int>> copy_to_gpu(FullDomain<> CPUDomain)
     {
         if (CPUDomain.cells.size() == 0) {
             OPM_THROW(std::runtime_error, "Cannot copy empty full domain to GPU.");
@@ -123,7 +123,7 @@ struct FullDomain
         };
     };
 
-    FullDomain<gpuistl::GpuView<int>> make_view(FullDomain<gpuistl::GpuBuffer<int>>& buffer)
+    inline FullDomain<gpuistl::GpuView<int>> make_view(FullDomain<gpuistl::GpuBuffer<int>>& buffer)
     {
         if (buffer.cells.size() == 0) {
             OPM_THROW(std::runtime_error, "Cannot make view of empty full domain buffer.");

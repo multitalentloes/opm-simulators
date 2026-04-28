@@ -43,6 +43,14 @@ namespace TTag {
 struct FlowGasWaterEnergyProblem {
     using InheritsFrom = std::tuple<FlowProblem>;
 };
+
+/// GPU-simulation variant: all physics properties are inherited from
+/// \c FlowGasWaterEnergyProblem; the GPU-specific property overrides
+/// (RunAssemblyOnGpu, GpuFIBlackOilModel, …) are added in \c flow_gpu.cu.
+struct FlowGasWaterEnergyProblemGPU {
+    using InheritsFrom = std::tuple<FlowGasWaterEnergyProblem>;
+};
+
 } // namespace TTag
 
 template<class TypeTag>

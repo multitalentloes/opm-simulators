@@ -392,7 +392,10 @@ struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyProblemTest>
 
 using TypeTag = Opm::Properties::TTag::FlowGasWaterEnergyProblemTest;
 using TypeNacht = Opm::Properties::TTag::FlowGasWaterEnergyDummyProblemGPU;
-using TypeTagGPU = Opm::Properties::TTag::FlowGasWaterEnergyProblemGPU;
+// FlowGasWaterEnergyKernelBaseGPU is the GPU-kernel-side TypeTag with GpuView
+// FluidSystem; previously named FlowGasWaterEnergyProblemGPU in the dispatcher
+// internals.  Use it wherever a GpuView-backed ScalarFluidState is needed.
+using TypeTagGPU = Opm::Properties::TTag::FlowGasWaterEnergyKernelBaseGPU;
 
 template<class IndexTraits, class GpuProblem>
 __global__ void

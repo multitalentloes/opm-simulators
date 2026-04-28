@@ -368,4 +368,17 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
 template class GpuBlackoilIntensiveQuantitiesDispatcher<
     Opm::Properties::TTag::FlowGasWaterEnergyProblem>;
 
+// =============================================================================
+// Explicit instantiation for the GPU-assembly simulation TypeTag
+// \c FlowGasWaterEnergyProblemGPU (used by the flow_gpu binary that runs both
+// matrix assembly and intensive-quantities computation on the GPU).
+// This TypeTag inherits all physics from \c FlowGasWaterEnergyProblem and
+// therefore has the same CPU-side Problem / PrimaryVariables /
+// IntensiveQuantities types; the GPU kernel dispatch internally still uses
+// the \c FlowGasWaterEnergyKernelBaseGPU / \c FlowGasWaterEnergyDummyProblemGPU
+// chain.
+// =============================================================================
+template class GpuBlackoilIntensiveQuantitiesDispatcher<
+    Opm::Properties::TTag::FlowGasWaterEnergyProblemGPU>;
+
 } // namespace Opm::gpuistl

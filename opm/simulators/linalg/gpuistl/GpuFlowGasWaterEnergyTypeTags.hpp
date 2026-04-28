@@ -66,11 +66,14 @@ namespace Opm::Properties {
 
 namespace TTag {
 
-/// The GPU sibling of \c FlowGasWaterEnergyProblem. Inherits all property
-/// bindings from the simulation TypeTag and only overrides the storage of
-/// the primary variables, the material law and the fluid system to their
-/// GPU equivalents.
-struct FlowGasWaterEnergyProblemGPU {
+/// Internal kernel-base TypeTag for the GPU intensive-quantities dispatcher.
+/// Inherits all property bindings from \c FlowGasWaterEnergyProblem and
+/// overrides the primary variables, material law, fluid system and thermal
+/// laws to their GPU-compatible (GpuView / MiniVector) equivalents.
+/// This tag is an implementation detail of the dispatcher; user code should
+/// use \c FlowGasWaterEnergyProblemGPU (declared in FlowGasWaterEnergyTypeTag.hpp)
+/// as the outer simulation TypeTag.
+struct FlowGasWaterEnergyKernelBaseGPU {
     using InheritsFrom = std::tuple<FlowGasWaterEnergyProblem>;
 };
 
@@ -79,7 +82,7 @@ struct FlowGasWaterEnergyProblemGPU {
 /// \c FvBaseElementContextGpu so that the GPU device side has trivially
 /// copyable \c Problem / \c ElementContext types.
 struct FlowGasWaterEnergyDummyProblemGPU {
-    using InheritsFrom = std::tuple<FlowGasWaterEnergyProblemGPU>;
+    using InheritsFrom = std::tuple<FlowGasWaterEnergyKernelBaseGPU>;
 };
 
 } // namespace TTag
@@ -89,13 +92,13 @@ struct FlowGasWaterEnergyDummyProblemGPU {
 // update path; force them off on the GPU TypeTag.
 // -----------------------------------------------------------------------
 template <class TypeTag>
-struct EnableDiffusion<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct EnableDiffusion<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
     static constexpr bool value = false;
 };
 
 template <class TypeTag>
-struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
     static constexpr bool value = false;
 };
@@ -104,7 +107,7 @@ struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
 // MaterialLaw: GPU-friendly EclTwoPhaseMaterial backed by GpuView storage.
 // -----------------------------------------------------------------------
 template <class TypeTag>
-struct MaterialLaw<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct MaterialLaw<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
 private:
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
@@ -137,7 +140,7 @@ public:
 // trivially copyable to the device.
 // -----------------------------------------------------------------------
 template <class TypeTag>
-struct PrimaryVariables<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct PrimaryVariables<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
     using type = ::Opm::BlackOilPrimaryVariables<TypeTag, ::Opm::gpuistl::MiniVector>;
 };
@@ -146,7 +149,7 @@ struct PrimaryVariables<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
 // FluidSystem: non-static, GpuView-backed instantiation.
 // -----------------------------------------------------------------------
 template <class TypeTag>
-struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
     using type = ::Opm::BlackOilFluidSystemNonStatic<
         GetPropType<TTag::FlowProblem, Properties::Scalar>,
@@ -171,7 +174,7 @@ struct FluidSystem<TypeTag, TTag::FlowGasWaterEnergyDummyProblemGPU>
 // chains keep working.
 // -----------------------------------------------------------------------
 template <class TypeTag>
-struct SolidEnergyLaw<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct SolidEnergyLaw<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
 private:
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
@@ -187,7 +190,7 @@ public:
 };
 
 template <class TypeTag>
-struct ThermalConductionLaw<TypeTag, TTag::FlowGasWaterEnergyProblemGPU>
+struct ThermalConductionLaw<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 {
 private:
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
