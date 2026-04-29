@@ -53,6 +53,31 @@ struct FlowGasWaterEnergyProblemGPU {
 
 } // namespace TTag
 
+// -----------------------------------------------------------------------
+// FlowGasWaterEnergyProblemGPU property overrides that affect the layout
+// of \c BlackOilIntensiveQuantities (and therefore must be visible to
+// every translation unit that instantiates that class with this TypeTag,
+// otherwise we get an ODR violation: e.g. the dispatcher TU and
+// \c flow_gpu.cu would compile differently sized / ordered IQ structs).
+//
+// Dispersion is not yet supported on the GPU assembly path; disable it
+// even though the CPU parent TypeTag enables it.
+// -----------------------------------------------------------------------
+template <class TypeTag>
+struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
+    static constexpr bool value = false;
+};
+
+template <class TypeTag>
+struct EnableEnergy<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
+    static constexpr bool value = true;
+};
+
+template <class TypeTag>
+struct EnergyModuleType<TypeTag, TTag::FlowGasWaterEnergyProblemGPU> {
+    static constexpr EnergyModules value = EnergyModules::FullyImplicitThermal;
+};
+
 template<class TypeTag>
 struct Linearizer<TypeTag, TTag::FlowGasWaterEnergyProblem> { using type = TpfaLinearizer<TypeTag>; };
 

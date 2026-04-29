@@ -1170,8 +1170,8 @@ private:
 
                 cudaDeviceSynchronize();
                 auto linearizeEndTime = std::chrono::high_resolution_clock::now();
-                auto linearizeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(linearizeEndTime - linearizeStartTime).count();
-                std::cout << fmt::format("GPU linearization took {:.3f} ms\n", static_cast<double>(linearizeDuration));
+                auto linearizeDuration = std::chrono::duration_cast<std::chrono::microseconds>(linearizeEndTime - linearizeStartTime).count();
+                std::cout << fmt::format("GPU linearization took {:.3f} ms\n", static_cast<double>(linearizeDuration) / 1000.0);
 
                 // Now move the gpu residual into the cpu residual
                 auto cpuResidualFromGpu = gpuResidualBuffer.asStdVector();

@@ -80,7 +80,7 @@ inline auto dispatcherNow()
 inline double dispatcherElapsedMs(const std::chrono::steady_clock::time_point& start,
                                   const std::chrono::steady_clock::time_point& end)
 {
-    return std::chrono::duration<double, std::milli>(end - start).count();
+    return std::chrono::duration<double, std::micro>(end - start).count()/ 1000.0;
 }
 
 } // namespace
