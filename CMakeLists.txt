@@ -758,21 +758,25 @@ macro(opm-simulators_targets_hook)
   )
 
   foreach(OBJ ${COMMON_MODELS} ${FLOW_MODELS} ${FLOW_VARIANT_MODELS})
-    # do I need this code from kjetil?
-    # opm_add_library(
-    #   TARGET
-    #     flow_lib${OBJ}
-    #   TYPE
-    #     OBJECT
-    #   SOURCES
-    #     flow/flow_${OBJ}.cpp
-    # )
     set(SOURCE_FILE "flow/flow_${OBJ}.cpp")
+
     if(OBJ STREQUAL "gpu")
-      set(SOURCE_FILE "flow/flow_${OBJ}.cu")
+      if(CUDA_FOUND)
+        set(SOURCE_FILE "flow/flow_${OBJ}.cu")
+      elseif(USE_HIP)
+        set(SOURCE_FILE "flow/flow_${OBJ}.hip")
+      endif()
     endif()
-    
-    add_library(flow_lib${OBJ} OBJECT ${SOURCE_FILE})
+
+    opm_add_library(
+      TARGET
+        flow_lib${OBJ}
+      TYPE
+        OBJECT
+      SOURCES
+        ${SOURCE_FILE}
+    )
+
     target_link_libraries(flow_lib${OBJ} PRIVATE opmcommon)
     simulators_add_target_options(TARGET flow_lib${OBJ})
     list(APPEND FLOW_TGTS $<TARGET_OBJECTS:flow_lib${OBJ}>)

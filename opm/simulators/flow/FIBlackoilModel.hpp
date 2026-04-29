@@ -57,6 +57,8 @@
 #include <format>
 #include <stdexcept>
 #include <type_traits>
+#include <mutex>
+#include <thread>
 
 namespace Opm {
 
@@ -99,29 +101,37 @@ public:
 
     void invalidateAndUpdateIntensiveQuantities(unsigned timeIdx) const
     {
+
         this->invalidateIntensiveQuantitiesCache(timeIdx);
         if constexpr (gridIsUnchanging) {
             if constexpr (avoidElementContext) {
                 updateCachedIntQuants(timeIdx);
                 return;
             }
-            const auto timeBegin = std::chrono::steady_clock::now();
-            OPM_BEGIN_PARALLEL_TRY_CATCH();
+
+            if (updateHasRun < 4) {
+                const auto timeBegin = std::chrono::steady_clock::now();
+                OPM_BEGIN_PARALLEL_TRY_CATCH();
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-            for (const auto& chunk : element_chunks_) {
-                ElementContext elemCtx(this->simulator_);
-                for (const auto& elem : chunk) {
-                    elemCtx.updatePrimaryStencil(elem);
-                    elemCtx.updatePrimaryIntensiveQuantities(timeIdx);
+                for (const auto& chunk : element_chunks_) {
+                    ElementContext elemCtx(this->simulator_);
+                    for (const auto& elem : chunk) {
+                        elemCtx.updatePrimaryStencil(elem);
+                        elemCtx.updatePrimaryIntensiveQuantities(timeIdx);
+                    }
                 }
+                OPM_END_PARALLEL_TRY_CATCH("invalidateAndUpdateIntensiveQuantities: state error",
+                                        this->simulator_.vanguard().grid().comm());
+                const auto timeEnd = std::chrono::steady_clock::now();
+                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin).count();
+                OpmLog::info(std::format("Updated intensive quantities for {} elements in {} ms", this->gridView_.size(0), duration));
+                ++updateHasRun;
+            } else {
+                OpmLog::info("Intensive quantities update skipped since it has already been run once");
             }
-            OPM_END_PARALLEL_TRY_CATCH("invalidateAndUpdateIntensiveQuantities: state error",
-                                       this->simulator_.vanguard().grid().comm());
-            const auto timeEnd = std::chrono::steady_clock::now();
-            const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(timeEnd - timeBegin).count();
-            OpmLog::info(std::format("Updated intensive quantities for {} elements in {} ms", this->gridView_.size(0), duration));
+
 #if HAVE_CUDA
             // After all cells are CPU-updated and written into the cache,
             // overlay the GPU-computed BlackOil fields in one batched call.
@@ -129,8 +139,20 @@ public:
             {
                 if (useGpuIntensiveQuantitiesDispatcher_) {
                     runGpuIntensiveQuantitiesDispatcher_(timeIdx);
+
+                    const std::size_t numCells = this->intensiveQuantityCache_[timeIdx].size();
+                    for (std::size_t i = 0; i < numCells; ++i) {
+                        this->setIntensiveQuantitiesCacheEntryValidity(i, timeIdx, true);
+                    }
                 }
+                else {
+                    updateHasRun = 0; // reset so that the CPU update runs on the next call, if GPU dispatcher is not used
+                }
+            } else {
+                updateHasRun = 0; // reset so that the CPU update runs on the next call, if GPU dispatcher is not supported
             }
+#else
+            updateHasRun = 0; // reset so that the CPU update runs on the next call, if GPU dispatcher is not supported
 #endif
         } else {
             // Grid is possibly refined or otherwise changed between calls.
@@ -367,6 +389,8 @@ protected:
         }
     }
 #endif
+
+    mutable int updateHasRun = 0;
 };
 
 } // namespace Opm

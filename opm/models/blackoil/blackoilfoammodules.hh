@@ -184,8 +184,7 @@ public:
                                      Toolbox::template decay<LhsEval>(intQuants.solventInverseFormationVolumeFactor());
                 }
             } else {
-                // throw std::runtime_error("Transport phase is GAS/WATER/SOLVENT");
-                OPM_THROW(std::runtime_error, "Foam transport phase must be GAS/WATER/SOLVENT.");
+                OPM_THROW(std::runtime_error, "Transport phase is GAS/WATER/SOLVENT");
             }
 
             // Avoid singular matrix if no gas is present.
