@@ -27,7 +27,6 @@
 
 #include <opm/material/common/ResetLocale.hpp>
 #include <opm/material/thermal/EnergyModuleType.hpp>
-#include <opm/models/blackoil/blackoiltwophaseindices.hh>
 
 #include <opm/grid/CpGrid.hpp>
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
@@ -35,6 +34,7 @@
 #include <opm/simulators/flow/SimplifiedGpuBlackOilModel.hpp>
 #include <opm/simulators/flow/SimulatorFullyImplicitBlackoil.hpp>
 
+#include <opm/models/blackoil/blackoiltwophaseindices.hh>
 #include <opm/models/blackoil/blackoillocalresidualtpfa.hh>
 #include <opm/models/discretization/common/tpfalinearizer.hh>
 

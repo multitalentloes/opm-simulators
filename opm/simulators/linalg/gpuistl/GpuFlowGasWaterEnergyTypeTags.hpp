@@ -44,7 +44,7 @@
 #include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
 
 #include <opm/models/blackoil/blackoilprimaryvariables.hh>
-#include <opm/models/discretization/common/fvbaseelementcontextgpu.hh>
+#include <opm/models/discretization/common/nullfvbaseelementcontext.hh>
 
 #include <opm/material/thermal/EclSpecrockLaw.hpp>
 #include <opm/material/thermal/EclSpecrockLawParams.hpp>
@@ -52,8 +52,8 @@
 #include <opm/material/thermal/EclThconrLawParams.hpp>
 
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
-#include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
-#include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
+#include <opm/material/fluidmatrixinteractions/GpuEclMaterialLawManager.hpp>
+#include <opm/material/thermal/GpuEclThermalLawManager.hpp>
 #include <opm/simulators/flow/GpuFlowProblem.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
@@ -79,7 +79,7 @@ struct FlowGasWaterEnergyKernelBaseGPU {
 
 /// A second derived TypeTag used for the per-cell intensive-quantities
 /// kernel: it additionally swaps in \c GpuFlowProblem and
-/// \c FvBaseElementContextGpu so that the GPU device side has trivially
+/// \c NullFvBaseElementContext so that the GPU device side has trivially
 /// copyable \c Problem / \c ElementContext types.
 struct FlowGasWaterEnergyDummyProblemGPU {
     using InheritsFrom = std::tuple<FlowGasWaterEnergyKernelBaseGPU>;
@@ -236,7 +236,7 @@ public:
 template <class TypeTag>
 struct ElementContext<TypeTag, TTag::FlowGasWaterEnergyDummyProblemGPU>
 {
-    using type = ::Opm::FvBaseElementContextGpu<TypeTag>;
+    using type = ::Opm::NullFvBaseElementContext<TypeTag>;
 };
 
 } // namespace Opm::Properties

@@ -44,14 +44,14 @@
 #include <opm/models/blackoil/blackoillocalresidualtpfa.hh>
 #include <opm/models/blackoil/blackoilmodel.hh>
 #include <opm/models/blackoil/blackoilprimaryvariables.hh>
-#include <opm/models/discretization/common/fvbaseelementcontextgpu.hh>
+#include <opm/models/discretization/common/nullfvbaseelementcontext.hh>
 #include <opm/models/discretization/common/fvbaseprimaryvariables.hh>
 #include <opm/models/discretization/common/tpfalinearizer.hh>
 
 #include <opm/simulators/flow/FlowProblemBlackoil.hpp>
 #include <opm/simulators/flow/FlowProblemBlackoilProperties.hpp>
-#include <opm/simulators/flow/GpuEclMaterialLawManager.hpp>
-#include <opm/simulators/flow/GpuEclThermalLawManager.hpp>
+#include <opm/material/fluidmatrixinteractions/GpuEclMaterialLawManager.hpp>
+#include <opm/material/thermal/GpuEclThermalLawManager.hpp>
 #include <opm/simulators/flow/GpuFlowProblem.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBuffer.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
