@@ -660,30 +660,8 @@ public:
         return &intensiveQuantityCache_[timeIdx][globalIdx];
     }
 
-    // TODO: make this more efficient (avoid copy!) and still valid for gpu
-    // TODO: did not want to delve into the special IntQuants vector with special allocators
-    std::vector<IntensiveQuantities> allIntensiveQuantities0()
-    {
-        std::vector<IntensiveQuantities> allIntensiveQuantities;
-        auto& timeZeroIntQuants = intensiveQuantityCache_[0];
-        allIntensiveQuantities.insert(allIntensiveQuantities.end(),
-                                        timeZeroIntQuants.begin(),
-                                        timeZeroIntQuants.end());
-
-
-        return allIntensiveQuantities;
-    }
-
-    std::vector<IntensiveQuantities> allIntensiveQuantities1()
-    {
-        std::vector<IntensiveQuantities> allIntensiveQuantities;
-        auto& timeOneIntQuants = intensiveQuantityCache_[1];
-        assert(!timeOneIntQuants.empty());
-        allIntensiveQuantities.insert(allIntensiveQuantities.end(),
-                timeOneIntQuants.begin(),
-                timeOneIntQuants.end());
-        return allIntensiveQuantities;
-    }
+    const auto& intensiveQuantityCache() const
+    { return intensiveQuantityCache_; }
 
     /*!
      * \brief Update the intensive quantity cache for a entity on the grid at given time.

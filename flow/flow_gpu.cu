@@ -16,6 +16,9 @@
 */
 #include "config.h"
 
+#undef HAVE_DUNE_ALUGRID // Disable ALUGRID if it is available as nvcc struggles with it
+#undef HAVE_DUNE_FEM // Disable DUNE-FEM if it is available as nvcc struggles with it
+
 // For now flow_gpu is developed to support SPE11 simulations, that is 2-phase gas-water flow with
 // thermal effects The goal is to support both property-evaluation and matrix assembly on the GPU,
 // in addition to the linear solver which already works on the GPU. The CPU would still have to
@@ -32,7 +35,7 @@
 #include <opm/grid/CpGrid.hpp>
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
 #include <opm/simulators/flow/Main.hpp>
-#include <opm/simulators/flow/SimplifiedGpuBlackOilModel.hpp>
+#include <opm/simulators/flow/SimpleFIBlackOilModel.hpp>
 #include <opm/simulators/flow/SimulatorFullyImplicitBlackoil.hpp>
 
 #include <opm/models/blackoil/blackoillocalresidualtpfa.hh>

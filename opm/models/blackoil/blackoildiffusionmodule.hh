@@ -362,6 +362,12 @@ class BlackOilDiffusionIntensiveQuantities<TypeTag, /*enableDiffusion=*/false>
     using ElementContext = GetPropType<TypeTag, Properties::ElementContext>;
 
 public:
+    BlackOilDiffusionIntensiveQuantities() = default;
+
+    template <class OtherTypeTag>
+    BlackOilDiffusionIntensiveQuantities(const BlackOilDiffusionIntensiveQuantities<OtherTypeTag, false>&)
+    {}
+
     /*!
      * \brief Returns the tortuousity of the sub-domain of a fluid
      *        phase in the porous medium.
@@ -441,6 +447,12 @@ public:
         , diffusionCoefficient_(diffusionCoefficient)
     {}
 
+    template <class OtherTypeTag>
+    BlackOilDiffusionIntensiveQuantities(const BlackOilDiffusionIntensiveQuantities<OtherTypeTag, true>& other)
+        : tortuosity_(other.tortuosity())
+        , diffusionCoefficient_(other.diffusionCoefficients())
+    {}
+
     BlackOilDiffusionIntensiveQuantities&
     operator=(const BlackOilDiffusionIntensiveQuantities& rhs)
     {
@@ -448,10 +460,7 @@ public:
             return *this;
         }
 
-        // TODO: Cannot really access the non-static enableDiffusion bool here
-        // Doing it this way seems wrong as well because it should be runtime-dependent,
-        // not sure yet what is the best solution.
-        if constexpr (getPropValue<TypeTag, Properties::EnableDiffusion>()) {
+        if (FluidSystem::enableDiffusion()) {
             tortuosity_ = rhs.tortuosity_;
             diffusionCoefficient_ = rhs.diffusionCoefficient_;
         }
