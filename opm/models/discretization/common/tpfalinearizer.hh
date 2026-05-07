@@ -300,7 +300,7 @@ namespace  gpuistl {
                                             info.bcdata.boundaryFaceIndex,
                                             info.bcdata.faceArea,
                                             info.bcdata.faceZCoord,
-                                            info.bcdata.exFluidState.withOtherFluidSystem(dynamicGpuFluidSystemPtr)}});
+                                            info.bcdata.exFluidState.withOtherFluidSystem(*dynamicGpuFluidSystemPtr)}});
         }
 
         return gpuistl::GpuBuffer<BoundaryInfoTypeGPU>(gpu_boundary_info);
