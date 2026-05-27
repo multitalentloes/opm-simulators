@@ -227,12 +227,12 @@ protected:
 public:
 
     OPM_HOST_DEVICE static void volumeAndPhasePressureDifferences(std::array<short, numPhases>& upIdx,
-                                                  std::array<short, numPhases>& dnIdx,
-                                                  Evaluation (&volumeFlux)[numPhases],
-                                                  Evaluation (&pressureDifferences)[numPhases],
-                                                  const ElementContext& elemCtx,
-                                                  unsigned scvfIdx,
-                                                  unsigned timeIdx)
+                                                                  std::array<short, numPhases>& dnIdx,
+                                                                  Evaluation (&volumeFlux)[numPhases],
+                                                                  Evaluation (&pressureDifferences)[numPhases],
+                                                                  const ElementContext& elemCtx,
+                                                                  unsigned scvfIdx,
+                                                                  unsigned timeIdx)
     {
         const auto& problem = elemCtx.problem();
         const auto& stencil = elemCtx.stencil(timeIdx);
@@ -314,21 +314,21 @@ public:
 
     template<class EvalType, class ModuleParamsT = ModuleParams>
     OPM_HOST_DEVICE static void calculatePhasePressureDiff_(short& upIdx,
-                                            short& dnIdx,
-                                            EvalType& pressureDifference,
-                                            const IntensiveQuantities& intQuantsIn,
-                                            const IntensiveQuantities& intQuantsEx,
-                                            const unsigned phaseIdx,
-                                            const unsigned interiorDofIdx,
-                                            const unsigned exteriorDofIdx,
-                                            const Scalar Vin,
-                                            const Scalar Vex,
-                                            const unsigned globalIndexIn,
-                                            const unsigned globalIndexEx,
-                                            const Scalar distZg,
-                                            const Scalar thpresInToEx,
-                                            const Scalar thpresExToIn,
-                                            const ModuleParams& moduleParams)
+                                                            short& dnIdx,
+                                                            EvalType& pressureDifference,
+                                                            const IntensiveQuantities& intQuantsIn,
+                                                            const IntensiveQuantities& intQuantsEx,
+                                                            const unsigned phaseIdx,
+                                                            const unsigned interiorDofIdx,
+                                                            const unsigned exteriorDofIdx,
+                                                            const Scalar Vin,
+                                                            const Scalar Vex,
+                                                            const unsigned globalIndexIn,
+                                                            const unsigned globalIndexEx,
+                                                            const Scalar distZg,
+                                                            const Scalar thpresInToEx,
+                                                            const Scalar thpresExToIn,
+                                                            const ModuleParamsT& moduleParams)
     {
 
         // check shortcut: if the mobility of the phase is zero in the interior as
@@ -434,9 +434,9 @@ protected:
      */
     template <class FluidState>
     OPM_HOST_DEVICE void calculateBoundaryGradients_(const ElementContext& elemCtx,
-                                     unsigned scvfIdx,
-                                     unsigned timeIdx,
-                                     const FluidState& exFluidState)
+                                                     unsigned scvfIdx,
+                                                     unsigned timeIdx,
+                                                     const FluidState& exFluidState)
     {
         const auto& scvf = elemCtx.stencil(timeIdx).boundaryFace(scvfIdx);
         const Scalar faceArea = scvf.area();
@@ -478,16 +478,16 @@ public:
      */
     template <class Problem, class FluidState, class EvaluationContainer>
     OPM_HOST_DEVICE static void calculateBoundaryGradients_(const Problem& problem,
-                                            const unsigned globalSpaceIdx,
-                                            const IntensiveQuantities& intQuantsIn,
-                                            const unsigned bfIdx,
-                                            const double faceArea,
-                                            const double zEx,
-                                            const FluidState& exFluidState,
-                                            std::array<short, numPhases>& upIdx,
-                                            std::array<short, numPhases>& dnIdx,
-                                            EvaluationContainer& volumeFlux,
-                                            EvaluationContainer& pressureDifference)
+                                                            const unsigned globalSpaceIdx,
+                                                            const IntensiveQuantities& intQuantsIn,
+                                                            const unsigned bfIdx,
+                                                            const double faceArea,
+                                                            const double zEx,
+                                                            const FluidState& exFluidState,
+                                                            std::array<short, numPhases>& upIdx,
+                                                            std::array<short, numPhases>& dnIdx,
+                                                            EvaluationContainer& volumeFlux,
+                                                            EvaluationContainer& pressureDifference)
     {
 
         bool enableBoundaryMassFlux = problem.nonTrivialBoundaryConditions();
