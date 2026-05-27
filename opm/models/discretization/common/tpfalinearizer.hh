@@ -613,7 +613,7 @@ private:
             }
         }
 
-#if HAVE_CUDA
+#if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
         gpuJacobian_.reset(new gpuistl::GpuSparseMatrixWrapper<Scalar>(
             gpuistl::GpuSparseMatrixWrapper<Scalar>::fromMatrix(jacobian_->istlMatrix())));
         gpuBufferDiagMatAddress_.reset(new gpuistl::GpuBuffer<MatrixBlockGPU*>(
@@ -632,7 +632,7 @@ private:
         // zero all matrix entries
         jacobian_->clear();
 
-#if HAVE_CUDA
+#if HAVE_CUDA && OPM_IS_COMPILING_WITH_GPU_COMPILER
         gpuJacobian_->setToZero();
 #endif
     }
