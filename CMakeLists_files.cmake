@@ -608,11 +608,15 @@ if(CUDA_FOUND OR hip_FOUND)
       tests/gpuistl/test_GpuSparseMatrix.cu
       tests/gpuistl/test_GpuSparseTable.cu
       tests/gpuistl/test_blackoilfluidstategpu.cu
-      flow/flow_gpu.cu
+      flow/flow_gpu_gaswater_thermal.cu
     )
 
     foreach(file ${CU_FILES_NEEDING_RELAXED_CONSTEXPR})
-        set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS "--expt-relaxed-constexpr")
+      set_source_files_properties(${file}
+        PROPERTIES
+        COMPILE_FLAGS
+          "--expt-relaxed-constexpr"
+      )
     endforeach()
 
     set(CU_FILES_NEEDING_FPERMISSIVE
@@ -622,7 +626,11 @@ if(CUDA_FOUND OR hip_FOUND)
     foreach(file ${CU_FILES_NEEDING_FPERMISSIVE})
       # Certain structures in OPM requires the -fpermissive flag to compile with nvcc,
       # this enables this for the specific files
-      set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS "-fpermissive --expt-relaxed-constexpr -Xcompiler=-fpermissive")
+      set_source_files_properties(${file}
+        PROPERTIES
+        COMPILE_FLAGS
+          "-fpermissive --expt-relaxed-constexpr -Xcompiler=-fpermissive"
+      )
     endforeach()
   endif()
 endif()
