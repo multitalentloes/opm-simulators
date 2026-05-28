@@ -715,7 +715,6 @@ macro(opm-simulators_targets_hook)
     gaswater_saltprec_energy
     gaswater_saltprec_vapwat
     gaswater_solvent
-    gpu
     micp
     oilwater
     oilwater_brine
@@ -730,25 +729,13 @@ macro(opm-simulators_targets_hook)
   )
 
   foreach(OBJ ${COMMON_MODELS} ${FLOW_MODELS} ${FLOW_VARIANT_MODELS})
-    set(SOURCE_FILE "flow/flow_${OBJ}.cpp")
-
-    if(OBJ STREQUAL "gpu")
-      if (CONVERT_CUDA_TO_HIP)
-        set(SOURCE_FILE "flow/flow_${OBJ}.hip")
-      elseif (CUDA_FOUND)
-        set(SOURCE_FILE "flow/flow_${OBJ}.cu")
-      else()
-        continue()
-      endif()
-    endif()
-
     opm_add_library(
       TARGET
         flow_lib${OBJ}
       TYPE
         OBJECT
       SOURCES
-        ${SOURCE_FILE}
+        flow/flow_${OBJ}.cpp
     )
 
     simulators_add_target_options(TARGET flow_lib${OBJ})
@@ -790,6 +777,58 @@ macro(opm-simulators_targets_hook)
     LIBRARIES
       opmsimulators
   )
+
+  # Flow GPU executables handled separately to avoid making flow dependent on CUDA/HIP
+  set(FLOW_GPU_MODELS
+    gpu_gaswater_thermal
+  )
+
+  if(CONVERT_CUDA_TO_HIP OR CUDA_FOUND)
+
+    if(CONVERT_CUDA_TO_HIP)
+      set(EXTENSION "hip")
+    else()
+      set(EXTENSION "cu")
+    endif()
+
+    foreach(OBJ ${FLOW_GPU_MODELS})
+
+      opm_add_library(
+        TARGET
+          flow_lib${OBJ}
+        TYPE
+          OBJECT
+        SOURCES
+          flow/flow_${OBJ}.${EXTENSION}
+      )
+
+      simulators_add_target_options(TARGET flow_lib${OBJ})
+      list(APPEND FLOW_GPU_TGTS $<TARGET_OBJECTS:flow_lib${OBJ}>)
+      list(APPEND FLOWMODELS_PREFIXED flow_${OBJ})
+
+      opm_add_executable(
+        TARGET
+          flow_${OBJ}
+        SOURCES
+          flow/flow_${OBJ}_main.cpp
+          $<TARGET_OBJECTS:moduleVersion>
+          $<TARGET_OBJECTS:flow_lib${OBJ}>
+        LIBRARIES
+          opmsimulators
+      )
+    endforeach()
+
+    opm_add_executable(
+      TARGET
+        flow_gpu
+      SOURCES
+        flow/flow_gpu_main.cpp
+        ${FLOW_GPU_TGTS}
+        $<TARGET_OBJECTS:moduleVersion>
+      LIBRARIES
+        opmsimulators
+    )
+  endif()
 
   if(OPM_ENABLE_PYTHON)
     set_target_properties(
