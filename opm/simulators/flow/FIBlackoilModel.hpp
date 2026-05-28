@@ -138,6 +138,8 @@ public:
 #else
             updateHasRun = 0; // reset so that the CPU update runs on the next call, if GPU dispatcher is not supported
 #endif
+            OPM_END_PARALLEL_TRY_CATCH("invalidateAndUpdateIntensiveQuantities: state error",
+                                       this->simulator_.vanguard().grid().comm());
         } else {
             // Grid is possibly refined or otherwise changed between calls.
             ElementContext elemCtx(this->simulator_);
@@ -290,6 +292,7 @@ protected:
     void updateCachedIntQuantsLoop(const unsigned timeIdx) const
     {
         const auto& elementMapper = this->simulator_.model().elementMapper();
+        const auto cpuStartTime = std::chrono::steady_clock::now();
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif

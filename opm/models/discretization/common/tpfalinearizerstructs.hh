@@ -164,7 +164,7 @@ namespace gpuistl {
               class BoundaryInfoTypeCPU,
               typename GpuFluidSystemPtr>
     auto copy_to_gpu(const std::vector<BoundaryInfoTypeCPU>& cpu_boundary_info,
-                     const GpuFluidSystemPtr& dynamicGpuFluidSystemPtr)
+                     const GpuFluidSystemPtr& ref)
     {
         std::vector<BoundaryInfoTypeGPU> gpu_boundary_info;
         for (const auto& info : cpu_boundary_info) {
@@ -179,7 +179,7 @@ namespace gpuistl {
                     info.bcdata.boundaryFaceIndex,
                     info.bcdata.faceArea,
                     info.bcdata.faceZCoord,
-                    info.bcdata.exFluidState.withOtherFluidSystem(dynamicGpuFluidSystemPtr)}});
+                    info.bcdata.exFluidState.withOtherFluidSystem(ref)}});
         }
 
         return gpuistl::GpuBuffer<BoundaryInfoTypeGPU>(gpu_boundary_info);

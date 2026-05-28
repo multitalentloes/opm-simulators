@@ -85,6 +85,16 @@ struct FlowGasWaterEnergyDummyProblemGPU {
     using InheritsFrom = std::tuple<FlowGasWaterEnergyKernelBaseGPU>;
 };
 
+/// CPU-side TypeTag used as the source when constructing a GPU
+/// intensive-quantities prototype via the cross-TypeTag converting constructor.
+/// Inherits all CPU-side property bindings from \c FlowGasWaterEnergyProblem
+/// but disables diffusion and dispersion to match the GPU kernel's capabilities,
+/// ensuring the converting constructor's static_assert on matching settings is
+/// satisfied.
+struct FlowGasWaterEnergyCpuKernelBase {
+    using InheritsFrom = std::tuple<FlowGasWaterEnergyProblem>;
+};
+
 } // namespace TTag
 
 // -----------------------------------------------------------------------
@@ -99,6 +109,22 @@ struct EnableDiffusion<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
 
 template <class TypeTag>
 struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyKernelBaseGPU>
+{
+    static constexpr bool value = false;
+};
+
+// Also disable diffusion and dispersion for the CPU prototype TypeTag so that
+// the BlackOilIntensiveQuantities converting constructor's static_assert
+// (which requires matching diffusion/dispersion settings) is satisfied when
+// building the GPU IQ prototype from a CPU IQ.
+template <class TypeTag>
+struct EnableDiffusion<TypeTag, TTag::FlowGasWaterEnergyCpuKernelBase>
+{
+    static constexpr bool value = false;
+};
+
+template <class TypeTag>
+struct EnableDispersion<TypeTag, TTag::FlowGasWaterEnergyCpuKernelBase>
 {
     static constexpr bool value = false;
 };
