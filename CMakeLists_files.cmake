@@ -819,7 +819,6 @@ list (APPEND PUBLIC_HEADER_FILES
   opm/models/discretization/common/fvbaseproblem.hh
   opm/models/discretization/common/fvbaseproperties.hh
   opm/models/discretization/common/linearizationtype.hh
-  opm/models/discretization/common/nullfvbaseelementcontext.hh
   opm/models/discretization/common/restrictprolong.hh
   opm/models/discretization/common/tpfalinearizer.hh
   opm/models/discretization/common/tpfalinearizergpukernels.hh

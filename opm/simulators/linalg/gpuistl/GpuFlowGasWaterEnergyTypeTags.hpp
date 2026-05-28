@@ -44,7 +44,6 @@
 #include <opm/material/fluidsystems/BlackOilFluidSystemNonStatic.hpp>
 
 #include <opm/models/blackoil/blackoilprimaryvariables.hh>
-#include <opm/models/discretization/common/nullfvbaseelementcontext.hh>
 
 #include <opm/material/thermal/EclSpecrockLaw.hpp>
 #include <opm/material/thermal/EclSpecrockLawParams.hpp>
@@ -78,8 +77,7 @@ struct FlowGasWaterEnergyKernelBaseGPU {
 };
 
 /// A second derived TypeTag used for the per-cell intensive-quantities
-/// kernel: it additionally swaps in \c GpuFlowProblem and
-/// \c NullFvBaseElementContext so that the GPU device side has trivially
+/// kernel: it additionally swaps in \c GpuFlowProblem so that the GPU device side has trivially
 /// copyable \c Problem / \c ElementContext types.
 struct FlowGasWaterEnergyDummyProblemGPU {
     using InheritsFrom = std::tuple<FlowGasWaterEnergyKernelBaseGPU>;
@@ -262,7 +260,7 @@ public:
 template <class TypeTag>
 struct ElementContext<TypeTag, TTag::FlowGasWaterEnergyDummyProblemGPU>
 {
-    using type = ::Opm::NullFvBaseElementContext<TypeTag>;
+    using type = std::nullptr_t;
 };
 
 } // namespace Opm::Properties
