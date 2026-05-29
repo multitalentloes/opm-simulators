@@ -96,9 +96,6 @@ public:
     /// \c BlackOilIntensiveQuantities::overlayBlackOilFieldsFrom (so the
     /// caller is expected to have run the CPU update first to fill in any
     /// fields the dispatcher does not overwrite, e.g. \c mobility_).
-    ///
-    /// to \c std::cout, prefixed with
-    /// \c "[GpuBlackoilIntensiveQuantitiesDispatcher]".
     void update(const Problem& cpuProblem,
                 const PrimaryVariables* const* cpuPriVars,
                 IntensiveQuantities* const* outIQ,
