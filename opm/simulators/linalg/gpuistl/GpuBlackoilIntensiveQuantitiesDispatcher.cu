@@ -141,11 +141,10 @@ dispatcherUpdateAllCellsKernel(GpuProblem problem,
     if (i >= numCells) {
         return;
     }
-    IntensiveQuantitiesT iq = outIntensiveQuantities[i];
+    IntensiveQuantitiesT& iq = outIntensiveQuantities[i];
     iq.updateSaturations(primaryVariables[i], 0, Opm::LinearizationType{});
     iq.update(problem, primaryVariables[i], static_cast<unsigned>(i), 0);
     iq.updateEnergyQuantities_(problem, static_cast<unsigned>(i), 0u);
-    outIntensiveQuantities[i] = iq;
 }
 
 } // namespace
@@ -160,7 +159,6 @@ struct GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::Impl {
     DispatcherGpuFlowProblemView problemView{};
     DispatcherFluidSystemView* managedFluidSystemView = nullptr;
     std::optional<DispatcherGpuIntensiveQuantities> prototype;
-    std::size_t callCount = 0;
 
     ~Impl()
     {
@@ -242,7 +240,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     // -------------------------------------------------------------------
     Opm::gpuistl::GpuBuffer<DispatcherGpuPrimaryVariables> primaryVariablesBuffer(hostPriVars);
     Opm::gpuistl::GpuBuffer<DispatcherGpuIntensiveQuantities> intensiveQuantitiesBuffer(hostIQ);
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
 
     // -------------------------------------------------------------------
     // 3. Launch the per-cell update kernel.
@@ -257,8 +254,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
         Opm::gpuistl::GpuView<DispatcherGpuIntensiveQuantities>(
             intensiveQuantitiesBuffer.data(), intensiveQuantitiesBuffer.size()),
         numDof);
-    OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-    OPM_GPU_SAFE_CALL(cudaGetLastError());
 
     // -------------------------------------------------------------------
     // 4. Read the GPU IntensiveQuantities back to host memory.
@@ -277,8 +272,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     for (std::size_t i = 0; i < numDof; ++i) {
         outIQ[i]->overlayBlackOilFieldsFrom(hostIQ[i]);
     }
-
-    ++impl_->callCount;
 }
 
 // =============================================================================

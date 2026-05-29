@@ -97,7 +97,6 @@ public:
     /// caller is expected to have run the CPU update first to fill in any
     /// fields the dispatcher does not overwrite, e.g. \c mobility_).
     ///
-    /// Per-call host/device timings are accumulated and printed every call
     /// to \c std::cout, prefixed with
     /// \c "[GpuBlackoilIntensiveQuantitiesDispatcher]".
     void update(const Problem& cpuProblem,
