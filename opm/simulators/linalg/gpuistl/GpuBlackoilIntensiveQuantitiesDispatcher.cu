@@ -63,26 +63,9 @@
 
 #include <opm/common/OpmLog/OpmLog.hpp>
 
-#include <chrono>
 #include <format>
 #include <optional>
 #include <vector>
-
-namespace {
-
-// Small helper to take a std::chrono::steady_clock timestamp.
-inline auto dispatcherNow()
-{
-    return std::chrono::steady_clock::now();
-}
-
-inline double dispatcherElapsedMs(const std::chrono::steady_clock::time_point& start,
-                                  const std::chrono::steady_clock::time_point& end)
-{
-    return std::chrono::duration<double, std::micro>(end - start).count()/ 1000.0;
-}
-
-} // namespace
 
 namespace Opm::gpuistl {
 
@@ -179,43 +162,12 @@ struct GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::Impl {
     std::optional<DispatcherGpuIntensiveQuantities> prototype;
     std::size_t callCount = 0;
 
-    // Cumulative per-stage timings (milliseconds, host-side).
-    double totalConvertMs = 0.0;
-    double totalH2DMs = 0.0;
-    double totalKernelMs = 0.0;
-    double totalD2HMs = 0.0;
-    double totalOverlayMs = 0.0;
-    double totalDofsProcessed = 0.0;
-
     ~Impl()
     {
         if (managedFluidSystemView != nullptr) {
             managedFluidSystemView->~DispatcherFluidSystemView();
             (void)cudaFree(managedFluidSystemView);
             managedFluidSystemView = nullptr;
-        }
-        if (callCount > 0u) {
-            const double totalMs =
-                totalConvertMs + totalH2DMs + totalKernelMs + totalD2HMs + totalOverlayMs;
-            const double avgConvertMs  = totalConvertMs  / static_cast<double>(callCount);
-            const double avgH2DMs      = totalH2DMs      / static_cast<double>(callCount);
-            const double avgKernelMs   = totalKernelMs   / static_cast<double>(callCount);
-            const double avgD2HMs      = totalD2HMs      / static_cast<double>(callCount);
-            const double avgOverlayMs  = totalOverlayMs  / static_cast<double>(callCount);
-            const double avgTotalMs    = totalMs          / static_cast<double>(callCount);
-            const double avgDofs       = totalDofsProcessed / static_cast<double>(callCount);
-            Opm::OpmLog::info(std::format(
-                "[GpuBlackoilIntensiveQuantitiesDispatcher] aggregate over {} call(s),"
-                " {} dof-updates:\n"
-                "  totals  : convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms"
-                " d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms\n"
-                "  per-call: convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms"
-                " d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms avg_dofs={:.1f}",
-                callCount,
-                static_cast<std::size_t>(totalDofsProcessed),
-                totalConvertMs, totalH2DMs, totalKernelMs, totalD2HMs, totalOverlayMs, totalMs,
-                avgConvertMs,   avgH2DMs,   avgKernelMs,   avgD2HMs,   avgOverlayMs,   avgTotalMs,
-                avgDofs));
         }
     }
 };
@@ -275,7 +227,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     // 1. Convert CPU primary variables to the dispatcher's GPU primary
     //    variables (host-side).
     // -------------------------------------------------------------------
-    const auto t0 = dispatcherNow();
     std::vector<DispatcherGpuPrimaryVariables> hostPriVars;
     hostPriVars.reserve(numDof);
     for (std::size_t i = 0; i < numDof; ++i) {
@@ -284,7 +235,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
         hostPriVars.emplace_back(*cpuPriVars[i]);
     }
     std::vector<DispatcherGpuIntensiveQuantities> hostIQ(numDof, *impl_->prototype);
-    const auto t1 = dispatcherNow();
 
     // -------------------------------------------------------------------
     // 2. Upload host buffers to the device (host-to-device copies are
@@ -293,7 +243,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     Opm::gpuistl::GpuBuffer<DispatcherGpuPrimaryVariables> primaryVariablesBuffer(hostPriVars);
     Opm::gpuistl::GpuBuffer<DispatcherGpuIntensiveQuantities> intensiveQuantitiesBuffer(hostIQ);
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
-    const auto t2 = dispatcherNow();
 
     // -------------------------------------------------------------------
     // 3. Launch the per-cell update kernel.
@@ -310,7 +259,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
         numDof);
     OPM_GPU_SAFE_CALL(cudaDeviceSynchronize());
     OPM_GPU_SAFE_CALL(cudaGetLastError());
-    const auto t3 = dispatcherNow();
 
     // -------------------------------------------------------------------
     // 4. Read the GPU IntensiveQuantities back to host memory.
@@ -319,7 +267,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
                                  intensiveQuantitiesBuffer.data(),
                                  numDof * sizeof(DispatcherGpuIntensiveQuantities),
                                  cudaMemcpyDeviceToHost));
-    const auto t4 = dispatcherNow();
 
     // -------------------------------------------------------------------
     // 5. Field-by-field overlay onto the caller's CPU IntensiveQuantities.
@@ -330,30 +277,6 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::update(
     for (std::size_t i = 0; i < numDof; ++i) {
         outIQ[i]->overlayBlackOilFieldsFrom(hostIQ[i]);
     }
-    const auto t5 = dispatcherNow();
-
-    // -------------------------------------------------------------------
-    // Per-call timings.
-    // -------------------------------------------------------------------
-    const double convertMs = dispatcherElapsedMs(t0, t1);
-    const double h2dMs     = dispatcherElapsedMs(t1, t2);
-    const double kernelMs  = dispatcherElapsedMs(t2, t3);
-    const double d2hMs     = dispatcherElapsedMs(t3, t4);
-    const double overlayMs = dispatcherElapsedMs(t4, t5);
-
-    impl_->totalConvertMs    += convertMs;
-    impl_->totalH2DMs        += h2dMs;
-    impl_->totalKernelMs     += kernelMs;
-    impl_->totalD2HMs        += d2hMs;
-    impl_->totalOverlayMs    += overlayMs;
-    impl_->totalDofsProcessed += static_cast<double>(numDof);
-
-    Opm::OpmLog::info(std::format(
-        "[GpuBlackoilIntensiveQuantitiesDispatcher] call={} dofs={}"
-        " convert={:.3f}ms h2d={:.3f}ms kernel={:.3f}ms d2h={:.3f}ms overlay={:.3f}ms total={:.3f}ms",
-        impl_->callCount, numDof,
-        convertMs, h2dMs, kernelMs, d2hMs, overlayMs,
-        convertMs + h2dMs + kernelMs + d2hMs + overlayMs));
 
     ++impl_->callCount;
 }
