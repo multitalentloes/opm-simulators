@@ -1131,10 +1131,12 @@ public:
 
                 // currently not supported on GPU
                 if constexpr (!useGPU) {
-                    if (velocityInfo.rowSize(globI) > 0) {
-                        for (unsigned phaseIdx = 0; phaseIdx < numEq; ++phaseIdx) {
-                            velocityInfo[globI][loc].velocity[phaseIdx]
-                                = darcyFlux[phaseIdx].value() / nbInfo.res_nbinfo.faceArea;
+                    if (velocityInfo.size() >= globI + 1) {
+                        if (velocityInfo.rowSize(globI) > 0) {
+                            for (unsigned phaseIdx = 0; phaseIdx < numEq; ++phaseIdx) {
+                                velocityInfo[globI][loc].velocity[phaseIdx]
+                                    = darcyFlux[phaseIdx].value() / nbInfo.res_nbinfo.faceArea;
+                            }
                         }
                     }
                 }
