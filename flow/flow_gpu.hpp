@@ -20,8 +20,8 @@
 #include <opm/simulators/flow/FlowGasWaterEnergyTypeTag.hpp>
 #include <opm/simulators/flow/SimpleFIBlackOilModel.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.hpp>
-
 #include <opm/models/utils/parametersystem.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuFlowGasWaterEnergyTypeTags.hpp>
 /*
     This file extracts typetag declarations that must be present in both the .CU and .HIP
    executables for Flow to avoid double maintenance.
