@@ -78,6 +78,7 @@ updateSolution(const GlobalEqVector& dx)
                              /*curSolution=*/solution,
                              /*update=*/dx,
                              /*resid=*/dx);
+    simulator_.model().markHostPrimaryVariablesModified(/*timeIdx=*/0);
 
     {
         OPM_TIMEBLOCK(invalidateAndUpdateIntensiveQuantities);

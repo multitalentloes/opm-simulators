@@ -528,6 +528,7 @@ public:
     {
         // first set the whole domain to zero
         SolutionVector& uCur = asImp_().solution(/*timeIdx=*/0);
+        asImp_().markHostPrimaryVariablesModified(/*timeIdx=*/0);
         uCur = Scalar(0.0);
 
         ElementContext elemCtx(simulator_);
@@ -1220,14 +1221,25 @@ public:
      *
      * \param timeIdx The index of the solution used by the time discretization.
      */
+    // Derived models may keep the authoritative primary variables on a device.
+    // Access only refreshes a CPU mirror; mutation is declared separately.
+    void ensureHostPrimaryVariables(unsigned) const {}
+    void markHostPrimaryVariablesModified(unsigned) const {}
+
     const SolutionVector& solution(unsigned timeIdx) const
-    { return solution_[timeIdx]->blockVector(); }
+    {
+        asImp_().ensureHostPrimaryVariables(timeIdx);
+        return solution_[timeIdx]->blockVector();
+    }
 
     /*!
      * \copydoc solution(int) const
      */
     SolutionVector& solution(unsigned timeIdx)
-    { return solution_[timeIdx]->blockVector(); }
+    {
+        asImp_().ensureHostPrimaryVariables(timeIdx);
+        return solution_[timeIdx]->blockVector();
+    }
 
   protected:
     /*!
@@ -1568,6 +1580,7 @@ public:
             }
             instream >> solution(/*timeIdx=*/0)[dofIdx][eqIdx];
         }
+        asImp_().markHostPrimaryVariablesModified(/*timeIdx=*/0);
     }
 
     /*!
@@ -1902,11 +1915,23 @@ public:
     {
         using BaseDiscretization = GetPropType<TypeTag, Properties::BaseDiscretizationType>;
         using Helper = typename BaseDiscretization::template SerializeHelper<Serializer>;
+        for (unsigned timeIdx = 0; timeIdx < historySize; ++timeIdx) {
+            asImp_().ensureHostPrimaryVariables(timeIdx);
+        }
         Helper::serializeOp(serializer, solution_);
+        if (!serializer.isSerializing()) {
+            for (unsigned timeIdx = 0; timeIdx < historySize; ++timeIdx) {
+                asImp_().markHostPrimaryVariablesModified(timeIdx);
+            }
+        }
     }
 
     bool operator==(const FvBaseDiscretization& rhs) const
     {
+        for (unsigned timeIdx = 0; timeIdx < historySize; ++timeIdx) {
+            asImp_().ensureHostPrimaryVariables(timeIdx);
+            rhs.asImp_().ensureHostPrimaryVariables(timeIdx);
+        }
         return std::ranges::equal(this->solution_, rhs.solution_,
                                  [](const auto& x, const auto& y)
                                  { return *x == *y; });

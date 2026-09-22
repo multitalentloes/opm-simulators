@@ -26,6 +26,7 @@
 #include <opm/simulators/linalg/gpuistl/detail/cublas_wrapper.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_constants.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/scoped_gpu_memory_accounting.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/vector_operations.hpp>
 
 namespace Opm::gpuistl
@@ -43,6 +44,7 @@ GpuVector<T>::GpuVector(const size_t numberOfElements)
     , m_cuBlasHandle(detail::CuBlasHandle::getInstance())
 {
     OPM_GPU_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * detail::to_size_t(m_numberOfElements)));
+    detail::ScopedGpuMemoryAccounting::allocation(sizeof(T) * detail::to_size_t(m_numberOfElements));
 }
 
 template <class T>
@@ -52,6 +54,7 @@ GpuVector<T>::GpuVector(const T* dataOnHost, const size_t numberOfElements)
 
     OPM_GPU_SAFE_CALL(cudaMemcpy(
         m_dataOnDevice, dataOnHost, detail::to_size_t(m_numberOfElements) * sizeof(T), cudaMemcpyHostToDevice));
+    detail::ScopedGpuMemoryAccounting::hostToDevice(sizeof(T) * detail::to_size_t(m_numberOfElements));
 }
 
 template <class T>
@@ -142,6 +145,7 @@ GpuVector<T>::resize(size_t new_size)
     // Allocate new memory
     T* new_data = nullptr;
     OPM_GPU_SAFE_CALL(cudaMalloc(&new_data, sizeof(T) * new_size));
+    detail::ScopedGpuMemoryAccounting::allocation(sizeof(T) * new_size);
 
     if (m_dataOnDevice != nullptr && m_numberOfElements > 0) {
         // Copy existing data (up to the minimum of old and new size)
@@ -312,6 +316,7 @@ GpuVector<T>::copyFromHost(const T* dataPointer, size_t numberOfElements)
                               numberOfElements));
     }
     OPM_GPU_SAFE_CALL(cudaMemcpy(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+    detail::ScopedGpuMemoryAccounting::hostToDevice(sizeof(T) * numberOfElements);
 }
 
 template <class T>
@@ -326,6 +331,7 @@ GpuVector<T>::copyFromHostAsync(const T* dataPointer, size_t numberOfElements, c
     }
     // Asynchronous copy. CUDA runtime will use pinned memory if dataPointer is in a registered region.
     OPM_GPU_SAFE_CALL(cudaMemcpyAsync(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice, stream));
+    detail::ScopedGpuMemoryAccounting::hostToDevice(sizeof(T) * numberOfElements);
 }
 
 template <class T>

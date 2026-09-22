@@ -26,6 +26,7 @@
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/safe_conversion.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/scoped_gpu_memory_accounting.hpp>
 #include <vector>
 #include <string>
 #include <cuda_runtime.h>
@@ -147,6 +148,7 @@ public:
         : m_numberOfElements(numberOfElements)
     {
         OPM_GPU_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * m_numberOfElements));
+        detail::ScopedGpuMemoryAccounting::allocation(sizeof(T) * m_numberOfElements);
     }
 
 
@@ -164,6 +166,7 @@ public:
     {
         OPM_GPU_SAFE_CALL(cudaMemcpy(
             m_dataOnDevice, dataOnHost, m_numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+        detail::ScopedGpuMemoryAccounting::hostToDevice(sizeof(T) * m_numberOfElements);
     }
 
 
@@ -254,6 +257,7 @@ public:
                                 numberOfElements));
         }
         OPM_GPU_SAFE_CALL(cudaMemcpy(data(), dataPointer, numberOfElements * sizeof(T), cudaMemcpyHostToDevice));
+        detail::ScopedGpuMemoryAccounting::hostToDevice(sizeof(T) * numberOfElements);
     }
 
     /**
@@ -348,11 +352,13 @@ public:
         if (m_numberOfElements == 0) {
             // We have no data, so we can just allocate new memory
             OPM_GPU_SAFE_CALL(cudaMalloc(&m_dataOnDevice, sizeof(T) * newSize));
+            detail::ScopedGpuMemoryAccounting::allocation(sizeof(T) * newSize);
         }
         else {
             // Allocate memory for temporary buffer
             T* tmpBuffer = nullptr;
             OPM_GPU_SAFE_CALL(cudaMalloc(&tmpBuffer, sizeof(T) * m_numberOfElements));
+            detail::ScopedGpuMemoryAccounting::allocation(sizeof(T) * m_numberOfElements);
 
             // Move the data from the old to the new buffer with truncation
             size_t sizeOfMove = std::min({m_numberOfElements, newSize});

@@ -82,6 +82,12 @@ void registerFlowProblemParameters()
          "even if THERMAL is used.");
 
 #if HAVE_CUDA
+    Parameters::Register<Parameters::ExperimentalGpuNewtonUpdate>
+        ("Experimental: keep Newton corrections and primary-variable updates on the GPU when supported");
+    Parameters::Register<Parameters::ExperimentalGpuNewtonValidation>
+        ("Validate every resident Newton update against the CPU reference (downloads validation state)");
+    Parameters::Register<Parameters::ExperimentalGpuNewtonRejectOnce>
+        ("Validation only: reject the first update of the second timestep attempt once");
     Parameters::Register<Parameters::ExperimentalComputePropertiesOnGpu>
         ("Experimental: compute BlackOilIntensiveQuantities on the GPU "
          "via the GpuBlackoilIntensiveQuantitiesDispatcher. Only takes "
