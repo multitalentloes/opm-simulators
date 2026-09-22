@@ -45,6 +45,7 @@
 #if HAVE_CUDA
 #include <opm/simulators/flow/FlowProblemParameters.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuFlowGasWaterEnergyBridge.hpp>
 #include <memory>
 #include <variant>
 #include <vector>

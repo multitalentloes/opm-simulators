@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 namespace Opm::Properties::TTag {
     struct FlowGasWaterEnergyProblem;
@@ -118,6 +119,9 @@ public:
                                Scalar relaxation, bool useSOR, bool stabilize,
                                bool validate);
     bool hasBridge() const;
+    std::vector<Scalar> compactConvergenceFactors();
+    std::vector<Scalar> compactRelativeChange();
+    std::vector<Scalar> compactRockCompactionState();
     void reportTransferCounters() const;
 
     /// Explicit CPU-boundary materialization for legacy CPU consumers.
