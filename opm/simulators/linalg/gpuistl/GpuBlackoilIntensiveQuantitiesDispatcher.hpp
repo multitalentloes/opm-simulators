@@ -41,6 +41,8 @@ namespace Opm::gpuistl {
 
 template <class T>
 class GpuView;
+template <class T>
+class GpuVector;
 
 template <class CpuTypeTag,
           class DeviceTypeTag =
@@ -132,6 +134,10 @@ public:
     /// Materialize one source cell without downloading the complete IQ slot.
     void materializeHostIntensiveQuantity(unsigned timeIdx, unsigned globalIdx,
                                          IntensiveQuantities& destination);
+
+    /// Form true-IMPES CPR weights directly from resident storage derivatives.
+    /// Return false for a singular block so the CPU path retains its diagnostics.
+    bool computeTrueImpesWeights(GpuVector<Scalar>& weights, Scalar timeStepSize);
 
     bool hasDeviceModelView() const;
     const Bridge& bridge() const;
