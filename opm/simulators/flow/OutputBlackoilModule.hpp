@@ -393,6 +393,21 @@ public:
                 hysterParams
             };
 
+            if (matLawManager.enableHysteresis()) {
+                if (FluidSystem::phaseIsActive(oilPhaseIdx) && FluidSystem::phaseIsActive(waterPhaseIdx)) {
+                    matLawManager.oilWaterHysteresisParams(hysterParams.somax,
+                                                            hysterParams.swmax,
+                                                            hysterParams.swmin,
+                                                            ectx.globalDofIdx);
+                }
+                if (FluidSystem::phaseIsActive(oilPhaseIdx) && FluidSystem::phaseIsActive(gasPhaseIdx)) {
+                    matLawManager.gasOilHysteresisParams(hysterParams.sgmax,
+                                                          hysterParams.shmax,
+                                                          hysterParams.somin,
+                                                          ectx.globalDofIdx);
+                }
+            }
+
             Extractor::process(ectx, extractors_);
         }
     }

@@ -134,6 +134,35 @@ public:
         }
     }
 
+    // Publish the GPU host mirrors once before a read-only output traversal.
+    // The callback must finish all worker threads before returning and must
+    // not modify primary variables, invalidate IQs, or advance device state.
+    // OpenMP fork/join publishes this scope to readers and joins them before
+    // it is cleared, so per-cell reads need neither atomics nor mutexes.
+    template <class Func>
+    void withHostStateForOutput(unsigned timeIdx, Func&& func) const
+    {
+#if HAVE_CUDA
+        if constexpr (gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value) {
+            if (gpuIntensiveQuantitiesDispatcher_ && gpuIntensiveQuantitiesDispatcher_->hasBridge()
+                && gpuIntensiveQuantitiesDispatcher_->bridge().hasPrimaryVariables(timeIdx)
+                && gpuIntensiveQuantitiesDispatcher_->bridge().hasIntensiveQuantities(timeIdx)) {
+                assert(!hostOutputTimeIdx_);
+                ensureHostPrimaryVariables(timeIdx);
+                ensureHostIntensiveQuantities(timeIdx);
+                struct Scope {
+                    std::optional<unsigned>& slot;
+                    ~Scope() { slot.reset(); }
+                } scope{hostOutputTimeIdx_};
+                hostOutputTimeIdx_ = timeIdx;
+                std::forward<Func>(func)();
+                return;
+            }
+        }
+#endif
+        std::forward<Func>(func)();
+    }
+
     using ParentType::globalResidual;
 
     // An explicit temporary host mutation used by CPU diagnostics. Never
@@ -352,6 +381,9 @@ public:
                                       std::optional<unsigned> globalIdx = std::nullopt,
                                       bool singleCell = false) const
     {
+        if (hostOutputTimeIdx_ == timeIdx) {
+            return;
+        }
         if constexpr (Opm::gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value) {
             if (!gpuIntensiveQuantitiesDispatcher_ || !gpuIntensiveQuantitiesDispatcher_->hasBridge()
                 || !gpuIntensiveQuantitiesDispatcher_->bridge().hasIntensiveQuantities(timeIdx)) {
@@ -400,6 +432,9 @@ public:
 
     void ensureHostPrimaryVariables(unsigned timeIdx) const
     {
+        if (hostOutputTimeIdx_ == timeIdx) {
+            return;
+        }
         if constexpr (gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value) {
             if (!gpuIntensiveQuantitiesDispatcher_ || !gpuIntensiveQuantitiesDispatcher_->hasBridge()) {
                 return;
@@ -414,6 +449,7 @@ public:
 
     void markHostPrimaryVariablesModified(unsigned timeIdx) const
     {
+        assert(!hostOutputTimeIdx_);
         if constexpr (gpuistl::GpuBlackoilIntensiveQuantitiesDispatcherSupport<TypeTag>::value) {
             if (gpuIntensiveQuantitiesDispatcher_ && gpuIntensiveQuantitiesDispatcher_->hasBridge()) {
                 gpuIntensiveQuantitiesDispatcher_->bridge().invalidateHostEditedPrimaryVariables(timeIdx);
@@ -582,6 +618,7 @@ protected:
     mutable GpuDispatcherStorage gpuIntensiveQuantitiesDispatcher_{};
     mutable std::mutex gpuHostIntensiveQuantitiesMutex_;
     mutable std::mutex gpuHostPrimaryVariablesMutex_;
+    mutable std::optional<unsigned> hostOutputTimeIdx_;
 
     void runGpuIntensiveQuantitiesDispatcher_(const unsigned timeIdx) const
     {
