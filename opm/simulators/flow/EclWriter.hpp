@@ -899,7 +899,10 @@ private:
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-                                for (const auto& chunk : chunks) {
+                                for (std::size_t chunkIdx = 0; chunkIdx < chunks.size(); ++chunkIdx) {
+                                    auto chunkIterator = chunks.begin();
+                                    chunkIterator += chunkIdx;
+                                    const auto chunk = *chunkIterator;
                                     for (const auto& elem : chunk) {
                                         const unsigned cell = simulator_.model().elementMapper().index(elem);
                                         this->outputModule_->updateFluidInPlace(
@@ -947,7 +950,10 @@ private:
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-                    for (const auto& chunk : chunks) {
+                    for (std::size_t chunkIdx = 0; chunkIdx < chunks.size(); ++chunkIdx) {
+                        auto chunkIterator = chunks.begin();
+                        chunkIterator += chunkIdx;
+                        const auto chunk = *chunkIterator;
                         ElementContext elemCtx(simulator_);
                         for (const auto& elem : chunk) {
                             elemCtx.updatePrimaryStencil(elem);

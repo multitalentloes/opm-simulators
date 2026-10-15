@@ -135,7 +135,10 @@ namespace Opm {
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-                    for (const auto& chunk : chunks) {
+                    for (std::size_t chunkIdx = 0; chunkIdx < chunks.size(); ++chunkIdx) {
+                        auto chunkIterator = chunks.begin();
+                        chunkIterator += chunkIdx;
+                        const auto chunk = *chunkIterator;
                         ElementContext elemCtx(simulator);
                         auto& localPv = threadPv[ThreadManager::threadId()];
                         auto& localHpv = threadHpv[ThreadManager::threadId()];

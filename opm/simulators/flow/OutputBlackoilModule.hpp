@@ -403,15 +403,15 @@ public:
             const auto globalDofIdx = elemCtx.globalSpaceIndex(dofIdx, /*timeIdx=*/0);
 
             typename Extractor::HysteresisParams hysterParams;
-            if (matLawManager->enableHysteresis()) {
+            if (matLawManager.enableHysteresis()) {
                 if (FluidSystem::phaseIsActive(oilPhaseIdx) && FluidSystem::phaseIsActive(waterPhaseIdx)) {
-                    matLawManager->oilWaterHysteresisParams(hysterParams.somax,
+                    matLawManager.oilWaterHysteresisParams(hysterParams.somax,
                                                             hysterParams.swmax,
                                                             hysterParams.swmin,
                                                             globalDofIdx);
                 }
                 if (FluidSystem::phaseIsActive(oilPhaseIdx) && FluidSystem::phaseIsActive(gasPhaseIdx)) {
-                    matLawManager->gasOilHysteresisParams(hysterParams.sgmax,
+                    matLawManager.gasOilHysteresisParams(hysterParams.sgmax,
                                                           hysterParams.shmax,
                                                           hysterParams.somin,
                                                           globalDofIdx);
@@ -988,8 +988,7 @@ private:
 
         this->updateTotalVolumesAndPressures_(globalDofIdx,
                                               intQuants,
-                                              totVolume,
-                                              intQuants.referencePorosity());
+                                              totVolume);
 
         if (this->computeFip_) {
             this->updatePhaseInplaceVolumes_(globalDofIdx, intQuants, totVolume);

@@ -362,7 +362,7 @@ OPM_HOST_DEVICE std::array<Scalar, 20> newtonRswDiagnosticValues(
     std::array<Scalar, 20> out{};
     out[0] = temperature;
     out[1] = pressure;
-    out[2] = pvt.salinity(region);
+    out[2] = pvt.salinity(region).sum();
     out[3] = CO2::gasDensity(pvt.getParams(), temperature, pressure, true);
     out[4] = 1 / (out[3] / CO2::molarMass()) * 1e6;
     out[5] = pow(temperature, Scalar{1.5});
@@ -377,7 +377,8 @@ OPM_HOST_DEVICE std::array<Scalar, 20> newtonRswDiagnosticValues(
                                            Scalar{0}, false, true, true);
     out[13] = Binary::fugacityCoefficientH2O(pvt.getParams(), temperature, pressure,
                                            Scalar{0}, false, true, true);
-    Binary::calculateMoleFractions(pvt.getParams(), temperature, pressure, out[2], -1,
+    Binary::calculateMoleFractions(pvt.getParams(), temperature, pressure,
+                                  pvt.salinity(region), -1,
                                   out[14], out[15], pvt.getActivityModel(), true);
     out[16] = pvt.saturatedGasDissolutionFactor(region, temperature, pressure, Scalar{0});
     out[17] = pvt.waterReferenceDensity(region);

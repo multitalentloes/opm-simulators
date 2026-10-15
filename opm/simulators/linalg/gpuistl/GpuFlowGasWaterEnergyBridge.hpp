@@ -27,6 +27,7 @@
 #include <opm/simulators/flow/SimpleFIBlackOilModel.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuFlowGasWaterEnergyContract.hpp>
 #include <opm/simulators/linalg/gpuistl/GpuFipCellRecord.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/scoped_gpu_memory_accounting.hpp>
 
 #include <opm/simulators/linalg/gpuistl/GpuVector.hpp>
 
