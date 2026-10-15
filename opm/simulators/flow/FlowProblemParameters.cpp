@@ -90,10 +90,6 @@ void registerFlowProblemParameters()
         ("Validate every resident Newton update against the CPU reference (downloads validation state)");
     Parameters::Register<Parameters::ExperimentalGpuNewtonRejectOnce>
         ("Validation only: reject the first update of the second timestep attempt once");
-    Parameters::Register<Parameters::ExperimentalComputePropertiesOnGpu>
-        ("Experimental: compute BlackOilIntensiveQuantities on the GPU "
-         "via the GpuBlackoilIntensiveQuantitiesDispatcher. Only takes "
-         "effect for CO2STORE-compatible TypeTags; ignored otherwise.");
 #endif
 
     // By default, stop it after the universe will probably have stopped
