@@ -882,7 +882,66 @@ private:
 
             this->outputModule_->prepareDensityAccumulation();
             this->outputModule_->setupExtractors(isSubStep, reportStepNum);
-            simulator_.model().withHostStateForOutput(/*timeIdx=*/0, [&] {
+            bool usedCompactFip = false;
+            if constexpr (requires { simulator_.model().hasGpuPropertyAssemblyBridge();
+                                     this->outputModule_->hasBlockExtractors();
+                                     this->outputModule_->hasLgrBlockExtractors();
+                                     this->outputModule_->canUseCompactFipOutput(); }) {
+                if (isSubStep && !Parameters::Get<Parameters::EnableWriteAllSolutions>()
+                    && !this->outputModule_->needInterfaceFluxes(isSubStep)
+                    && this->outputModule_->canUseCompactFipOutput()
+                    && !this->outputModule_->hasLgrBlockExtractors()) {
+                    usedCompactFip = simulator_.model().withCompactFipForOutput(
+                        [&](const auto& records) {
+                            // The bridge record uses global-space indexing; the
+                            // number of interior cells need not be a prefix of it.
+                            simulator_.model().withInteriorElementChunks([&](const auto& chunks) {
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+                                for (const auto& chunk : chunks) {
+                                    for (const auto& elem : chunk) {
+                                        const unsigned cell = simulator_.model().elementMapper().index(elem);
+                                        this->outputModule_->updateFluidInPlace(
+                                            cell, records[cell],
+                                            simulator_.model().dofTotalVolume(cell));
+                                    }
+                                }
+                            });
+                        });
+                    if (usedCompactFip && this->outputModule_->hasBlockExtractors()) {
+                        std::vector<unsigned> blockCells;
+                        simulator_.model().withInteriorElementChunks([&](const auto& chunks) {
+                            for (const auto& chunk : chunks) {
+                                for (const auto& elem : chunk) {
+                                    const unsigned cell = simulator_.model().elementMapper().index(elem);
+                                    if (this->outputModule_->needsGlobalBlockCell(cell)) {
+                                        blockCells.push_back(cell);
+                                    }
+                                }
+                            }
+                        });
+                        usedCompactFip = simulator_.model().withSparseHostStateForBlockOutput(
+                            /*timeIdx=*/0, blockCells, [&] {
+                                simulator_.model().withInteriorElementChunks([&](const auto& chunks) {
+                                    for (const auto& chunk : chunks) {
+                                        ElementContext elemCtx(simulator_);
+                                        for (const auto& elem : chunk) {
+                                            const unsigned cell = simulator_.model().elementMapper().index(elem);
+                                            if (!this->outputModule_->needsGlobalBlockCell(cell)) {
+                                                continue;
+                                            }
+                                            elemCtx.updatePrimaryStencil(elem);
+                                            elemCtx.updatePrimaryIntensiveQuantities(/*timeIdx=*/0);
+                                            this->outputModule_->processElementBlockData(elemCtx);
+                                        }
+                                    }
+                                });
+                            });
+                    }
+                }
+            }
+            if (!usedCompactFip) simulator_.model().withHostStateForOutput(/*timeIdx=*/0, [&] {
                 // Each element writes only its own cell's output entries.
                 simulator_.model().withInteriorElementChunks([&](const auto& chunks) {
 #ifdef _OPENMP
