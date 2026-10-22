@@ -27,6 +27,8 @@
 
 #include <opm/simulators/linalg/PreconditionerFactory.hpp>
 #include <opm/simulators/linalg/PreconditionerFactory_impl.hpp>
+#include <opm/simulators/linalg/gpuistl/PreconditionerAdapter.hpp>
+#include <opm/simulators/linalg/gpuistl/PreconditionerCPUMatrixToGPUMatrix.hpp>
 
 using ScalarT = double;
 constexpr static int Dim = 1;
@@ -117,6 +119,97 @@ BOOST_AUTO_TEST_CASE(TestMatrixAdapter)
                                         << ",\nbut got: " << outputVectorgGPUonCPU[component][0]
                                         << "\nfor preconditioner: " << gpuPreconditionerName
                                         << " and wrapped preconditioner: " << wrappedPreconditionerName);
+            }
+        }
+    }
+}
+
+namespace {
+template <bool Pre, bool Post>
+struct LifecycleTraits
+{
+    static constexpr bool shouldCallPre() { return Pre; }
+    static constexpr bool shouldCallPost() { return Post; }
+};
+
+template <bool Pre, bool Post>
+void checkAdapterLifecycleTraits()
+{
+    using Traits = LifecycleTraits<Pre, Post>;
+    using VectorAdapter = Opm::gpuistl::PreconditionerAdapter<VectorCPU, VectorCPU, Traits>;
+    using MatrixAdapter = Opm::gpuistl::PreconditionerCPUMatrixToGPUMatrix<
+        GpuVectorType, GpuVectorType, Traits, MatrixTypeCPU>;
+    BOOST_CHECK_EQUAL(VectorAdapter::shouldCallPre(), Pre);
+    BOOST_CHECK_EQUAL(VectorAdapter::shouldCallPost(), Post);
+    BOOST_CHECK_EQUAL(MatrixAdapter::shouldCallPre(), Pre);
+    BOOST_CHECK_EQUAL(MatrixAdapter::shouldCallPost(), Post);
+}
+} // namespace
+
+BOOST_AUTO_TEST_CASE(TestAdapterLifecycleTraits)
+{
+    checkAdapterLifecycleTraits<false, false>();
+    checkAdapterLifecycleTraits<true, false>();
+    checkAdapterLifecycleTraits<false, true>();
+    checkAdapterLifecycleTraits<true, true>();
+}
+
+BOOST_AUTO_TEST_CASE(TestLevelScheduledReplayAndUpdate)
+{
+    // ILU0 and DILU are exact for this scalar tridiagonal matrix. Exercise
+    // capture and replay with two vector pairs, changing RHS and matrix values.
+    const int n = 17;
+    for (const std::string type : {"opmilu0", "dilu"}) {
+        for (int mode = 0; mode < (type == "dilu" ? 6 : 5); ++mode) {
+            BOOST_TEST_CONTEXT("type=" << type << ", mode=" << mode) {
+                const bool split = mode < 4;
+                const int precision = mode < 3 ? mode : 0;
+                const bool tune = mode == 3;
+                MatrixTypeCPU matrix(n, n, 3 * n - 2, MatrixTypeCPU::row_wise);
+                for (auto row = matrix.createbegin(); row != matrix.createend(); ++row) {
+                    if (row.index() > 0) row.insert(row.index() - 1);
+                    row.insert(row.index());
+                    if (row.index() + 1 < matrix.N()) row.insert(row.index() + 1);
+                }
+                for (int i = 0; i < n; ++i) {
+                    matrix[i][i] = 6.0 + 0.01 * i;
+                    if (i > 0) matrix[i][i - 1] = -0.5;
+                    if (i + 1 < n) matrix[i][i + 1] = -0.75;
+                }
+                auto gpuMatrix = GpuMatrixType::fromMatrix(matrix);
+                GpuOperatorType op(gpuMatrix);
+                Opm::PropertyTree prm;
+                prm.put("type", type);
+                prm.put("split_matrix", split);
+                prm.put("mixed_precision_scheme", precision);
+                prm.put("tune_gpu_kernels", tune);
+                prm.put("reorder", mode != 5);
+                auto prec = FactoryTypeGpu::create(op, prm);
+                GpuVectorType inputA(n), outputA(n), inputB(n), outputB(n);
+                VectorCPU expected(n), rhs(n);
+                for (int epoch = 0; epoch < 3; ++epoch) {
+                    if (epoch) {
+                        matrix *= 1.1;
+                        gpuMatrix.updateNonzeroValues(matrix, true);
+                        prec->update();
+                    }
+                    for (int replay = 0; replay < 6; ++replay) {
+                        for (int i = 0; i < n; ++i) expected[i] = 1.0 + 0.2 * i + 0.3 * replay;
+                        matrix.mv(expected, rhs);
+                        auto& input = replay % 2 ? inputA : inputB;
+                        auto& output = replay % 2 ? outputA : outputB;
+                        input.copyFromHost(rhs);
+                        output = 0;
+                        prec->apply(output, input);
+                        // A default-stream consumer must observe the finished solve.
+                        output *= 2.0;
+                        const auto actual = output.asStdVector();
+                        const double tolerance = precision ? 2e-6 : 1e-11;
+                        for (int i = 0; i < n; ++i) {
+                            BOOST_CHECK_SMALL(actual[i] - 2.0 * expected[i][0], tolerance);
+                        }
+                    }
+                }
             }
         }
     }
