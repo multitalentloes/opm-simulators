@@ -57,6 +57,10 @@
 #include <opm/simulators/linalg/gpuistl/GpuView.hpp>
 #include <opm/simulators/linalg/gpuistl/gpu_smart_pointer.hpp>
 #include <opm/simulators/linalg/gpuistl/detail/gpu_safe_call.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/deviceBlockOperations.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_constants.hpp>
+#include <opm/simulators/linalg/gpuistl/detail/gpu_memcpy.hpp>
+#include <opm/simulators/linalg/gpuistl/GpuVector.hpp>
 
 #include <opm/simulators/linalg/gpuistl/GpuBlackoilIntensiveQuantitiesDispatcher.hpp>
 
@@ -67,6 +71,8 @@
 #include <opm/common/OpmLog/OpmLog.hpp>
 
 #include <format>
+#include <cmath>
+#include <cstddef>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -168,6 +174,60 @@ dispatcherUpdateAllCellsKernel(GpuProblem problem,
     iq.updateEnergyQuantities_(problem, static_cast<unsigned>(i), 0u);
 }
 
+template <class DeviceTypeTag, class ModelView>
+__global__ void trueImpesWeightsKernel(ModelView model,
+                                       GetPropType<DeviceTypeTag, Properties::Scalar>* weights,
+                                       GetPropType<DeviceTypeTag, Properties::Scalar> dt,
+                                       std::size_t numCells, int* failed)
+{
+    using Scalar = GetPropType<DeviceTypeTag, Properties::Scalar>;
+    using Evaluation = GetPropType<DeviceTypeTag, Properties::Evaluation>;
+    using Indices = GetPropType<DeviceTypeTag, Properties::Indices>;
+    using LocalResidual = BlackOilLocalResidualTPFA<DeviceTypeTag>;
+    constexpr unsigned numEq = getPropValue<DeviceTypeTag, Properties::NumEq>();
+    static_assert(numEq == 3);
+    constexpr unsigned pressureIndex = Indices::pressureSwitchIdx;
+    const std::size_t cell = static_cast<std::size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (cell >= numCells) {
+        return;
+    }
+    const auto& iq = model.intensiveQuantities(cell, 0);
+    MiniVector<Evaluation, numEq> storage;
+    LocalResidual::template computeStorage<Evaluation>(storage, iq);
+    const Scalar storageScale = model.dofTotalVolume(cell) * iq.extrusionFactor() / dt;
+    Scalar block[numEq * numEq];
+    Scalar rhs[numEq] = {};
+    Scalar result[numEq] = {};
+    rhs[pressureIndex] = 1.0;
+    for (unsigned eq = 0; eq < numEq; ++eq) {
+        for (unsigned pv = 0; pv < numEq; ++pv) {
+            block[pv * numEq + eq] = storage[eq].derivative(pv) / storageScale;
+            if (pv == pressureIndex) {
+                block[pv * numEq + eq] *= 50e5;
+            }
+        }
+    }
+    if (!solveBlock<Scalar, numEq>(block, rhs, result)) {
+        atomicExch(failed, 1);
+        return;
+    }
+    Scalar maxAbs = 0.0;
+    for (unsigned eq = 0; eq < numEq; ++eq) {
+        if (!isfinite(result[eq])) {
+            atomicExch(failed, 1);
+            return;
+        }
+        maxAbs = max(maxAbs, abs(result[eq]));
+    }
+    if (!(maxAbs > 0.0) || !isfinite(maxAbs)) {
+        atomicExch(failed, 1);
+        return;
+    }
+    for (unsigned eq = 0; eq < numEq; ++eq) {
+        weights[cell * numEq + eq] = result[eq] / maxAbs;
+    }
+}
+
 } // namespace
 
 // =============================================================================
@@ -176,6 +236,8 @@ dispatcherUpdateAllCellsKernel(GpuProblem problem,
 template <class CpuTypeTag>
 struct GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::Impl {
     std::unique_ptr<Bridge> bridge;
+    std::unique_ptr<GpuBuffer<int>> trueImpesStatus;
+    std::size_t trueImpesWeightUpdates{0};
 };
 
 template <class CpuTypeTag>
@@ -241,6 +303,45 @@ void GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::advanceTimeLevel()
     if (impl_->bridge) {
         impl_->bridge->advanceTimeLevel();
     }
+}
+
+template <class CpuTypeTag>
+bool GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::computeTrueImpesWeights(
+    GpuVector<Scalar>& weights, Scalar timeStepSize)
+{
+    auto& owner = bridge();
+    constexpr unsigned numEq = getPropValue<CpuTypeTag, Properties::NumEq>();
+    const auto numCells = owner.intensiveQuantitiesView(0).size();
+    if (weights.dim() != numCells * numEq || !(timeStepSize > 0.0)
+        || !std::isfinite(timeStepSize)) {
+        OPM_THROW(std::invalid_argument, "Invalid resident true-IMPES weights dimensions or timestep");
+    }
+    if (!impl_->trueImpesStatus) {
+        impl_->trueImpesStatus = std::make_unique<GpuBuffer<int>>(1);
+    }
+    int failed = 0;
+    detail::gpuMemsetZero(impl_->trueImpesStatus->data(), sizeof(int));
+    // Both CPR and TPFA consume data on the default stream. Order this read
+    // after the property's writer without materializing any host IQs.
+    owner.waitForAssembly(0);
+    using DeviceTypeTag = typename Bridge::DeviceTypeTagPublic;
+    constexpr unsigned blockSize = 256;
+    const auto gridSize = (numCells + blockSize - 1) / blockSize;
+    trueImpesWeightsKernel<DeviceTypeTag><<<gridSize, blockSize, 0, detail::DEFAULT_STREAM>>>(
+        owner.modelView(), weights.data(), timeStepSize, numCells, impl_->trueImpesStatus->data());
+    OPM_GPU_SAFE_CALL(cudaGetLastError());
+    impl_->trueImpesStatus->copyToHost(&failed, 1);
+    if (failed) {
+        return false;
+    }
+    ++impl_->trueImpesWeightUpdates;
+    return true;
+}
+
+template <class CpuTypeTag>
+std::size_t GpuBlackoilIntensiveQuantitiesDispatcher<CpuTypeTag>::trueImpesWeightUpdates() const
+{
+    return impl_->trueImpesWeightUpdates;
 }
 
 template <class CpuTypeTag>
